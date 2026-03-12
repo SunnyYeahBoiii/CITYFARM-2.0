@@ -1,5 +1,7 @@
 # 🌿 CITYFARM 2.0 – AI Urban Gardening App
 
+**Idea credit:** [Đoàn Quốc Kiên (DoanQuocKien)](https://github.com/DoanQuocKien)
+
 **CITYFARM 2.0** is a refactor of the original [CITYFARM](https://cityfarm.vercel.app/) — an AI-powered platform that helps urban residents grow clean food at home. By combining **Computer Vision** and **Generative AI**, we address the common problems of “not knowing what to grow” and “how to care for plants” in small urban spaces like balconies and rooftops.
 
 This repository is a **monorepo** (Turborepo + pnpm) that reimplements the same product with a modern stack: **Next.js**, **NestJS**, and a dedicated **Python model API** for AI features.
