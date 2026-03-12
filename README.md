@@ -1,159 +1,150 @@
-# Turborepo starter
+# 🌿 CITYFARM 2.0 – AI Urban Gardening App
 
-This Turborepo starter is maintained by the Turborepo core team.
+**CITYFARM 2.0** is a refactor of the original [CITYFARM](https://cityfarm.vercel.app/) — an AI-powered platform that helps urban residents grow clean food at home. By combining **Computer Vision** and **Generative AI**, we address the common problems of “not knowing what to grow” and “how to care for plants” in small urban spaces like balconies and rooftops.
 
-## Using this example
+This repository is a **monorepo** (Turborepo + pnpm) that reimplements the same product with a modern stack: **Next.js**, **NestJS**, and a dedicated **Python model API** for AI features.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## ✨ Key Features
+
+### 📸 1. AI Space Analysis
+Stop guessing. Upload a photo of your balcony; our AI analyzes:
+* **Light conditions** — direct sun, partial shade, or artificial light.
+* **Climate context** — real-time weather (temperature/humidity) for your location.
+* **Space estimation** — available planting area.
+* **Smart recommendations** — top plants (e.g. Tomato, Mint, Lettuce) that fit your environment.
+
+### 🎨 2. Generative Garden Visualization
+See your garden before you plant it.
+* Generative AI overlays realistic plants onto your photo, showing your “future garden.”
+* Adapts to lighting and perspective.
+
+### 💬 3. AI Gardening Assistant
+* Chat with a botanical AI that knows specific plant needs.
+* **Context-aware** — adjusts advice for the plant you’re asking about (e.g. Tomato vs Mint).
+* **Diagnose issues** — upload photos to identify pests or diseases (e.g. yellow leaves, aphids).
+
+### 🥬 4. Community Marketplace
+* **Social feed** — share your harvest and see other urban farmers’ posts.
+* **Fresh market** — buy and sell home-grown produce locally.
+* **Verified growers** — badges for users with documented planting logs.
+
+---
+
+## 🛠️ Tech Stack (2.0 Refactor)
+
+### Monorepo
+* **Turborepo** — build and task orchestration.
+* **pnpm** — package manager and workspaces.
+
+### Frontend (`apps/web`)
+* **Framework:** Next.js 16, React 19, TypeScript.
+* **UI:** Shared `@repo/ui`, Tailwind, Radix/shadcn-style components.
+* **State:** React hooks.
+
+### Backend (`apps/api`)
+* **Framework:** NestJS 11 (Node.js).
+* **API:** REST; can integrate with model-api and external services (e.g. weather).
+
+### AI / Model API (`apps/model-api`)
+* **Runtime:** Python (Flask).
+* **AI:** Google Gemini (Vision & Text), image processing (PIL, NumPy).
+
+---
+
+## 🚀 Getting Started
+
+### Prerequisites
+* **Node.js** v18+
+* **pnpm** v9+
+* **Python** 3.10+ (for `model-api`)
+* **Poetry** (for `model-api` dependencies)
+* **Google Gemini API key** (for AI features)
+* **OpenWeatherMap API key** (optional, for weather)
+
+### 1. Clone and install (root)
+
+```bash
+git clone <your-repo-url>
+cd CITYFARM-2.0
+pnpm install
 ```
 
-## What's inside?
+### 2. Environment variables
 
-This Turborepo includes the following packages/apps:
+Copy example env files and fill in secrets:
 
-### Apps and Packages
+```bash
+# Web
+cp apps/web/.env.example apps/web/.env
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+# API
+cp apps/api/.env.example apps/api/.env
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
-
-### Utilities
-
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+# Model API (Python)
+cp apps/model-api/.env.example apps/model-api/.env
 ```
 
-Without global `turbo`, use your package manager:
+Add at least:
+* `apps/model-api/.env` — e.g. `GEMINI_API_KEY`, `OPENWEATHER_API_KEY` if used.
 
-```sh
-cd my-turborepo
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+### 3. Model API (Python)
+
+```bash
+cd apps/model-api
+poetry install
+cd ../..
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### 4. Run all apps
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+From the repo root:
 
-```sh
-turbo build --filter=docs
+```bash
+pnpm dev
 ```
 
-Without global `turbo`:
+This starts (via Turborepo):
+* **Web** — [http://localhost:3000](http://localhost:3000)
+* **API** — NestJS in watch mode (see `apps/api` for port)
+* **Model API** — Flask app (see `apps/model-api` for port)
 
-```sh
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+To run a single app:
+
+```bash
+pnpm dev --filter=web
+pnpm dev --filter=api
+pnpm dev --filter=model-api
 ```
 
-### Develop
+### 5. Build
 
-To develop all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo dev
+```bash
+pnpm build
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+## 📁 Repository structure
+
+```
+CITYFARM-2.0/
+├── apps/
+│   ├── web/          # Next.js frontend
+│   ├── api/          # NestJS backend
+│   └── model-api/    # Python AI/model service (Flask)
+├── packages/
+│   ├── ui/           # Shared UI components
+│   ├── eslint-config/
+│   └── typescript-config/
+├── package.json      # Root scripts (turbo, pnpm)
+├── pnpm-workspace.yaml
+└── turbo.json
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## 📄 License
 
-```sh
-turbo dev --filter=web
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
-
-### Remote Caching
-
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
-
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
-
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+MIT.
