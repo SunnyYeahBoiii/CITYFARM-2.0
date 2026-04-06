@@ -7,3 +7,670 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+model PlantSpecies {
+  id                    String               @id @default(uuid())
+  slug                  String               @unique
+  commonName            String
+  scientificName        String
+  category              String
+  description           String?              @db.Text
+  difficulty            PlantDifficulty
+  lightRequirement      LightLevel
+  harvestDaysMin        Int?
+  harvestDaysMax        Int?
+  minLightScore         Int?
+  maxLightScore         Int?
+  recommendedMinAreaSqm Decimal?             @db.Decimal(6, 2)
+  temperatureMinC       Int?
+  temperatureMaxC       Int?
+  humidityNotes         String?              @db.Text
+  isHcmcSuitable        Boolean              @default(true)
+  isMarketplaceEligible Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  careProfile           PlantCareProfile?
+  scanRecommendations   ScanRecommendation[]
+  gardenPlants          GardenPlant[]
+  products              Product[]
+
+  @@index([category])
+  @@index([isHcmcSuitable])
+}
+
+model PlantCareProfile {
+  id                 String       @id @default(uuid())
+  plantSpeciesId     String       @unique
+  sunlightSummary    String?      @db.Text
+  wateringSummary    String?      @db.Text
+  soilSummary        String?      @db.Text
+  fertilizingSummary String?      @db.Text
+  companionNotes     String?      @db.Text
+  commonPests        Json?
+  growthTimeline     Json?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  plantSpecies       PlantSpecies @relation(fields: [plantSpeciesId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id              String              @id @default(uuid())
+  sku             String              @unique
+  slug            String              @unique
+  name            String
+  type            ProductType
+  description     String?             @db.Text
+  priceAmount     Int
+  currency        String              @default("VND")
+  isActive        Boolean             @default(true)
+  plantSpeciesId  String?
+  coverAssetId    String?
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  plantSpecies    PlantSpecies?       @relation(fields: [plantSpeciesId], references: [id], onDelete: SetNull)
+  coverAsset      MediaAsset?         @relation("ProductImageAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  orderItems      OrderItem[]
+  activationCodes KitActivationCode[]
+  components      ProductComponent[]  @relation("ParentProductComponents")
+  usedInKits      ProductComponent[]  @relation("ComponentProductComponents")
+
+  @@index([type, isActive])
+}
+
+model ProductComponent {
+  id                 String   @id @default(uuid())
+  productId          String
+  componentProductId String?
+  componentName      String
+  quantity           Int      @default(1)
+  unit               String?
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  product            Product  @relation("ParentProductComponents", fields: [productId], references: [id], onDelete: Cascade)
+  componentProduct   Product? @relation("ComponentProductComponents", fields: [componentProductId], references: [id], onDelete: SetNull)
+}
+
+model Order {
+  id                String        @id @default(uuid())
+  orderCode         String        @unique
+  buyerId           String
+  status            OrderStatus   @default(DRAFT)
+  paymentMethod     PaymentMethod @default(CASH_ON_PICKUP)
+  subtotalAmount    Int
+  discountAmount    Int           @default(0)
+  totalAmount       Int
+  currency          String        @default("VND")
+  pickupCity        String        @default("Ho Chi Minh City")
+  pickupDistrict    String?
+  pickupAddressNote String?
+  customerNote      String?       @db.Text
+  confirmedAt       DateTime?
+  readyForPickupAt  DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  buyer             User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+
+  @@index([buyerId, status, createdAt])
+}
+
+model OrderItem {
+  id               String              @id @default(uuid())
+  orderId          String
+  productId        String
+  quantity         Int
+  unitPriceAmount  Int
+  totalPriceAmount Int
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  order            Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  activationCodes  KitActivationCode[]
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model KitActivationCode {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  orderItemId String
+  productId   String
+  expiresAt   DateTime?
+  redeemedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  gardenPlant GardenPlant? @relation("ActivationCodeGardenPlant")
+
+  @@index([orderItemId])
+  @@index([productId])
+}
+
+model FeedPost {
+  id                 String              @id @default(uuid())
+  userId             String
+  gardenPlantId      String?
+  listingId          String?
+  postType           PostType
+  caption            String              @db.Text
+  contentJson        Json?
+  imageAssetId       String?
+  visibilityDistrict String?
+  isPublished        Boolean             @default(true)
+  publishedAt        DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+  user               User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  gardenPlant        GardenPlant?        @relation(fields: [gardenPlantId], references: [id], onDelete: SetNull)
+  listing            MarketplaceListing? @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  imageAsset         MediaAsset?         @relation("FeedPostImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+  comments           FeedComment[]
+  reactions          PostReaction[]
+
+  @@index([userId, createdAt])
+  @@index([visibilityDistrict, createdAt])
+}
+
+model FeedComment {
+  id              String        @id @default(uuid())
+  postId          String
+  userId          String
+  parentCommentId String?
+  body            String        @db.Text
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  post            FeedPost      @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  parentComment   FeedComment?  @relation("CommentReplies", fields: [parentCommentId], references: [id], onDelete: SetNull)
+  replies         FeedComment[] @relation("CommentReplies")
+
+  @@index([postId, createdAt])
+  @@index([userId])
+}
+
+model PostReaction {
+  id           String       @id @default(uuid())
+  postId       String
+  userId       String
+  reactionType ReactionType @default(LIKE)
+  createdAt    DateTime     @default(now())
+  post         FeedPost     @relation(fields: [postId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([postId, userId])
+  @@index([userId])
+}
+
+model MarketplaceListing {
+  id                   String             @id @default(uuid())
+  sellerId             String
+  gardenPlantId        String
+  title                String
+  description          String?            @db.Text
+  quantity             Decimal            @db.Decimal(8, 2)
+  unit                 String
+  priceAmount          Int
+  currency             String             @default("VND")
+  pickupCity           String             @default("Ho Chi Minh City")
+  pickupDistrict       String
+  pickupWard           String?
+  pickupNote           String?
+  verificationStatus   VerificationStatus @default(NONE)
+  verificationSnapshot String?            @db.Text
+  documentedDays       Int                @default(0)
+  status               ListingStatus      @default(DRAFT)
+  publishedAt          DateTime?
+  expiresAt            DateTime?
+  soldAt               DateTime?
+  imageAssetId         String?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @updatedAt
+  seller               User               @relation("SellerListings", fields: [sellerId], references: [id], onDelete: Cascade)
+  gardenPlant          GardenPlant        @relation(fields: [gardenPlantId], references: [id], onDelete: Restrict)
+  imageAsset           MediaAsset?        @relation("ListingImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+  feedPosts            FeedPost[]
+  conversations        Conversation[]
+
+  @@index([sellerId, status])
+  @@index([pickupDistrict, status, expiresAt])
+  @@index([gardenPlantId])
+}
+
+model Conversation {
+  id               String                    @id @default(uuid())
+  type             ConversationType          @default(MARKETPLACE)
+  listingId        String?
+  assistantContext Json?
+  createdAt        DateTime                  @default(now())
+  updatedAt        DateTime                  @updatedAt
+  listing          MarketplaceListing?       @relation(fields: [listingId], references: [id], onDelete: SetNull)
+  participants     ConversationParticipant[]
+  messages         Message[]
+
+  @@index([listingId, createdAt])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(uuid())
+  conversationId String
+  userId         String
+  joinedAt       DateTime     @default(now())
+  lastReadAt     DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([userId])
+}
+
+model Message {
+  id             String            @id @default(uuid())
+  conversationId String
+  senderUserId   String?
+  senderType     MessageSenderType
+  messageType    MessageType       @default(TEXT)
+  body           String?           @db.Text
+  mediaAssetId   String?
+  metadata       Json?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  conversation   Conversation      @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  senderUser     User?             @relation("UserMessages", fields: [senderUserId], references: [id], onDelete: SetNull)
+  mediaAsset     MediaAsset?       @relation("MessageAttachmentAsset", fields: [mediaAssetId], references: [id], onDelete: SetNull)
+
+  @@index([conversationId, createdAt])
+  @@index([senderUserId])
+}
+
+enum UserRole {
+  USER
+  ADMIN
+  SUPPLIER
+  EXPERT
+}
+
+enum VerificationStatus {
+  NONE
+  PENDING
+  VERIFIED
+  REVOKED
+}
+
+enum PlantDifficulty {
+  EASY
+  MODERATE
+  HARD
+}
+
+enum LightLevel {
+  LOW
+  PARTIAL_SHADE
+  PARTIAL_SUN
+  FULL_SUN
+  INDOOR_GROW_LIGHT
+}
+
+enum PlantHealthStatus {
+  UNKNOWN
+  HEALTHY
+  WARNING
+  CRITICAL
+}
+
+enum GardenPlantStatus {
+  PLANNED
+  ACTIVE
+  HARVEST_READY
+  HARVESTED
+  FAILED
+  ARCHIVED
+}
+
+enum PlantGrowthStage {
+  SEEDED
+  SPROUTING
+  VEGETATIVE
+  FLOWERING
+  FRUITING
+  HARVEST_READY
+  HARVESTED
+}
+
+enum CareTaskType {
+  WATERING
+  FERTILIZING
+  PRUNING
+  ROTATING
+  PEST_CHECK
+  HARVEST
+  CUSTOM
+}
+
+enum CareTaskStatus {
+  PENDING
+  COMPLETED
+  SKIPPED
+  OVERDUE
+}
+
+enum ProductType {
+  KIT
+  SEED
+  SOIL
+  POT
+  SENSOR
+  ADD_ON
+}
+
+enum OrderStatus {
+  DRAFT
+  PENDING_CONFIRMATION
+  CONFIRMED
+  READY_FOR_PICKUP
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH_ON_PICKUP
+  CASH_ON_DELIVERY
+  UNPAID
+}
+
+enum ScanStatus {
+  PENDING
+  ANALYZED
+  FAILED
+}
+
+enum VisualizationType {
+  OVERLAY
+  GENERATIVE
+}
+
+enum MediaKind {
+  PROFILE_AVATAR
+  SPACE_SCAN
+  VISUALIZATION
+  GARDEN_JOURNAL
+  MARKETPLACE
+  POST_IMAGE
+  PRODUCT_IMAGE
+  MESSAGE_ATTACHMENT
+  OTHER
+}
+
+enum PostType {
+  SHOWCASE
+  QUESTION
+  PLANT_SHARE
+  MARKETPLACE_SHARE
+  HARVEST_UPDATE
+}
+
+enum ReactionType {
+  LIKE
+  SUPPORT
+  THANKS
+}
+
+enum ListingStatus {
+  DRAFT
+  ACTIVE
+  RESERVED
+  SOLD
+  EXPIRED
+  CANCELLED
+}
+
+enum ConversationType {
+  AI_ASSISTANT
+  MARKETPLACE
+  COMMUNITY
+  SUPPORT
+}
+
+enum MessageSenderType {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  SYSTEM_EVENT
+}
+
+model GardenPlant {
+  id                       String               @id @default(uuid())
+  userId                   String
+  plantSpeciesId           String
+  activationCodeId         String?              @unique
+  sourceScanId             String?
+  nickname                 String?
+  status                   GardenPlantStatus    @default(ACTIVE)
+  growthStage              PlantGrowthStage     @default(SEEDED)
+  healthStatus             PlantHealthStatus    @default(UNKNOWN)
+  zoneName                 String?
+  locationDetail           String?
+  plantedAt                DateTime
+  expectedHarvestAt        DateTime?
+  actualHarvestAt          DateTime?
+  lastJournaledAt          DateTime?
+  lastCareAt               DateTime?
+  verifiedForMarketplaceAt DateTime?
+  notes                    String?              @db.Text
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  user                     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantSpecies             PlantSpecies         @relation(fields: [plantSpeciesId], references: [id], onDelete: Restrict)
+  activationCode           KitActivationCode?   @relation("ActivationCodeGardenPlant", fields: [activationCodeId], references: [id], onDelete: SetNull)
+  sourceScan               SpaceScan?           @relation(fields: [sourceScanId], references: [id], onDelete: SetNull)
+  careSchedules            CareSchedule[]
+  careTasks                CareTask[]
+  journalEntries           PlantJournalEntry[]
+  sharedPosts              FeedPost[]
+  listings                 MarketplaceListing[]
+
+  @@index([userId, status])
+  @@index([plantSpeciesId, status])
+  @@index([sourceScanId])
+}
+
+model CareSchedule {
+  id              String       @id @default(uuid())
+  gardenPlantId   String
+  taskType        CareTaskType
+  title           String
+  description     String?      @db.Text
+  cadenceDays     Int?
+  preferredHour   Int?
+  preferredMinute Int?         @default(0)
+  startsAt        DateTime
+  endsAt          DateTime?
+  isActive        Boolean      @default(true)
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  gardenPlant     GardenPlant  @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  tasks           CareTask[]
+
+  @@index([gardenPlantId, isActive])
+}
+
+model CareTask {
+  id            String         @id @default(uuid())
+  gardenPlantId String
+  scheduleId    String?
+  taskType      CareTaskType
+  status        CareTaskStatus @default(PENDING)
+  title         String
+  description   String?        @db.Text
+  dueAt         DateTime
+  completedAt   DateTime?
+  skippedAt     DateTime?
+  aiSummary     String?        @db.Text
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  gardenPlant   GardenPlant    @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  schedule      CareSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([gardenPlantId, status, dueAt])
+  @@index([scheduleId])
+}
+
+model PlantJournalEntry {
+  id                    String             @id @default(uuid())
+  gardenPlantId         String
+  imageAssetId          String?
+  capturedAt            DateTime           @default(now())
+  note                  String?            @db.Text
+  healthStatus          PlantHealthStatus?
+  leafColorNote         String?
+  issueSummary          String?            @db.Text
+  recommendationSummary String?            @db.Text
+  aiAnalysis            Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  gardenPlant           GardenPlant        @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  imageAsset            MediaAsset?        @relation("JournalImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+
+  @@index([gardenPlantId, capturedAt])
+}
+
+model User {
+  id                 String                    @id @default(uuid())
+  email              String?                   @unique
+  externalAuthId     String?                   @unique
+  role               UserRole                  @default(USER)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  profile            UserProfile?
+  ownedMedia         MediaAsset[]
+  scans              SpaceScan[]
+  gardenPlants       GardenPlant[]
+  orders             Order[]
+  posts              FeedPost[]
+  comments           FeedComment[]
+  postReactions      PostReaction[]
+  marketplaceListing MarketplaceListing[]      @relation("SellerListings")
+  conversations      ConversationParticipant[]
+  messages           Message[]                 @relation("UserMessages")
+}
+
+model UserProfile {
+  id                       String             @id @default(uuid())
+  userId                   String             @unique
+  displayName              String
+  bio                      String?            @db.Text
+  avatarAssetId            String?            @unique
+  city                     String?
+  district                 String?
+  ward                     String?
+  growerVerificationStatus VerificationStatus @default(NONE)
+  verifiedGrowerAt         DateTime?
+  totalHarvests            Int                @default(0)
+  totalCareLogs            Int                @default(0)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  user                     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarAsset              MediaAsset?        @relation("UserProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+
+  @@index([district])
+}
+
+model MediaAsset {
+  id                   String               @id @default(uuid())
+  ownerId              String?
+  kind                 MediaKind            @default(OTHER)
+  storageKey           String               @unique
+  publicUrl            String
+  mimeType             String?
+  width                Int?
+  height               Int?
+  altText              String?
+  metadata             Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  owner                User?                @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  avatarForProfiles    UserProfile[]        @relation("UserProfileAvatar")
+  sourceScans          SpaceScan[]          @relation("SpaceScanImage")
+  sourceVisualizations ScanVisualization[]  @relation("VisualizationSourceAsset")
+  outputVisualizations ScanVisualization[]  @relation("VisualizationOutputAsset")
+  journalEntries       PlantJournalEntry[]  @relation("JournalImageAsset")
+  productImages        Product[]            @relation("ProductImageAsset")
+  feedPostImages       FeedPost[]           @relation("FeedPostImageAsset")
+  listingImages        MarketplaceListing[] @relation("ListingImageAsset")
+  messageAttachments   Message[]            @relation("MessageAttachmentAsset")
+}
+
+model SpaceScan {
+  id               String               @id @default(uuid())
+  userId           String
+  sourceAssetId    String?
+  status           ScanStatus           @default(PENDING)
+  locationCity     String?
+  locationDistrict String?
+  lightLevel       LightLevel?
+  lightScore       Int?
+  availableAreaSqm Decimal?             @db.Decimal(6, 2)
+  capacityEstimate Int?
+  weatherSummary   String?
+  analysisSummary  String?              @db.Text
+  rawAnalysis      Json?
+  detectedZones    Json?
+  errorMessage     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAsset      MediaAsset?          @relation("SpaceScanImage", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  recommendations  ScanRecommendation[]
+  visualizations   ScanVisualization[]
+  spawnedPlants    GardenPlant[]
+
+  @@index([userId, createdAt])
+}
+
+model ScanRecommendation {
+  id             String       @id @default(uuid())
+  scanId         String
+  plantSpeciesId String
+  rank           Int
+  matchScore     Int
+  reason         String       @db.Text
+  rationale      Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  scan           SpaceScan    @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  plantSpecies   PlantSpecies @relation(fields: [plantSpeciesId], references: [id], onDelete: Restrict)
+
+  @@unique([scanId, rank])
+  @@unique([scanId, plantSpeciesId])
+  @@index([plantSpeciesId])
+}
+
+model ScanVisualization {
+  id                String            @id @default(uuid())
+  scanId            String
+  visualizationType VisualizationType @default(OVERLAY)
+  sourceAssetId     String?
+  outputAssetId     String?
+  prompt            String?           @db.Text
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  scan              SpaceScan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  sourceAsset       MediaAsset?       @relation("VisualizationSourceAsset", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  outputAsset       MediaAsset?       @relation("VisualizationOutputAsset", fields: [outputAssetId], references: [id], onDelete: SetNull)
+
+  @@index([scanId, createdAt])
+}
