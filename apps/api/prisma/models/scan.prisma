@@ -1,0 +1,61 @@
+model SpaceScan {
+  id               String               @id @default(uuid())
+  userId           String
+  sourceAssetId    String?
+  status           ScanStatus           @default(PENDING)
+  locationCity     String?
+  locationDistrict String?
+  lightLevel       LightLevel?
+  lightScore       Int?
+  availableAreaSqm Decimal?             @db.Decimal(6, 2)
+  capacityEstimate Int?
+  weatherSummary   String?
+  analysisSummary  String?              @db.Text
+  rawAnalysis      Json?
+  detectedZones    Json?
+  errorMessage     String?
+  createdAt        DateTime             @default(now())
+  updatedAt        DateTime             @updatedAt
+  user             User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceAsset      MediaAsset?          @relation("SpaceScanImage", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  recommendations  ScanRecommendation[]
+  visualizations   ScanVisualization[]
+  spawnedPlants    GardenPlant[]
+
+  @@index([userId, createdAt])
+}
+
+model ScanRecommendation {
+  id             String       @id @default(uuid())
+  scanId         String
+  plantSpeciesId String
+  rank           Int
+  matchScore     Int
+  reason         String       @db.Text
+  rationale      Json?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+  scan           SpaceScan    @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  plantSpecies   PlantSpecies @relation(fields: [plantSpeciesId], references: [id], onDelete: Restrict)
+
+  @@unique([scanId, rank])
+  @@unique([scanId, plantSpeciesId])
+  @@index([plantSpeciesId])
+}
+
+model ScanVisualization {
+  id                String            @id @default(uuid())
+  scanId            String
+  visualizationType VisualizationType @default(OVERLAY)
+  sourceAssetId     String?
+  outputAssetId     String?
+  prompt            String?           @db.Text
+  metadata          Json?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  scan              SpaceScan         @relation(fields: [scanId], references: [id], onDelete: Cascade)
+  sourceAsset       MediaAsset?       @relation("VisualizationSourceAsset", fields: [sourceAssetId], references: [id], onDelete: SetNull)
+  outputAsset       MediaAsset?       @relation("VisualizationOutputAsset", fields: [outputAssetId], references: [id], onDelete: SetNull)
+
+  @@index([scanId, createdAt])
+}

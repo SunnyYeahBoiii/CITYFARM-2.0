@@ -1,0 +1,83 @@
+model PlantSpecies {
+  id                    String               @id @default(uuid())
+  slug                  String               @unique
+  commonName            String
+  scientificName        String
+  category              String
+  description           String?              @db.Text
+  difficulty            PlantDifficulty
+  lightRequirement      LightLevel
+  harvestDaysMin        Int?
+  harvestDaysMax        Int?
+  minLightScore         Int?
+  maxLightScore         Int?
+  recommendedMinAreaSqm Decimal?             @db.Decimal(6, 2)
+  temperatureMinC       Int?
+  temperatureMaxC       Int?
+  humidityNotes         String?              @db.Text
+  isHcmcSuitable        Boolean              @default(true)
+  isMarketplaceEligible Boolean              @default(true)
+  createdAt             DateTime             @default(now())
+  updatedAt             DateTime             @updatedAt
+  careProfile           PlantCareProfile?
+  scanRecommendations   ScanRecommendation[]
+  gardenPlants          GardenPlant[]
+  products              Product[]
+
+  @@index([category])
+  @@index([isHcmcSuitable])
+}
+
+model PlantCareProfile {
+  id                 String       @id @default(uuid())
+  plantSpeciesId     String       @unique
+  sunlightSummary    String?      @db.Text
+  wateringSummary    String?      @db.Text
+  soilSummary        String?      @db.Text
+  fertilizingSummary String?      @db.Text
+  companionNotes     String?      @db.Text
+  commonPests        Json?
+  growthTimeline     Json?
+  createdAt          DateTime     @default(now())
+  updatedAt          DateTime     @updatedAt
+  plantSpecies       PlantSpecies @relation(fields: [plantSpeciesId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id              String              @id @default(uuid())
+  sku             String              @unique
+  slug            String              @unique
+  name            String
+  type            ProductType
+  description     String?             @db.Text
+  priceAmount     Int
+  currency        String              @default("VND")
+  isActive        Boolean             @default(true)
+  plantSpeciesId  String?
+  coverAssetId    String?
+  metadata        Json?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  plantSpecies    PlantSpecies?       @relation(fields: [plantSpeciesId], references: [id], onDelete: SetNull)
+  coverAsset      MediaAsset?         @relation("ProductImageAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  orderItems      OrderItem[]
+  activationCodes KitActivationCode[]
+  components      ProductComponent[]  @relation("ParentProductComponents")
+  usedInKits      ProductComponent[]  @relation("ComponentProductComponents")
+
+  @@index([type, isActive])
+}
+
+model ProductComponent {
+  id                 String   @id @default(uuid())
+  productId          String
+  componentProductId String?
+  componentName      String
+  quantity           Int      @default(1)
+  unit               String?
+  notes              String?  @db.Text
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+  product            Product  @relation("ParentProductComponents", fields: [productId], references: [id], onDelete: Cascade)
+  componentProduct   Product? @relation("ComponentProductComponents", fields: [componentProductId], references: [id], onDelete: SetNull)
+}

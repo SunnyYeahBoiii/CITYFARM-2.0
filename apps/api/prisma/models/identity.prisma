@@ -1,0 +1,65 @@
+model User {
+  id                 String                    @id @default(uuid())
+  email              String?                   @unique
+  externalAuthId     String?                   @unique
+  role               UserRole                  @default(USER)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
+  profile            UserProfile?
+  ownedMedia         MediaAsset[]
+  scans              SpaceScan[]
+  gardenPlants       GardenPlant[]
+  orders             Order[]
+  posts              FeedPost[]
+  comments           FeedComment[]
+  postReactions      PostReaction[]
+  marketplaceListing MarketplaceListing[]      @relation("SellerListings")
+  conversations      ConversationParticipant[]
+  messages           Message[]                 @relation("UserMessages")
+}
+
+model UserProfile {
+  id                       String             @id @default(uuid())
+  userId                   String             @unique
+  displayName              String
+  bio                      String?            @db.Text
+  avatarAssetId            String?            @unique
+  city                     String?
+  district                 String?
+  ward                     String?
+  growerVerificationStatus VerificationStatus @default(NONE)
+  verifiedGrowerAt         DateTime?
+  totalHarvests            Int                @default(0)
+  totalCareLogs            Int                @default(0)
+  createdAt                DateTime           @default(now())
+  updatedAt                DateTime           @updatedAt
+  user                     User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  avatarAsset              MediaAsset?        @relation("UserProfileAvatar", fields: [avatarAssetId], references: [id], onDelete: SetNull)
+
+  @@index([district])
+}
+
+model MediaAsset {
+  id                   String               @id @default(uuid())
+  ownerId              String?
+  kind                 MediaKind            @default(OTHER)
+  storageKey           String               @unique
+  publicUrl            String
+  mimeType             String?
+  width                Int?
+  height               Int?
+  altText              String?
+  metadata             Json?
+  createdAt            DateTime             @default(now())
+  updatedAt            DateTime             @updatedAt
+  owner                User?                @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  avatarForProfiles    UserProfile[]        @relation("UserProfileAvatar")
+  sourceScans          SpaceScan[]          @relation("SpaceScanImage")
+  sourceVisualizations ScanVisualization[]  @relation("VisualizationSourceAsset")
+  outputVisualizations ScanVisualization[]  @relation("VisualizationOutputAsset")
+  journalEntries       PlantJournalEntry[]  @relation("JournalImageAsset")
+  productImages        Product[]            @relation("ProductImageAsset")
+  feedPostImages       FeedPost[]           @relation("FeedPostImageAsset")
+  listingImages        MarketplaceListing[] @relation("ListingImageAsset")
+  messageAttachments   Message[]            @relation("MessageAttachmentAsset")
+}

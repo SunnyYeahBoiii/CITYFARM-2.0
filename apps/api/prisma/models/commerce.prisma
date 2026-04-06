@@ -1,0 +1,60 @@
+model Order {
+  id                String        @id @default(uuid())
+  orderCode         String        @unique
+  buyerId           String
+  status            OrderStatus   @default(DRAFT)
+  paymentMethod     PaymentMethod @default(CASH_ON_PICKUP)
+  subtotalAmount    Int
+  discountAmount    Int           @default(0)
+  totalAmount       Int
+  currency          String        @default("VND")
+  pickupCity        String        @default("Ho Chi Minh City")
+  pickupDistrict    String?
+  pickupAddressNote String?
+  customerNote      String?       @db.Text
+  confirmedAt       DateTime?
+  readyForPickupAt  DateTime?
+  completedAt       DateTime?
+  cancelledAt       DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  buyer             User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+  items             OrderItem[]
+
+  @@index([buyerId, status, createdAt])
+}
+
+model OrderItem {
+  id               String              @id @default(uuid())
+  orderId          String
+  productId        String
+  quantity         Int
+  unitPriceAmount  Int
+  totalPriceAmount Int
+  metadata         Json?
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+  order            Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  activationCodes  KitActivationCode[]
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model KitActivationCode {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  orderItemId String
+  productId   String
+  expiresAt   DateTime?
+  redeemedAt  DateTime?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  orderItem   OrderItem    @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  product     Product      @relation(fields: [productId], references: [id], onDelete: Restrict)
+  gardenPlant GardenPlant? @relation("ActivationCodeGardenPlant")
+
+  @@index([orderItemId])
+  @@index([productId])
+}

@@ -1,0 +1,97 @@
+model GardenPlant {
+  id                       String               @id @default(uuid())
+  userId                   String
+  plantSpeciesId           String
+  activationCodeId         String?              @unique
+  sourceScanId             String?
+  nickname                 String?
+  status                   GardenPlantStatus    @default(ACTIVE)
+  growthStage              PlantGrowthStage     @default(SEEDED)
+  healthStatus             PlantHealthStatus    @default(UNKNOWN)
+  zoneName                 String?
+  locationDetail           String?
+  plantedAt                DateTime
+  expectedHarvestAt        DateTime?
+  actualHarvestAt          DateTime?
+  lastJournaledAt          DateTime?
+  lastCareAt               DateTime?
+  verifiedForMarketplaceAt DateTime?
+  notes                    String?              @db.Text
+  createdAt                DateTime             @default(now())
+  updatedAt                DateTime             @updatedAt
+  user                     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plantSpecies             PlantSpecies         @relation(fields: [plantSpeciesId], references: [id], onDelete: Restrict)
+  activationCode           KitActivationCode?   @relation("ActivationCodeGardenPlant", fields: [activationCodeId], references: [id], onDelete: SetNull)
+  sourceScan               SpaceScan?           @relation(fields: [sourceScanId], references: [id], onDelete: SetNull)
+  careSchedules            CareSchedule[]
+  careTasks                CareTask[]
+  journalEntries           PlantJournalEntry[]
+  sharedPosts              FeedPost[]
+  listings                 MarketplaceListing[]
+
+  @@index([userId, status])
+  @@index([plantSpeciesId, status])
+  @@index([sourceScanId])
+}
+
+model CareSchedule {
+  id              String       @id @default(uuid())
+  gardenPlantId   String
+  taskType        CareTaskType
+  title           String
+  description     String?      @db.Text
+  cadenceDays     Int?
+  preferredHour   Int?
+  preferredMinute Int?         @default(0)
+  startsAt        DateTime
+  endsAt          DateTime?
+  isActive        Boolean      @default(true)
+  metadata        Json?
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+  gardenPlant     GardenPlant  @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  tasks           CareTask[]
+
+  @@index([gardenPlantId, isActive])
+}
+
+model CareTask {
+  id            String         @id @default(uuid())
+  gardenPlantId String
+  scheduleId    String?
+  taskType      CareTaskType
+  status        CareTaskStatus @default(PENDING)
+  title         String
+  description   String?        @db.Text
+  dueAt         DateTime
+  completedAt   DateTime?
+  skippedAt     DateTime?
+  aiSummary     String?        @db.Text
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  gardenPlant   GardenPlant    @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  schedule      CareSchedule?  @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  @@index([gardenPlantId, status, dueAt])
+  @@index([scheduleId])
+}
+
+model PlantJournalEntry {
+  id                    String             @id @default(uuid())
+  gardenPlantId         String
+  imageAssetId          String?
+  capturedAt            DateTime           @default(now())
+  note                  String?            @db.Text
+  healthStatus          PlantHealthStatus?
+  leafColorNote         String?
+  issueSummary          String?            @db.Text
+  recommendationSummary String?            @db.Text
+  aiAnalysis            Json?
+  createdAt             DateTime           @default(now())
+  updatedAt             DateTime           @updatedAt
+  gardenPlant           GardenPlant        @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
+  imageAsset            MediaAsset?        @relation("JournalImageAsset", fields: [imageAssetId], references: [id], onDelete: SetNull)
+
+  @@index([gardenPlantId, capturedAt])
+}
