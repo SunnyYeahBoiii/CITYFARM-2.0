@@ -550,6 +550,7 @@ model PlantJournalEntry {
 model User {
   id                 String                    @id @default(uuid())
   email              String?                   @unique
+  passwordHash       String?                   @db.Text
   externalAuthId     String?                   @unique
   role               UserRole                  @default(USER)
   createdAt          DateTime                  @default(now())
