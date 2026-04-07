@@ -1435,6 +1435,11 @@
     linear-gradient(180deg, #f3f7f0 0%, #ebf2e4 52%, #f7f3ea 100%);
 }
 
+.authScreenCentered {
+  justify-content: center;
+  padding: 1rem;
+}
+
 .authHero {
   padding: 1.25rem 1.25rem 0.85rem;
 }
@@ -1487,6 +1492,61 @@
   gap: 0.65rem;
 }
 
+.authField {
+  display: grid;
+  gap: 0.32rem;
+}
+
+.passwordFieldWrap {
+  position: relative;
+}
+
+.passwordFieldInput {
+  padding-right: 3rem;
+}
+
+.passwordToggle {
+  position: absolute;
+  top: 50%;
+  right: 0.45rem;
+  transform: translateY(-50%);
+  width: 2.2rem;
+  height: 2.2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #5c6d52;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.passwordToggle:hover {
+  background: #edf3e8;
+}
+
+.authLabel {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #4f6145;
+}
+
+.authError {
+  color: #a3452d;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.authInputInvalid {
+  border-color: rgba(163, 69, 45, 0.44);
+  background: #fdf4f1;
+}
+
+.authButton {
+  margin-top: 0.15rem;
+}
+
 .authLead {
   margin-top: 0.85rem;
   color: #5b6d57;
@@ -1510,6 +1570,10 @@
   .authPanel {
     margin: auto 0.75rem 0.75rem;
     border-radius: 1.2rem;
+  }
+
+  .authScreenCentered {
+    padding: 0.75rem;
   }
 
   .authHero {
