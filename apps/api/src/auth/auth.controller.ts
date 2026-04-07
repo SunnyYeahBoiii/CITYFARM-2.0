@@ -1,10 +1,12 @@
 import { Controller, Post, Body, Res, Get, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { AuthRegisterDto } from '../dtos/auth/auth-register.dto';
+import { AuthLoginDto } from '../dtos/auth/auth-login.dto';
 import { AuthGuard } from '@nestjs/passport';
 import type { Response } from 'express';
 import { UserService } from '../user/user.service';
+import { JwtRefreshAuthGuard } from './guards/jwt-refresh.guard';
+import { JwtAuthGuard } from './guards/jwt-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -14,13 +16,13 @@ export class AuthController {
   ) {}
 
   @Post('register')
-  async register(@Body() registerDto: RegisterDto) {
+  async register(@Body() registerDto: AuthRegisterDto) {
     return this.authService.register(registerDto);
   }
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() loginDto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(@Body() loginDto: AuthLoginDto, @Res({ passthrough: true }) res: Response) {
     const user = await this.authService.validateUser(loginDto);
     const tokens = await this.authService.login(user);
 
@@ -30,7 +32,7 @@ export class AuthController {
     return { message: 'Logged in successfully' };
   }
 
-  @UseGuards(AuthGuard('jwt-refresh'))
+  @UseGuards(JwtRefreshAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
@@ -45,20 +47,19 @@ export class AuthController {
     return { message: 'Tokens refreshed successfully' };
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.user.id);
     
-    // According to MDN clearCookie options must match the options in res.cookie exactly except for expires and maxAge
     res.clearCookie('access_token', { ...this.authService.getCookieOptions(false), maxAge: 0 });
     res.clearCookie('refresh_token', { ...this.authService.getCookieOptions(true), maxAge: 0 });
 
     return { message: 'Logged out successfully' };
   }
 
-  @UseGuards(AuthGuard('jwt'))
+  @UseGuards(JwtAuthGuard)
   @Get('profile')
   async getProfile(@Req() req: any) {
     return this.userService.findByIdWithProfile(req.user.id);

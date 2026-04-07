@@ -2,8 +2,8 @@ import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/co
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
-import { RegisterDto } from './dto/register.dto';
-import { LoginDto } from './dto/login.dto';
+import { AuthRegisterDto } from '../dtos/auth/auth-register.dto';
+import { AuthLoginDto } from '../dtos/auth/auth-login.dto';
 import * as bcrypt from 'bcrypt';
 
 @Injectable()
@@ -14,7 +14,7 @@ export class AuthService {
     private configService: ConfigService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(registerDto: AuthRegisterDto) {
     const existingUser = await this.userService.findByEmail(registerDto.email);
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -35,7 +35,7 @@ export class AuthService {
     return { message: 'User registered successfully' };
   }
 
-  async validateUser(loginDto: LoginDto) {
+  async validateUser(loginDto: AuthLoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
     if (user && (await bcrypt.compare(loginDto.password, user.passwordHash))) {
       return user;
@@ -48,11 +48,11 @@ export class AuthService {
     
     const [access_token, refresh_token] = await Promise.all([
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
         expiresIn: '15m',
       }),
       this.jwtService.signAsync(payload, {
-        secret: this.configService.get<string>('JWT_REFRESH_SECRET'),
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
         expiresIn: '7d',
       }),
     ]);
@@ -88,7 +88,7 @@ export class AuthService {
   getCookieOptions(isRefreshToken = false) {
     return {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
+      secure: this.configService.getOrThrow<string>('NODE_ENV') === 'production',
       sameSite: 'lax' as const,
       maxAge: isRefreshToken ? 7 * 24 * 60 * 60 * 1000 : 15 * 60 * 1000,
     };
