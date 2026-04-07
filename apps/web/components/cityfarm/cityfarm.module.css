@@ -1418,6 +1418,105 @@
   height: 1rem;
 }
 
+.authStage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(180deg, #eff3eb 0%, #e4ebde 100%);
+}
+
+.authScreen {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(circle at 10% 12%, rgba(111, 150, 84, 0.16), transparent 32%),
+    radial-gradient(circle at 88% 14%, rgba(228, 168, 98, 0.18), transparent 24%),
+    linear-gradient(180deg, #f3f7f0 0%, #ebf2e4 52%, #f7f3ea 100%);
+}
+
+.authHero {
+  padding: 1.25rem 1.25rem 0.85rem;
+}
+
+.authPanel {
+  margin: auto 1rem 1rem;
+  padding: 1.2rem;
+  border-radius: 1.35rem;
+  border: 1px solid rgba(31, 41, 22, 0.08);
+  background: #ffffff;
+  box-shadow: 0 16px 36px rgba(33, 49, 30, 0.12);
+}
+
+.authLogoRow {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.authLogoMark {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #567a3d, #2d4a24);
+  color: #f8faf6;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+}
+
+.authTitle {
+  margin-top: 0.95rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #24301c;
+}
+
+.authSubtitle {
+  margin-top: 0.35rem;
+  color: #677562;
+  font-size: 0.93rem;
+  line-height: 1.55;
+}
+
+.authForm {
+  margin-top: 1rem;
+  display: grid;
+  gap: 0.65rem;
+}
+
+.authLead {
+  margin-top: 0.85rem;
+  color: #5b6d57;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+
+.authHint {
+  margin-top: 1rem;
+  text-align: center;
+  color: #677562;
+  font-size: 0.9rem;
+}
+
+.authHint a {
+  color: #567a3d;
+  font-weight: 800;
+}
+
+@media (max-width: 720px) {
+  .authPanel {
+    margin: auto 0.75rem 0.75rem;
+    border-radius: 1.2rem;
+  }
+
+  .authHero {
+    padding: 1.1rem 1rem 0.8rem;
+  }
+}
+
 @media (min-width: 721px) {
   .appBackdrop {
     padding-block: 0;

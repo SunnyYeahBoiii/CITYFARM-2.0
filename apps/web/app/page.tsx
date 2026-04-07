@@ -1,5 +1,15 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+import { isUserLoggedIn } from "../components/cityfarm/auth-client";
 
 export default function Home() {
-  redirect("/home");
+  const router = useRouter();
+
+  useEffect(() => {
+    router.replace(isUserLoggedIn() ? "/home" : "/login");
+  }, [router]);
+
+  return null;
 }
