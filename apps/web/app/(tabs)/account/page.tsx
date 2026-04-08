@@ -121,18 +121,18 @@ export default function AccountPage() {
           </button>
         </div>
 
-        <div className={styles.accountOptionDanger}>
-          <div className={styles.accountOptionLeft}>
-            <div className={styles.accountOptionIcon}>
+        <button type="button" className={styles.accountOptionDanger} onClick={handleLogout}>
+          <span className={styles.accountOptionLeft}>
+            <span className={styles.accountOptionIcon}>
               <LogoutIcon />
-            </div>
-            <div>
-              <div className={styles.accountOptionTitle}>End session</div>
-              <div className={styles.accountOptionText}>This clears the current demo login state.</div>
-            </div>
-          </div>
-          <div className={styles.accountActionPill}>Logout</div>
-        </div>
+            </span>
+            <span>
+              <span className={styles.accountOptionTitle}>End session</span>
+              <span className={styles.accountOptionText}>This clears the current demo login state.</span>
+            </span>
+          </span>
+          <span className={styles.accountActionPill}>Logout</span>
+        </button>
       </section>
     </main>
   );
