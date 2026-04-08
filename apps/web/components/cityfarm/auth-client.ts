@@ -1,8 +1,8 @@
 "use client";
 
-const DEMO_AUTH_KEY = "cityfarm-demo-user-logged-in";
 const AUTH_MODE = process.env.NEXT_PUBLIC_AUTH_MODE ?? "demo";
 const AUTH_API_BASE = process.env.NEXT_PUBLIC_AUTH_API_BASE ?? "";
+let demoAuthState = false;
 
 type SessionResponse = {
   authenticated: boolean;
@@ -46,24 +46,11 @@ async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function isDemoUserLoggedIn() {
-  if (typeof window === "undefined") {
-    return false;
-  }
-
-  return window.localStorage.getItem(DEMO_AUTH_KEY) === "1";
+  return demoAuthState;
 }
 
 export function setDemoUserLoggedIn(loggedIn: boolean) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  if (loggedIn) {
-    window.localStorage.setItem(DEMO_AUTH_KEY, "1");
-    return;
-  }
-
-  window.localStorage.removeItem(DEMO_AUTH_KEY);
+  demoAuthState = loggedIn;
 }
 
 export async function getAuthSession(): Promise<boolean> {

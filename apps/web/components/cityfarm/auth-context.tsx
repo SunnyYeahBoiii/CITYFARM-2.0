@@ -51,14 +51,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     void hydrateSession();
 
-    const handleStorage = () => {
-      void refreshSession();
-    };
-
-    window.addEventListener("storage", handleStorage);
     return () => {
       active = false;
-      window.removeEventListener("storage", handleStorage);
     };
   }, []);
 
