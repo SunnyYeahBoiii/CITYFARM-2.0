@@ -1,5 +1,17 @@
 @import "tailwindcss";
 
+:root {
+  --color-bg: #f4efe4;
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-ink: #172718;
+  --color-muted: #5c6b5f;
+  --color-line: rgba(38, 63, 40, 0.1);
+  --color-green-deep: #355b31;
+  --color-green-soft: #79965e;
+  --color-soil: #cd924a;
+  --shadow-soft: 0 24px 60px rgba(27, 44, 31, 0.08);
+}
+
 @layer base {
   html,
   body {

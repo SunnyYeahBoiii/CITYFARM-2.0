@@ -125,7 +125,9 @@ export function HomeScreen() {
               <div className={styles.brandTagline}>Grow clean, live green</div>
             </div>
           </div>
-          <div className={styles.profileBadge}>SG</div>
+          <Link href="/account" className={styles.profileBadge} aria-label="Open account">
+            SG
+          </Link>
         </div>
 
         <div className={styles.heroCard}>
