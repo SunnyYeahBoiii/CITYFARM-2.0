@@ -1722,6 +1722,7 @@
 .accountFooter {
   display: grid;
   gap: 0.6rem;
+  margin-top: 0.2rem;
 }
 
 .accountLinkAction {
@@ -1736,6 +1737,33 @@
 }
 
 .accountLinkAction svg {
+  flex-shrink: 0;
+}
+
+.accountFooter .buttonOutline,
+.accountFooter .buttonPrimary {
+  width: 100%;
+  justify-content: center;
+}
+
+.accountOptionDanger {
+  width: 100%;
+  cursor: pointer;
+  justify-content: space-between;
+  align-items: center;
+  text-align: left;
+}
+
+.accountOptionDanger > .accountOptionLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.accountOptionDanger .accountOptionText {
+  display: block;
+}
+
+.accountOptionDanger .accountActionPill {
   flex-shrink: 0;
 }
 
