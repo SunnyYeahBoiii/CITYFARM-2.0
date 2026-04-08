@@ -32,7 +32,7 @@ def health_check():
         "ai_configured": ai_configured
     }), 200
 
-# 2. Endpoint xử lý AI Chat
+# 2. Endpoint xử lý AI Chat (RAG)
 @app.route("/api/chat", methods=["POST"])
 def chat_with_assistant():
     if not client:
@@ -51,22 +51,67 @@ def chat_with_assistant():
         user_message = data["message"]
         ctx = data.get("context", {})
 
-        # Trích xuất Context (Khớp 100% với các trường từ Frontend gửi lên)
-        plant_name = ctx.get("name", "cây của bạn")
-        plant_type = ctx.get("type", "Không rõ loại")
-        plant_health = ctx.get("health", "Không rõ tình trạng")
-        days_growing = ctx.get("daysGrowing", 0)
-        plant_note = ctx.get("note", "Không có ghi chú")
+        # Trích xuất RAG Context siêu cấp từ NestJS
+        user_info = ctx.get("user", {})
+        species_info = ctx.get("species", {})
+        plant_info = ctx.get("currentPlant", {})
+        history_info = ctx.get("history", {})
 
-        # Xây dựng System Instruction (Ép ngữ cảnh chuyên gia)
-        system_instruction = (
-            "Bạn là một chuyên gia nông nghiệp đô thị nhiệt tình của ứng dụng CITYFARM. "
-            f"Bạn đang tư vấn cho người dùng về cây {plant_name} (Loại: {plant_type}). "
-            f"Tình trạng hiện tại: Sức khỏe {plant_health}, đã trồng được {days_growing} ngày. "
-            f"Ghi chú thực tế từ vườn: {plant_note}. "
-            "Dựa vào thông tin trên, hãy trả lời câu hỏi của người dùng một cách ngắn gọn, "
-            "súc tích, chuyên nghiệp và thân thiện bằng tiếng Việt."
-        )
+        # Ràng buộc dữ liệu để tránh lỗi NoneType khi nối chuỗi
+        display_name = user_info.get("displayName", "Người dùng")
+        user_bio = user_info.get("bio", "Không có bio")
+        user_location = user_info.get("location", "Chưa cập nhật")
+
+        common_name = species_info.get("commonName", "Cây của bạn")
+        scientific_name = species_info.get("scientificName", "Không rõ")
+        difficulty = species_info.get("difficulty", "Chưa cập nhật")
+        light_req = species_info.get("lightRequirement", "Chưa cập nhật")
+        care_guide = species_info.get("careGuide", {})
+
+        nickname = plant_info.get("nickname", common_name)
+        zone_name = plant_info.get("zoneName", "Chưa xác định")
+        growth_stage = plant_info.get("growthStage", "Chưa xác định")
+        days_growing = plant_info.get("daysGrowing", 0)
+        health = plant_info.get("health", "Chưa cập nhật")
+        notes = plant_info.get("notes", "Không có ghi chú")
+
+        recent_tasks = history_info.get("recentTasks", [])
+        recent_journals = history_info.get("recentJournals", [])
+
+        tasks_str = ", ".join(recent_tasks) if recent_tasks else "Chưa có hoạt động chăm sóc nào gần đây."
+        journals_str = " | ".join(recent_journals) if recent_journals else "Chưa có nhật ký nào gần đây."
+
+        # Xây dựng System Instruction (Ép ngữ cảnh RAG)
+        system_instruction = f"""
+Bạn là một chuyên gia nông nghiệp đô thị của ứng dụng CITYFARM. 
+Nhiệm vụ của bạn là tư vấn cá nhân hóa dựa trên dữ liệu hệ thống (RAG) dưới đây:
+
+[1. THÔNG TIN NGƯỜI DÙNG]
+- Tên: {display_name} (Bio: {user_bio})
+- Khu vực sống: {user_location} (Hãy lưu ý thời tiết đặc trưng tại khu vực này nếu cần)
+
+[2. KIẾN THỨC VỀ LOÀI CÂY (KNOWLEDGE BASE)]
+- Loài cây: {common_name} ({scientific_name})
+- Độ khó: {difficulty} | Nắng yêu cầu: {light_req}
+- Hướng dẫn tưới: {care_guide.get('watering', 'Không có hướng dẫn')}
+- Lưu ý sâu bệnh: {care_guide.get('pests', 'Không có lưu ý')}
+
+[3. TÌNH TRẠNG THỰC TẾ CỦA CÂY (CURRENT PLANT)]
+- Biệt danh: {nickname} | Trồng tại: {zone_name}
+- Giai đoạn: {growth_stage} ({days_growing} ngày tuổi)
+- Sức khỏe hiện tại: {health}
+- Ghi chú từ người dùng: {notes}
+
+[4. LỊCH SỬ CHĂM SÓC GẦN NHẤT]
+- Các lần chăm sóc (Task): {tasks_str}
+- Nhật ký (Journal): {journals_str}
+
+Quy tắc trả lời:
+- Xưng hô thân thiện, gọi tên người dùng ({display_name}).
+- Dựa CHÍNH XÁC vào dữ liệu trên để đưa ra lời khuyên (Ví dụ: Nếu sức khỏe là WARNING, hãy tập trung giải quyết).
+- KHÔNG bịa ra lịch sử chăm sóc. Nếu không có dữ liệu, hãy hỏi thêm người dùng.
+- Trả lời bằng văn bản thuần túy (PLAIN TEXT). TUYỆT ĐỐI KHÔNG SỬ DỤNG MARKDOWN (như dấu ** hay ##).
+"""
 
         # Cấu hình API của SDK mới
         api_config = types.GenerateContentConfig(

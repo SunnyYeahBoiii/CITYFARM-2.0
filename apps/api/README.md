@@ -1,98 +1,279 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# CITYFARM 2.0 - API Server
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+NestJS backend API for CITYFARM 2.0, an urban community garden management platform built on Prisma and PostgreSQL.
 
 ## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+Production-grade REST API providing:
+- User management and authentication (roles: USER, SUPPLIER, EXPERT, ADMIN)
+- Plant species catalog with care guidance
+- Garden plant tracking and care scheduling
+- Space scanning and AI-powered plant recommendations
+- Marketplace listing management
+- Community social features (posts, comments, reactions)
+- Real-time messaging and conversation threads
+- Order and purchase management
 
-## Project setup
+## Technology Stack
+
+- **Framework**: NestJS 11.0.1
+- **Database**: PostgreSQL 14+ via Supabase (with PgBouncer pooling)
+- **ORM**: Prisma 6.0.0
+- **Runtime**: Node.js v22+ with pnpm package management
+- **Language**: TypeScript
+
+## Project Setup
 
 ```bash
-$ pnpm install
+# Install dependencies (from monorepo root)
+pnpm install
+
+# Install dependencies (from api directory)
+pnpm install -C apps/api
 ```
 
-## Compile and run the project
+## Environment Variables
 
-```bash
-# development
-$ pnpm run start
+Create `.env.local` file in `apps/api/`:
 
-# watch mode
-$ pnpm run start:dev
+```env
+# PostgreSQL connections (Supabase)
+DATABASE_URL="postgresql://user:password@db.example.com:5432/cityfarm?schema=public"
+DIRECT_URL="postgresql://user:password@db.example.com:6543/cityfarm?schema=public"
 
-# production mode
-$ pnpm run start:prod
+# API configuration
+PORT=3000
+NODE_ENV=development
 ```
 
-## Run tests
+- `DATABASE_URL`: Connection via PgBouncer (for application use)
+- `DIRECT_URL`: Direct connection (for database migrations via Prisma)
+
+## Development
+
+### Compile and Run
 
 ```bash
-# unit tests
-$ pnpm run test
+# Development mode (watch)
+pnpm run dev
 
-# e2e tests
-$ pnpm run test:e2e
+# Production mode
+pnpm run start:prod
 
-# test coverage
-$ pnpm run test:cov
+# Production mode with debugging
+pnpm run start:debug
+```
+
+Server runs on `http://localhost:3000` by default.
+
+### Code Quality
+
+```bash
+# Lint TypeScript
+pnpm run lint
+
+# Format code
+pnpm run format
+
+# Validate Prisma schema
+pnpm run prisma:validate
+
+# Format Prisma schema
+pnpm run prisma:format
+
+# Generate Prisma Client
+pnpm run prisma:generate
+```
+
+## Database Management
+
+### Migrations
+
+```bash
+# Create a new migration after schema changes
+pnpm run prisma:migrate:dev
+
+# Deploy migrations to production
+pnpm run prisma:migrate:deploy
+```
+
+### Database Seeding
+
+Pre-populated database with 608 realistic rows across 24 tables for development and testing.
+
+#### Quick Start
+
+```bash
+# Full seed + verification (recommended)
+pnpm run seed
+
+# Or run separately:
+pnpm run seed:sql      # Populate all 5 seed files
+pnpm run seed:verify   # Run validation checks
+```
+
+#### Seed Data Contents
+
+| Table | Rows | Purpose |
+|-------|------|---------|
+| User | 24 | Test accounts (20 USER, 2 SUPPLIER, 1 EXPERT, 1 ADMIN) |
+| UserProfile | 24 | Public profile, district, verification snapshot |
+| MediaAsset | 30 | Profile avatars, scan visualizations, product images |
+| PlantSpecies | 24 | HCMC-suitable vegetables and herbs (tomato, lettuce, basil, etc.) |
+| PlantCareProfile | 24 | Care guidance per species with pest info |
+| Product | 24 | 6 kits, 6 seeds, 4 soils, 4 pots, 2 sensors, 2 add-ons |
+| ProductComponent | 24 | Kit composition graph back to existing products |
+| Order | 20 | Order lifecycle from completed to cancelled |
+| OrderItem | 24 | Deterministic kit items aggregated into orders |
+| KitActivationCode | 24 | 8 redeemed, remaining pending/expired for later activation |
+| SpaceScan | 24 | 20 analyzed scans, 4 failed retries |
+| ScanRecommendation | 30 | Ranked AI recommendations with unique scan + rank pairs |
+| ScanVisualization | 20 | Overlay/generative outputs for analyzed scans |
+| GardenPlant | 24 | 3 sources: kits (8), scans (8), manual (8) |
+| CareSchedule | 24 | Watering/pruning/fertilizing schedules |
+| CareTask | 30 | Mixed completed, pending, overdue and skipped task states |
+| PlantJournalEntry | 30 | Base journal plus follow-up entries for active plants |
+| MarketplaceListing | 20 | Verified, pending and draft/cancelled listing states |
+| FeedPost | 24 | Community posts (SHOWCASE, QUESTION, HARVEST_UPDATE, etc.) |
+| FeedComment | 30 | Top-level comments plus threaded replies |
+| PostReaction | 30 | LIKE, SUPPORT, THANKS reactions with unique post/user pairs |
+| Conversation | 20 | 10 marketplace, 8 AI assistant, 1 community, 1 support |
+| ConversationParticipant | 30 | Seller/buyer pairs and single-user AI/support threads |
+| Message | 30 | Marketplace negotiations and AI advisory exchanges |
+
+**Total**: 608 rows with realistic temporal relationships, FK integrity, and enum distributions.
+
+#### Seed Data Characteristics
+
+- **Idempotent**: Safe to run multiple times (TRUNCATE CASCADE clears existing data)
+- **Deterministic**: Fixed UUIDs (00000001-...) enable consistent test relationships
+- **Temporal**: Timestamps show realistic progressions (orders → confirmations, plants → harvests)
+- **Realistic**: Enum distributions varied (not all defaults), Vietnamese pricing, HCMC geography
+
+#### Seed File Structure
+
+Organized in 5 logical parts for manageable complexity:
+
+1. **seed.sql**: Identity, media, plant catalog and products
+2. **seed-part2.sql**: Orders, order items and kit activation codes
+3. **seed-part3.sql**: Space scanning, AI recommendations and visualizations
+4. **seed-part4.sql**: Garden tracking, care schedules/tasks and journals
+5. **seed-part5.sql**: Marketplace, social feed, conversations and messages
+
+#### Verification
+
+After seeding, run validation queries:
+
+```bash
+pnpm run seed:verify
+```
+
+Checks include:
+- Row count validation (24 users, 30 assets, 20 orders, etc.)
+- Foreign key integrity (no orphaned records)
+- Unique constraint satisfaction (codes, reactions, participants)
+- Enum distributions (realistic status mixes)
+- Price ranges (marketplace listings 30K-180K VND)
+- Engagement metrics (comments per post, reactions per post)
+- User activity analysis (posts and comments per user)
+- Data consistency (no duplicates, no 0/negative prices)
+
+## Testing
+
+```bash
+# Unit tests
+pnpm run test
+
+# Watch mode
+pnpm run test:watch
+
+# Coverage report
+pnpm run test:cov
+
+# E2E tests
+pnpm run test:e2e
+
+# E2E tests with debugging
+pnpm run test:debug
 ```
 
 ## Deployment
 
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
+Local development uses DATABASE_URL (pooled connection via PgBouncer).
 
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
+For **Prisma migrations in production**, temporarily use DIRECT_URL:
 ```bash
-$ pnpm install -g @nestjs/mau
-$ mau deploy
+DIRECT_URL="postgresql://..." pnpm run prisma:migrate:deploy
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Then revert to DATABASE_URL for application runtime.
 
-## Resources
+## Project Structure
 
-Check out a few resources that may come in handy when working with NestJS:
+```
+apps/api/
+├── prisma/
+│   ├── schema.prisma          # Prisma schema (18 models, 19 enums)
+│   ├── seed.sql               # Seed data (Part 1)
+│   ├── seed-part2.sql         # Seed data (Part 2)
+│   ├── seed-part3.sql         # Seed data (Part 3)
+│   ├── seed-part4.sql         # Seed data (Part 4)
+│   ├── seed-part5.sql         # Seed data (Part 5)
+│   └── seed-verify.sql        # Verification queries
+├── generated/prisma/          # Generated Prisma Client
+├── src/
+│   ├── app.module.ts          # Root module
+│   ├── app.service.ts         # Business logic
+│   ├── app.controller.ts      # HTTP endpoints
+│   └── main.ts                # Application entry
+├── test/
+│   └── app.e2e-spec.ts        # E2E tests
+├── package.json               # Dependencies & scripts
+├── tsconfig.json              # TypeScript configuration
+└── nest-cli.json              # NestJS CLI configuration
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+## Database Schema
 
-## Support
+24 Prisma models with complex relationships:
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- **Identity**: User, UserProfile, MediaAsset
+- **Catalog**: PlantSpecies, PlantCareProfile, Product, ProductComponent
+- **Commerce**: Order, OrderItem, KitActivationCode
+- **Analysis**: SpaceScan, ScanRecommendation, ScanVisualization
+- **Gardening**: GardenPlant, CareSchedule, CareTask, PlantJournalEntry
+- **Community**: MarketplaceListing, FeedPost, FeedComment, PostReaction
+- **Messaging**: Conversation, ConversationParticipant, Message
 
-## Stay in touch
+See [docs/database-schema.md](../../docs/database-schema.md) for full entity relationships.
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+## Troubleshooting
 
-## License
+### Database Connection Issues
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+Check `DATABASE_URL` format and credentials:
+```bash
+psql "$DATABASE_URL" -c "SELECT version();"
+```
+
+### Prisma Generation Fails
+
+Regenerate Prisma Client:
+```bash
+pnpm run prisma:generate
+```
+
+### Seed Data Fails
+
+Verify PostgreSQL is running and accessible. For details:
+```bash
+psql "$DATABASE_URL" -f prisma/seed-verify.sql
+```
+
+## Additional Resources
+
+- [CITYFARM Design System](../../docs/CITYFARM_design_schema.md)
+- [Database Schema Reference](../../docs/database-schema.md)
+- [Seed Data Dictionary](../../docs/database-data-dictionary.md)
+- [NestJS Docs](https://docs.nestjs.com)
+- [Prisma Docs](https://www.prisma.io/docs)

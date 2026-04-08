@@ -1,5 +1,6 @@
-import { Controller, Get, Post, Body } from '@nestjs/common';
+import { Controller, Get, Post, Body, Req, UseGuards } from '@nestjs/common';
 import { AppService } from './app.service';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard'; // Import Guard bảo vệ
 
 @Controller()
 export class AppController {
@@ -10,10 +11,11 @@ export class AppController {
     return this.appService.getHello();
   }
 
-  // Định nghĩa Endpoint POST /chat để Frontend gọi tới
-  @Post('chat')
-  async handleChat(@Body() body: any) {
-    // Nhận payload từ Frontend và chuyển thẳng cho Service xử lý
-    return this.appService.getAIAdvice(body);
+  // Mở cổng API Chat
+  @UseGuards(JwtAuthGuard) // Bắt buộc phải có Token đăng nhập mới được chat
+  @Post('api/chat')
+  async chatWithAI(@Body() body: { plantId: string; message: string }, @Req() req: any) {
+    const userId = req.user.id; // Lấy ID của user từ JWT Token
+    return this.appService.processChatRequest(userId, body.plantId, body.message);
   }
 }
