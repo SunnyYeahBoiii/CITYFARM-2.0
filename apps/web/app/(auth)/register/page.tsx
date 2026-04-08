@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setUserLoggedIn } from "../../../components/cityfarm/auth-client";
-import styles from "../../../components/cityfarm/cityfarm.module.css";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
+import styles from "../../../components/cityfarm/cityfarm.module.css";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -76,61 +76,74 @@ export default function RegisterPage() {
     <main className={styles.appBackdrop}>
       <div className={styles.shellCenter}>
         <section className={styles.deviceFrame}>
-          <div className={styles.authScreen}>
-            <div className={styles.authHero}>
-              <div className={styles.authLogoRow}>
-                <div className={styles.authLogoMark}>CF</div>
-                <div className={styles.brandName}>CITYFARM</div>
-              </div>
-              <p className={styles.authLead}>Start your first balcony harvest.</p>
-            </div>
+          <div className={styles.authViewport}>
+            <section className={styles.authCard}>
+              <div className={`${styles.authCardInner} ${styles.authStack}`}>
+                <div className={`${styles.authHeader} text-left`}>
+                  <div className="flex items-center gap-3">
+                <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-[linear-gradient(135deg,#567a3d,#2d4a24)] font-extrabold tracking-[0.08em] text-[#f8faf6]">
+                  CF
+                </div>
+                <div className="text-2xl font-extrabold tracking-wide text-[#3a4d28]">CITYFARM</div>
+                  </div>
+                  <p className="text-sm leading-7 text-[#5b6d57]">Start your first balcony harvest.</p>
 
-            <section className={styles.authPanel}>
-              <h1 className={styles.authTitle}>Create account</h1>
-              <p className={styles.authSubtitle}>
-                Fill in all fields. In demo mode, any valid non-empty values are accepted.
-              </p>
+                  <h1 className="text-[1.35rem] font-extrabold leading-tight text-[#24301c]">Create account</h1>
+                  <p className="text-sm leading-7 text-[#677562]">
+                    Fill in all fields. In demo mode, any valid non-empty values are accepted.
+                  </p>
+                </div>
 
-              <form className={styles.authForm} onSubmit={handleSubmit} noValidate>
-                <div className={styles.authField}>
-                  <label className={styles.authLabel} htmlFor="register-email">
+                <form className={`${styles.authForm} w-full text-left`} onSubmit={handleSubmit} noValidate>
+                <div>
+                  <label className={`${styles.authLabel} text-sm font-bold text-[#24301c]`} htmlFor="register-email">
                     Email
                   </label>
                   <input
                     id="register-email"
-                    className={`${styles.input} ${emailError ? styles.authInputInvalid : ""}`}
+                    className={`${styles.authInput} rounded-[1rem] border text-base text-[#24301c] ${
+                      emailError
+                        ? "border-[rgba(163,69,45,0.44)] bg-[#fdf4f1]"
+                        : "border-[#1f29161f] bg-[#f8faf7]"
+                    }`}
                     value={email}
                     onChange={(event) => setEmail(event.target.value)}
                     onBlur={() => setTouched((current) => ({ ...current, email: true }))}
                     placeholder="Enter your email"
                   />
-                  {emailError ? <p className={styles.authError}>{emailError}</p> : null}
+                  {emailError ? <p className="text-xs leading-snug text-[#a3452d]">{emailError}</p> : null}
                 </div>
 
-                <div className={styles.authField}>
-                  <label className={styles.authLabel} htmlFor="register-username">
+                <div>
+                  <label className={`${styles.authLabel} text-sm font-bold text-[#24301c]`} htmlFor="register-username">
                     Username
                   </label>
                   <input
                     id="register-username"
-                    className={`${styles.input} ${usernameError ? styles.authInputInvalid : ""}`}
+                    className={`${styles.authInput} rounded-[1rem] border text-base text-[#24301c] ${
+                      usernameError
+                        ? "border-[rgba(163,69,45,0.44)] bg-[#fdf4f1]"
+                        : "border-[#1f29161f] bg-[#f8faf7]"
+                    }`}
                     value={username}
                     onChange={(event) => setUsername(event.target.value)}
                     onBlur={() => setTouched((current) => ({ ...current, username: true }))}
                     placeholder="Choose a username"
                   />
-                  {usernameError ? <p className={styles.authError}>{usernameError}</p> : null}
+                  {usernameError ? <p className="text-xs leading-snug text-[#a3452d]">{usernameError}</p> : null}
                 </div>
 
-                <div className={styles.authField}>
-                  <label className={styles.authLabel} htmlFor="register-password">
+                <div>
+                  <label className={`${styles.authLabel} text-sm font-bold text-[#24301c]`} htmlFor="register-password">
                     Password
                   </label>
-                  <div className={styles.passwordFieldWrap}>
+                  <div className="relative">
                     <input
                       id="register-password"
                       type={showPassword ? "text" : "password"}
-                      className={`${styles.input} ${styles.passwordFieldInput} ${passwordError ? styles.authInputInvalid : ""}`}
+                      className={`${styles.authInput} rounded-[1rem] border bg-[#f8faf7] pr-12 text-base text-[#24301c] ${
+                        passwordError ? "border-[rgba(163,69,45,0.44)] bg-[#fdf4f1]" : "border-[#1f29161f]"
+                      }`}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       onBlur={() => setTouched((current) => ({ ...current, password: true }))}
@@ -138,25 +151,29 @@ export default function RegisterPage() {
                     />
                     <button
                       type="button"
-                      className={styles.passwordToggle}
+                      className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#5c6d52] hover:bg-[#edf3e8]"
                       onClick={() => setShowPassword((current) => !current)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
                       {showPassword ? <FaEyeSlash size={18} aria-hidden="true" /> : <FaEye size={18} aria-hidden="true" />}
                     </button>
                   </div>
-                  {passwordError ? <p className={styles.authError}>{passwordError}</p> : null}
+                  {passwordError ? <p className="text-xs leading-snug text-[#a3452d]">{passwordError}</p> : null}
                 </div>
 
-                <div className={styles.authField}>
-                  <label className={styles.authLabel} htmlFor="register-confirm-password">
+                <div>
+                  <label className={`${styles.authLabel} text-sm font-bold text-[#24301c]`} htmlFor="register-confirm-password">
                     Confirm password
                   </label>
-                  <div className={styles.passwordFieldWrap}>
+                  <div className="relative">
                     <input
                       id="register-confirm-password"
                       type={showConfirmPassword ? "text" : "password"}
-                      className={`${styles.input} ${styles.passwordFieldInput} ${confirmPasswordError ? styles.authInputInvalid : ""}`}
+                      className={`${styles.authInput} rounded-[1rem] border bg-[#f8faf7] pr-12 text-base text-[#24301c] ${
+                        confirmPasswordError
+                          ? "border-[rgba(163,69,45,0.44)] bg-[#fdf4f1]"
+                          : "border-[#1f29161f]"
+                      }`}
                       value={confirmPassword}
                       onChange={(event) => setConfirmPassword(event.target.value)}
                       onBlur={() => setTouched((current) => ({ ...current, confirmPassword: true }))}
@@ -164,25 +181,31 @@ export default function RegisterPage() {
                     />
                     <button
                       type="button"
-                      className={styles.passwordToggle}
+                      className="absolute right-3 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full text-[#5c6d52] hover:bg-[#edf3e8]"
                       onClick={() => setShowConfirmPassword((current) => !current)}
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                     >
                       {showConfirmPassword ? <FaEyeSlash size={18} aria-hidden="true" /> : <FaEye size={18} aria-hidden="true" />}
                     </button>
                   </div>
-                  {confirmPasswordError ? <p className={styles.authError}>{confirmPasswordError}</p> : null}
+                  {confirmPasswordError ? <p className="text-xs leading-snug text-[#a3452d]">{confirmPasswordError}</p> : null}
                 </div>
 
-                <button type="submit" className={`${styles.buttonPrimary} ${styles.authButton}`}>
+                <button
+                  type="submit"
+                  className="mt-1 inline-flex w-full min-h-[3.2rem] items-center justify-center rounded-full bg-[#37542d] px-4 py-3 text-base font-bold text-white shadow-[0_12px_28px_rgba(0,0,0,0.12)] transition-transform hover:-translate-y-[1px]"
+                >
                   Create account
                 </button>
-                <div className={styles.statusPill}>Demo mode: valid fields sign in instantly after validation</div>
-              </form>
+                <p className="mt-3 rounded-[1rem] bg-[#f7faf4] p-4 text-center text-sm leading-6 text-[#677562]">
+                  Demo mode: valid fields sign in instantly after validation
+                </p>
+                </form>
 
-              <p className={styles.authHint}>
-                Already have an account? <Link href="/login">Log in here</Link>
-              </p>
+                <p className="mt-1 text-center text-sm text-[#677562]">
+                  Already have an account? <Link href="/login" className="font-extrabold text-[#567a3d]">Log in here</Link>
+                </p>
+              </div>
             </section>
           </div>
         </section>

@@ -24,126 +24,139 @@ export default function AccountPage() {
   };
 
   return (
-    <main className={styles.accountScreen}>
-      <header className={styles.accountHeader}>
-        <button type="button" className={styles.iconButton} onClick={() => router.back()} aria-label="Go back">
-          <FaArrowLeft size={18} aria-hidden="true" />
-        </button>
-        <div className={styles.accountHeaderTitle}>Account</div>
-        <Link href="/home" className={styles.iconButton} aria-label="Go home">
-          <FaHouse size={18} aria-hidden="true" />
-        </Link>
+    <div className={styles.screen}>
+      <header className={styles.screenHeader}>
+        <div>
+          <div className={styles.screenHeaderTitle}>Account</div>
+          <div className={styles.screenHeaderMeta}>Profile, settings, and session controls.</div>
+        </div>
+        <div className={styles.headerActions}>
+          <button type="button" className={styles.iconButton} onClick={() => router.back()} aria-label="Go back">
+            <FaArrowLeft size={18} aria-hidden="true" />
+          </button>
+          <Link href="/home" className={styles.iconButton} aria-label="Go home">
+            <FaHouse size={18} aria-hidden="true" />
+          </Link>
+        </div>
       </header>
 
-      <section className={styles.accountHero}>
-        <div className={styles.accountHeroCard}>
-          <div className={styles.accountHeroRow}>
-            <div className={styles.profileBadge} style={{ width: "3.2rem", height: "3.2rem" }}>
-              SG
-            </div>
-            <div>
-              <div className={styles.accountName}>Cityfarm User</div>
-              <div className={styles.accountMeta}>
-                {isUserLoggedIn() ? "Logged in and ready for your garden" : "Session not active"}
-              </div>
+      <div className={styles.screenPadded}>
+        <section className={styles.section}>
+          <div className={styles.heroBanner}>
+            <div className={styles.heroBannerTitle}>Cityfarm User</div>
+            <p className={styles.marketBannerText}>
+              {isUserLoggedIn() ? "Logged in and ready for your garden" : "Session not active"}
+            </p>
+            <div className={styles.heroCardFooter} style={{ marginTop: "1rem" }}>
+              <div className={styles.statusPill}>{isUserLoggedIn() ? "Active" : "Inactive"}</div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section className={styles.accountBody}>
-        <div>
-          <div className={styles.accountSectionTitle}>Account Settings</div>
-          <div className={styles.accountOptionList}>
-            <div className={styles.accountOption}>
-              <div className={styles.accountOptionLeft}>
-                <div className={styles.accountOptionIcon}>
+        <section className={styles.section}>
+          <div className={styles.sectionHead}>
+            <div>
+              <div className={styles.sectionTitle}>Account Settings</div>
+              <div className={styles.sectionSubtitle}>Manage your personal info and app preferences.</div>
+            </div>
+          </div>
+
+          <div className={styles.listStack}>
+            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
+              <div className={styles.taskLead}>
+                <div className={styles.taskIcon}>
                   <FaCircleUser size={18} aria-hidden="true" />
                 </div>
-                <div>
-                  <div className={styles.accountOptionTitle}>Personal info</div>
-                  <div className={styles.accountOptionText}>Edit name, email, and profile details.</div>
+                <div className="flex-1 min-w-0">
+                  <div className={styles.taskTitle}>Personal info</div>
+                  <div className={styles.taskText}>Edit name, email, and profile details.</div>
                 </div>
               </div>
-              <div className={styles.accountActionPill}>Edit</div>
-            </div>
+              <div className={styles.timePill}>Edit</div>
+            </button>
 
-            <div className={styles.accountOption}>
-              <div className={styles.accountOptionLeft}>
-                <div className={styles.accountOptionIcon}>
+            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
+              <div className={styles.taskLead}>
+                <div className={styles.taskIcon}>
                   <FaBell size={18} aria-hidden="true" />
                 </div>
-                <div>
-                  <div className={styles.accountOptionTitle}>Notifications</div>
-                  <div className={styles.accountOptionText}>Care reminders, order updates, and alerts.</div>
+                <div className="flex-1 min-w-0">
+                  <div className={styles.taskTitle}>Notifications</div>
+                  <div className={styles.taskText}>Care reminders, order updates, and alerts.</div>
                 </div>
               </div>
-              <div className={styles.accountActionPill}>On</div>
-            </div>
+              <div className={styles.timePill}>On</div>
+            </button>
 
-            <div className={styles.accountOption}>
-              <div className={styles.accountOptionLeft}>
-                <div className={styles.accountOptionIcon}>
+            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
+              <div className={styles.taskLead}>
+                <div className={styles.taskIcon}>
                   <FaShieldHalved size={18} aria-hidden="true" />
                 </div>
-                <div>
-                  <div className={styles.accountOptionTitle}>Privacy & security</div>
-                  <div className={styles.accountOptionText}>Password, session, and app permissions.</div>
+                <div className="flex-1 min-w-0">
+                  <div className={styles.taskTitle}>Privacy & security</div>
+                  <div className={styles.taskText}>Password, session, and app permissions.</div>
                 </div>
               </div>
-              <div className={styles.accountActionPill}>Safe</div>
-            </div>
+              <div className={styles.timePill}>Safe</div>
+            </button>
 
-            <div className={styles.accountOption}>
-              <div className={styles.accountOptionLeft}>
-                <div className={styles.accountOptionIcon}>
+            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
+              <div className={styles.taskLead}>
+                <div className={styles.taskIcon}>
                   <FaGlobe size={18} aria-hidden="true" />
                 </div>
-                <div>
-                  <div className={styles.accountOptionTitle}>Language</div>
-                  <div className={styles.accountOptionText}>English / Vietnamese</div>
+                <div className="flex-1 min-w-0">
+                  <div className={styles.taskTitle}>Language</div>
+                  <div className={styles.taskText}>English / Vietnamese</div>
                 </div>
               </div>
-              <div className={styles.accountActionPill}>EN</div>
-            </div>
+              <div className={styles.timePill}>EN</div>
+            </button>
 
-            <div className={styles.accountOption}>
-              <div className={styles.accountOptionLeft}>
-                <div className={styles.accountOptionIcon}>
+            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
+              <div className={styles.taskLead}>
+                <div className={styles.taskIcon}>
                   <FaCircleQuestion size={18} aria-hidden="true" />
                 </div>
-                <div>
-                  <div className={styles.accountOptionTitle}>Help center</div>
-                  <div className={styles.accountOptionText}>FAQ, support, and gardening tips.</div>
+                <div className="flex-1 min-w-0">
+                  <div className={styles.taskTitle}>Help center</div>
+                  <div className={styles.taskText}>FAQ, support, and gardening tips.</div>
                 </div>
               </div>
-              <div className={styles.accountActionPill}>Open</div>
-            </div>
+              <div className={styles.timePill}>Open</div>
+            </button>
           </div>
-        </div>
+        </section>
 
-        <div className={styles.accountFooter}>
-          <button type="button" className={styles.buttonOutline} onClick={() => router.push("/home") }>
-            Back to Home
-          </button>
-          <button type="button" className={styles.buttonPrimary} onClick={handleLogout}>
-            Log out
-          </button>
-        </div>
+        <section className={styles.section}>
+          <div className={styles.listStack}>
+            <Link href="/home" className={styles.buttonOutline}>
+              <FaHouse size={16} aria-hidden="true" />
+              Back to Home
+            </Link>
+            <button type="button" className={styles.buttonPrimary} onClick={handleLogout}>
+              <FaRightFromBracket size={16} aria-hidden="true" />
+              Log out
+            </button>
+          </div>
+        </section>
 
-        <button type="button" className={styles.accountOptionDanger} onClick={handleLogout}>
-          <span className={styles.accountOptionLeft}>
-            <span className={styles.accountOptionIcon}>
-              <FaRightFromBracket size={18} aria-hidden="true" />
-            </span>
-            <span>
-              <span className={styles.accountOptionTitle}>End session</span>
-              <span className={styles.accountOptionText}>This clears the current demo login state.</span>
-            </span>
-          </span>
-          <span className={styles.accountActionPill}>Logout</span>
-        </button>
-      </section>
-    </main>
+        <section className={styles.section}>
+          <button type="button" className={styles.taskCard} onClick={handleLogout}>
+            <div className={styles.taskLead}>
+              <div className={styles.taskIcon} style={{ background: "#fde7e2", color: "#a3452d" }}>
+                <FaRightFromBracket size={18} aria-hidden="true" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className={styles.taskTitle}>End session</div>
+                <div className={styles.taskText}>This clears the current demo login state.</div>
+              </div>
+            </div>
+            <div className={styles.timePill}>Logout</div>
+          </button>
+        </section>
+      </div>
+    </div>
   );
 }
