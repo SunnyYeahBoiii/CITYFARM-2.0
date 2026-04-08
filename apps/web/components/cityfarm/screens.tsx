@@ -29,31 +29,6 @@ import {
 } from "../../lib/cityfarm-data";
 import styles from "./cityfarm.module.css";
 
-interface ChatMessage {
-  role: "user" | "assistant";
-  text: string;
-}
-
-function FormattedMessage({ text }: { text: string }) {
-  // Tách các đoạn text được bọc trong dấu ** **
-  const parts = text.split(/(\*\*.*?\*\*)/g);
-  
-  return (
-    <span style={{ whiteSpace: "pre-wrap", display: "block" }}>
-      {parts.map((part, index) => {
-        if (part.startsWith("**") && part.endsWith("**")) {
-          return (
-            <strong key={index} className={styles.textHighlight}>
-              {part.slice(2, -2)}
-            </strong>
-          );
-        }
-        return <span key={index}>{part}</span>;
-      })}
-    </span>
-  );
-}
-
 type DetailTab = "Timeline" | "Care" | "Journal";
 type SharedDetailTab = "Timeline" | "Journal";
 type FeedFilter = "all" | "showcase" | "question";
@@ -386,12 +361,6 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
   const [careEntries] = useState<CareHistoryEntry[]>(plant.careHistory);
   const timeline = getTimelineForPlant(plant);
 
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([
-    { role: "assistant", text: `Chào bạn, tôi là trợ lý AI. Bạn cần tư vấn gì cho cây ${plant.name} hôm nay?` }
-  ]);
-  const [inputText, setInputText] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-
   const handleAddPhoto = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     const photo = file ? URL.createObjectURL(file) : plant.imageUrl;
@@ -421,46 +390,6 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
 
   const handleDeleteEntry = (entryId: string) => {
     setJournalEntries((entries) => entries.filter((entry) => entry.id !== entryId));
-  };
-
-  const handleSendMessage = async () => {
-    if (!inputText.trim() || isLoading) return;
-
-    const userMessage = inputText;
-    setInputText("");
-    setChatHistory(prev => [...prev, { role: "user", text: userMessage }]);
-    setIsLoading(true);
-
-    try {
-      const payload = {
-        message: userMessage,
-        context: {
-          name: plant.name,
-          type: plant.type,
-          health: plant.health,
-          daysGrowing: plant.daysGrowing,
-          note: plant.note
-        }
-      };
-
-      const res = await fetch("http://localhost:3001/chat", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await res.json();
-
-      if (data.success) {
-        setChatHistory(prev => [...prev, { role: "assistant", text: data.reply }]);
-      } else {
-        setChatHistory(prev => [...prev, { role: "assistant", text: "Xin lỗi, AI đang bận hoặc gặp lỗi kết nối." }]);
-      }
-    } catch (error) {
-      setChatHistory(prev => [...prev, { role: "assistant", text: "Lỗi mạng. Không thể kết nối tới máy chủ." }]);
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   return (
@@ -644,37 +573,17 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
                 <CloseIcon />
               </button>
             </div>
-            {/* --- THAY THẾ KHU VỰC NÀY --- */}
-            <div className={styles.assistMessages} style={{ maxHeight: "40vh", overflowY: "auto", marginBottom: "1rem" }}>
-              {chatHistory.map((msg, index) => (
-                <div key={index} className={msg.role === "assistant" ? styles.assistBubbleBot : styles.assistBubble}>
-                  <FormattedMessage text={msg.text} />
-                </div>
-              ))}
-              {isLoading && (
-                <div className={styles.assistBubbleBot}>AI đang suy nghĩ...</div>
-              )}
+            <div className={styles.assistMessages}>
+              <div className={styles.assistBubbleBot}>
+                I checked the latest journal entry. The main signal is {plant.health === "warning" ? "heat stress" : "stable growth"}.
+              </div>
+              <div className={styles.assistBubble}>
+                What should I do next?
+              </div>
+              <div className={styles.assistBubbleBot}>
+                Prioritize: {plant.nextWatering}. After that, {plant.nextFertilizing.toLowerCase()}.
+              </div>
             </div>
-
-            <div style={{ display: "flex", gap: "0.5rem" }}>
-              <input 
-                type="text" 
-                className={styles.input} 
-                placeholder="Ví dụ: Cây bị vàng lá..."
-                value={inputText}
-                onChange={(e) => setInputText(e.target.value)}
-                onKeyDown={(e) => e.key === 'Enter' && handleSendMessage()}
-              />
-              <button 
-                type="button" 
-                className={styles.buttonPrimary} 
-                onClick={handleSendMessage}
-                disabled={isLoading}
-              >
-                Gửi
-              </button>
-            </div>
-            {/* ------------------------------ */}
           </div>
         </div>
       )}
