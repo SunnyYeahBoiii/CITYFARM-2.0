@@ -395,6 +395,8 @@ CREATE TABLE "PlantJournalEntry" (
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "email" TEXT,
+    "passwordHash" TEXT NOT NULL,
+    "refreshToken" TEXT,
     "externalAuthId" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'USER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
