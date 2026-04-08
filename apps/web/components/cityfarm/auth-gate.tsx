@@ -28,7 +28,7 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                 <div className={styles.heroBanner}>
                   <div className={styles.heroBannerTitle}>Access Restricted</div>
                   <p className={styles.marketBannerText}>
-                    No feature is available right now. Please log in to your account.
+                    No features are available right now. Please log in to your account.
                   </p>
                   <div className={styles.heroCardFooter}>
                     <Link href="/login" className={styles.buttonPrimary}>
