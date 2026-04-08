@@ -1,0 +1,45 @@
+# Base image đúng yêu cầu: Python 3.10.
+FROM python:3.10-slim
+
+# Thiết lập môi trường runtime/dev:
+# - PYTHONDONTWRITEBYTECODE: không tạo file .pyc trong lúc dev.
+# - PYTHONUNBUFFERED: log Python đẩy ra stdout ngay lập tức.
+# - POETRY_VIRTUALENVS_CREATE=false: cài dependency Python thẳng vào môi trường system
+#   của container, để script hiện tại `python ./src/main.py` chạy được ngay.
+# - POETRY_NO_INTERACTION: tránh prompt khi build container.
+# - PATH: thêm Poetry vào PATH.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    POETRY_VERSION=1.8.3 \
+    POETRY_HOME=/opt/poetry \
+    POETRY_VIRTUALENVS_CREATE=false \
+    POETRY_NO_INTERACTION=1 \
+    PATH=/opt/poetry/bin:$PATH
+
+WORKDIR /app
+
+# Cài:
+# - nodejs + npm: vì source hiện tại chạy dev bằng `nodemon` từ Node.js.
+# - Poetry: để quản lý dependency Python từ pyproject.toml.
+# - nodemon global: vì apps/model-api/package.json đang gọi `nodemon`,
+#   nhưng package này hiện chưa khai báo dependency Node cục bộ cho nodemon.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+       nodejs \
+       npm \
+       curl \
+       ca-certificates \
+    && pip install --no-cache-dir poetry==${POETRY_VERSION} \
+    && npm install -g nodemon \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# KHÔNG copy source code vào image.
+# docker-compose sẽ bind-mount thư mục apps/model-api từ host vào /app.
+
+# Lệnh mặc định cho local dev:
+# - poetry install --no-root: cài dependency Python nhưng không cố đóng gói service này
+#   thành một Python package hoàn chỉnh.
+# - nodemon --legacy-watch: theo dõi file ổn định hơn trên bind mount.
+# - python ./src/main.py: giữ đúng cách chạy hiện có của project.
+CMD ["sh", "-lc", "poetry install --no-root && nodemon --legacy-watch --exec python ./src/main.py --ext py,html,yaml"]

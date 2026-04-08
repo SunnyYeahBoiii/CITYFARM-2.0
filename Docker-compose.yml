@@ -1,0 +1,82 @@
+services:
+  node_workspace:
+    # Service này chạy phần Node monorepo: Next.js + NestJS.
+    build:
+      context: .
+      dockerfile: Dockerfile.node.dev
+
+    # Root monorepo.
+    working_dir: /app
+
+    # PORT=3001 sẽ được NestJS đọc ở apps/api/src/main.ts.
+    # Next.js không bị ảnh hưởng vì script web đã cố định --port 3000.
+    environment:
+      PORT: "3001"
+      CHOKIDAR_USEPOLLING: "true"
+      WATCHPACK_POLLING: "true"
+      TURBO_TELEMETRY_DISABLED: "1"
+
+    # Chỉ chạy web + api ở container này.
+    # model-api được tách sang service riêng để tránh chạy trùng.
+    command: >
+      sh -lc "pnpm install && pnpm dev --filter=web --filter=api"
+
+    ports:
+      - "3000:3000" # Next.js
+      - "3001:3001" # NestJS API
+
+    volumes:
+      # Bind-mount toàn bộ monorepo để sửa code trên host và hot reload ngay trong container.
+      - ./:/app
+
+      # Cache pnpm store để lần cài sau nhanh hơn.
+      - pnpm-store:/pnpm/store
+
+      # Anonymous volumes cho mọi node_modules quan trọng trong monorepo.
+      # Mục tiêu: không ghi đè / không làm bẩn node_modules trên máy host.
+      - /app/node_modules
+      - /app/apps/api/node_modules
+      - /app/apps/web/node_modules
+      - /app/apps/model-api/node_modules
+      - /app/packages/ui/node_modules
+      - /app/packages/eslint-config/node_modules
+      - /app/packages/typescript-config/node_modules
+
+    stdin_open: true
+    tty: true
+
+  model-api:
+    # Service Python riêng cho tầng AI/model.
+    build:
+      context: ./apps/model-api
+      dockerfile: Dockerfile.dev
+
+    working_dir: /app
+    
+    env_file:
+      - ./apps/model-api/.env
+
+    environment:
+      PORT: "3002"
+      PYTHONUNBUFFERED: "1"
+
+    # Chạy độc lập với service Node workspace.
+    command: >
+      sh -lc "poetry install --no-root && nodemon --legacy-watch --exec python ./src/main.py --ext py,html,yaml"
+
+    ports:
+      - "3002:3002"
+
+    volumes:
+      # Chỉ mount đúng service Python để vòng lặp dev gọn hơn.
+      - ./apps/model-api:/app
+
+      # Volume ẩn dự phòng cho node_modules nếu sau này bạn thêm dependency Node cục bộ.
+      - /app/node_modules
+
+    stdin_open: true
+    tty: true
+
+volumes:
+  # Named volume giữ pnpm store giữa các lần up/down.
+  pnpm-store:

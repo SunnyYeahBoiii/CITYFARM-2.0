@@ -5,4 +5,21 @@ export class AppService {
   getHello(): string {
     return 'Hello World!';
   }
+
+  async getAIAdvice(payload: any) {
+    try {
+      // Gọi xuống Backend Python qua mạng LAN ảo của Docker
+      const response = await fetch("http://model-api:3002/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      console.error("Lỗi khi gọi Python Model API:", error);
+      return { success: false, error: "Cannot connect to AI Model" };
+    }
+  }
 }

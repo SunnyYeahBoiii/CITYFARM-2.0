@@ -1,0 +1,31 @@
+# Base image đúng theo yêu cầu: Node 20 trên Alpine.
+FROM node:20-alpine
+
+# Biến môi trường chung:
+# - PNPM_HOME: nơi corepack/pnpm sẽ đặt binary và store helper.
+# - PATH: để lệnh pnpm có sẵn trong shell.
+# - CHOKIDAR_USEPOLLING / WATCHPACK_POLLING: giúp hot reload ổn định hơn
+#   khi code được bind-mount từ máy host vào container (đặc biệt trên Docker Desktop).
+# - TURBO_TELEMETRY_DISABLED: tắt telemetry của Turborepo trong môi trường local/dev.
+ENV PNPM_HOME=/pnpm \
+    PATH=/pnpm:$PATH \
+    CHOKIDAR_USEPOLLING=true \
+    WATCHPACK_POLLING=true \
+    TURBO_TELEMETRY_DISABLED=1
+
+# Một số package hệ thống hữu ích cho Node/Next/Prisma trên Alpine.
+RUN apk add --no-cache libc6-compat openssl \
+    && corepack enable \
+    && corepack prepare pnpm@9.0.0 --activate
+
+# Thư mục làm việc của toàn bộ monorepo.
+WORKDIR /app
+
+# KHÔNG copy source code vào image.
+# Toàn bộ source sẽ được bind-mount từ docker-compose để hot reload hoạt động trực tiếp.
+
+# Lệnh mặc định:
+# - pnpm install: cài dependencies của toàn monorepo sau khi source đã được mount.
+# - pnpm dev --filter=web --filter=api: chỉ chạy Next.js và NestJS trong container này.
+#   Không chạy model-api ở đây vì model-api sẽ có service Docker riêng.
+CMD ["sh", "-lc", "pnpm install && pnpm dev --filter=web --filter=api"]
