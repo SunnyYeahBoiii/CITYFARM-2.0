@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { isUserLoggedIn, setUserLoggedIn } from "../../../components/cityfarm/auth-client";
+import { useAuth } from "../../../components/cityfarm/auth-context";
 import styles from "../../../components/cityfarm/cityfarm.module.css";
 import {
   FaArrowLeft,
@@ -17,9 +17,10 @@ import {
 
 export default function AccountPage() {
   const router = useRouter();
+  const { loggedIn, logout } = useAuth();
 
   const handleLogout = () => {
-    setUserLoggedIn(false);
+    logout();
     router.replace("/login");
   };
 
@@ -45,10 +46,10 @@ export default function AccountPage() {
           <div className={styles.heroBanner}>
             <div className={styles.heroBannerTitle}>Cityfarm User</div>
             <p className={styles.marketBannerText}>
-              {isUserLoggedIn() ? "Logged in and ready for your garden" : "Session not active"}
+              {loggedIn ? "Logged in and ready for your garden" : "Session not active"}
             </p>
             <div className={styles.heroCardFooter} style={{ marginTop: "1rem" }}>
-              <div className={styles.statusPill}>{isUserLoggedIn() ? "Active" : "Inactive"}</div>
+              <div className={styles.statusPill}>{loggedIn ? "Active" : "Inactive"}</div>
             </div>
           </div>
         </section>

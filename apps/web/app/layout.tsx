@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
+import { Providers } from "./providers";
 
 const geistSans = localFont({
   src: "./fonts/GeistVF.woff",
@@ -25,7 +26,7 @@ export default function RootLayout({
   return (
     <html lang="vi">
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
-        {children}
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

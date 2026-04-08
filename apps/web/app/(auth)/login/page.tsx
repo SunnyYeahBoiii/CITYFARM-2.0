@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { setUserLoggedIn } from "../../../components/cityfarm/auth-client";
+import { useAuth } from "../../../components/cityfarm/auth-context";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import styles from "../../../components/cityfarm/cityfarm.module.css";
 
 export default function LoginPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -39,7 +40,7 @@ export default function LoginPage() {
       return;
     }
 
-    setUserLoggedIn(true);
+    login();
     router.replace("/home");
   };
 

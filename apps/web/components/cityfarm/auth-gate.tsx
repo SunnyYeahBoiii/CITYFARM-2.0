@@ -1,18 +1,11 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { isUserLoggedIn } from "./auth-client";
+import { useAuth } from "./auth-context";
 import styles from "./cityfarm.module.css";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false);
-  const [loggedIn, setLoggedIn] = useState(false);
-
-  useEffect(() => {
-    setLoggedIn(isUserLoggedIn());
-    setReady(true);
-  }, []);
+  const { ready, loggedIn } = useAuth();
 
   if (!ready) {
     return null;

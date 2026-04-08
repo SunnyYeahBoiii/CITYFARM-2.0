@@ -2,14 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { isUserLoggedIn } from "../components/cityfarm/auth-client";
+import { useAuth } from "../components/cityfarm/auth-context";
 
 export default function Home() {
   const router = useRouter();
+  const { ready, loggedIn } = useAuth();
 
   useEffect(() => {
-    router.replace(isUserLoggedIn() ? "/home" : "/login");
-  }, [router]);
+    if (!ready) {
+      return;
+    }
+
+    router.replace(loggedIn ? "/home" : "/login");
+  }, [router, ready, loggedIn]);
 
   return null;
 }
