@@ -57,10 +57,20 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         },
       });
 
+      const avatarAssetInput = avatarUrl ? {
+        create: {
+          kind: 'PROFILE_AVATAR' as const,
+          storageKey: `google-avatar-${id}-${Date.now()}`,
+          publicUrl: avatarUrl,
+          ownerId: newUser.id,
+        }
+      } : undefined;
+
       await tx.userProfile.create({
         data: {
-          userId: newUser.id,
+          user: { connect: { id: newUser.id } },
           displayName: displayName,
+          avatarAsset: avatarAssetInput,
         },
       });
 

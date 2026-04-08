@@ -12,11 +12,15 @@ import { SetupPasswordDto } from 'src/dtos/auth/setup-password.dto';
 
 @Controller('auth')
 export class AuthController {
+  private readonly frontendUrl: string;
+
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
     private readonly configService: ConfigService,  
-  ) {}
+  ) {
+    this.frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
+  }
 
   @Post('register')
   async register(@Body() registerDto: AuthRegisterDto) {
@@ -78,12 +82,8 @@ export class AuthController {
 
     res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
     res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
-
-    const frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
     
-    const redirectUrl = user.passwordHash
-      ? `${frontendUrl}/`
-      : `${frontendUrl}/auth/setup-password?source=google`;
+    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/auth/setup-password?source=google`;
 
     res.redirect(redirectUrl);
   }

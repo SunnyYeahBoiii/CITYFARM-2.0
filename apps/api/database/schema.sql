@@ -394,8 +394,8 @@ CREATE TABLE "PlantJournalEntry" (
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
-    "email" TEXT,
-    "passwordHash" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "passwordHash" TEXT,
     "refreshToken" TEXT,
     "externalAuthId" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'USER',
