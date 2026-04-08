@@ -15,16 +15,28 @@ export class UserService {
   }
 
   async findByIdWithProfile(id: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id },
       include: { profile: true },
     });
+    if (user) {
+      const { passwordHash, refreshToken, ...safeUser } = user;
+      return safeUser;
+    }
+    return null;
   }
 
   async updateRefreshToken(id: string, refreshToken: string | null) {
     return this.prisma.user.update({
       where: { id },
       data: { refreshToken },
+    });
+  }
+
+  async updatePasswordHash(id: string, passwordHash: string) {
+    return this.prisma.user.update({
+      where: { id },
+      data: { passwordHash },
     });
   }
 
