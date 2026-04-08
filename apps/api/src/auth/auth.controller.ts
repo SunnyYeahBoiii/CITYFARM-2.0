@@ -26,8 +26,8 @@ export class AuthController {
     const user = await this.authService.validateUser(loginDto);
     const tokens = await this.authService.login(user);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getCookieOptions(false));
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getCookieOptions(true));
+    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
+    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
 
     return { message: 'Logged in successfully' };
   }
@@ -41,8 +41,8 @@ export class AuthController {
 
     const tokens = await this.authService.refreshTokens(userId, refreshToken);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getCookieOptions(false));
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getCookieOptions(true));
+    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
+    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
 
     return { message: 'Tokens refreshed successfully' };
   }
@@ -53,8 +53,8 @@ export class AuthController {
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.user.id);
     
-    res.clearCookie('access_token', { ...this.authService.getCookieOptions(false), maxAge: 0 });
-    res.clearCookie('refresh_token', { ...this.authService.getCookieOptions(true), maxAge: 0 });
+    res.clearCookie('access_token', { ...this.authService.getAccessTokenCookieOptions(), maxAge: 0 });
+    res.clearCookie('refresh_token', { ...this.authService.getRefreshTokenCookieOptions(), maxAge: 0 });
 
     return { message: 'Logged out successfully' };
   }
