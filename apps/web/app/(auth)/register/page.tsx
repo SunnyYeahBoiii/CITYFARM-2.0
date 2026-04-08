@@ -9,7 +9,7 @@ import styles from "../../../components/cityfarm/cityfarm.module.css";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { register } = useAuth();
   const [email, setEmail] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -46,7 +46,7 @@ export default function RegisterPage() {
         ? "Confirm password must match password."
         : "";
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextTouched = {
@@ -69,7 +69,17 @@ export default function RegisterPage() {
       return;
     }
 
-    login();
+    const authenticated = await register({
+      email: email.trim(),
+      username: username.trim(),
+      password: password.trim(),
+      confirmPassword: confirmPassword.trim(),
+    });
+
+    if (!authenticated) {
+      return;
+    }
+
     router.replace("/home");
   };
 

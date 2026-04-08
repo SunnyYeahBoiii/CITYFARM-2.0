@@ -19,8 +19,8 @@ export default function AccountPage() {
   const router = useRouter();
   const { loggedIn, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
+  const handleLogout = async () => {
+    await logout();
     router.replace("/login");
   };
 

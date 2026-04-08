@@ -30,7 +30,7 @@ export default function LoginPage() {
         ? "Password must be at least 8 characters."
         : "";
 
-  const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
     const nextTouched = { account: true, password: true };
@@ -40,7 +40,15 @@ export default function LoginPage() {
       return;
     }
 
-    login();
+    const authenticated = await login({
+      email: email.trim(),
+      password: password.trim(),
+    });
+
+    if (!authenticated) {
+      return;
+    }
+
     router.replace("/home");
   };
 
