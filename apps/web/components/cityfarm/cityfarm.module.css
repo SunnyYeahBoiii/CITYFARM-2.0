@@ -1441,7 +1441,16 @@
 
 .authScreenCentered {
   justify-content: center;
+  align-items: center;
   padding: 1rem;
+}
+
+.authScreenCentered .authHero {
+  padding-top: 0;
+}
+
+.authScreenCentered .authPanel {
+  width: min(100%, 420px);
 }
 
 .authHero {
@@ -1449,7 +1458,7 @@
 }
 
 .authPanel {
-  margin: auto 1rem 1rem;
+  margin: 0 1rem;
   padding: 1.2rem;
   border-radius: 1.35rem;
   border: 1px solid rgba(31, 41, 22, 0.08);
@@ -1732,7 +1741,7 @@
 
 @media (max-width: 720px) {
   .authPanel {
-    margin: auto 0.75rem 0.75rem;
+    margin: 0 0.75rem;
     border-radius: 1.2rem;
   }
 
