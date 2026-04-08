@@ -80,7 +80,17 @@ export class FeedService {
         gardenPlant: true,
         comments: {
           include: {
-            user: true,
+            user: {
+              select: {
+                email: true,
+                profile: {
+                  select: {
+                    displayName: true,
+                    avatarAssetId: true,
+                  },
+                }
+              }
+            },
           },
           orderBy: {
             createdAt: 'asc',
