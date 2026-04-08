@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { setUserLoggedIn } from "../../../components/cityfarm/auth-client";
 import styles from "../../../components/cityfarm/cityfarm.module.css";
+import { FaEye, FaEyeSlash } from "react-icons/fa6";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -141,7 +142,7 @@ export default function RegisterPage() {
                       onClick={() => setShowPassword((current) => !current)}
                       aria-label={showPassword ? "Hide password" : "Show password"}
                     >
-                      {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      {showPassword ? <FaEyeSlash size={18} aria-hidden="true" /> : <FaEye size={18} aria-hidden="true" />}
                     </button>
                   </div>
                   {passwordError ? <p className={styles.authError}>{passwordError}</p> : null}
@@ -167,7 +168,7 @@ export default function RegisterPage() {
                       onClick={() => setShowConfirmPassword((current) => !current)}
                       aria-label={showConfirmPassword ? "Hide confirm password" : "Show confirm password"}
                     >
-                      {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
+                      {showConfirmPassword ? <FaEyeSlash size={18} aria-hidden="true" /> : <FaEye size={18} aria-hidden="true" />}
                     </button>
                   </div>
                   {confirmPasswordError ? <p className={styles.authError}>{confirmPasswordError}</p> : null}
@@ -187,31 +188,5 @@ export default function RegisterPage() {
         </section>
       </div>
     </main>
-  );
-}
-
-function EyeIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6z"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <circle cx="12" cy="12" r="2.8" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
-  );
-}
-
-function EyeOffIcon() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M2 12s3.6-6 10-6c2.2 0 4.1.7 5.7 1.7M22 12s-3.6 6-10 6c-2.2 0-4.1-.7-5.7-1.7"
-        stroke="currentColor"
-        strokeWidth="1.8"
-      />
-      <path d="M4 4l16 16" stroke="currentColor" strokeWidth="1.8" />
-    </svg>
   );
 }
