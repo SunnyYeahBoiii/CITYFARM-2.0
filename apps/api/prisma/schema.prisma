@@ -389,13 +389,13 @@ model PlantJournalEntry {
 
 model User {
   id                 String                    @id @default(uuid())
-  email              String?                   @unique
+  email              String                    @unique
+  passwordHash       String?
+  refreshToken       String?
   externalAuthId     String?                   @unique
   role               UserRole                  @default(USER)
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
-  passwordHash       String
-  refreshToken       String?
   conversations      ConversationParticipant[]
   comments           FeedComment[]
   posts              FeedPost[]

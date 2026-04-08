@@ -1,4 +1,4 @@
-import { Injectable, ConflictException, UnauthorizedException } from '@nestjs/common';
+import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
@@ -37,7 +37,7 @@ export class AuthService {
 
   async validateUser(loginDto: AuthLoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
-    if (user && (await bcrypt.compare(loginDto.password, user.passwordHash))) {
+    if (user && user.passwordHash && (await bcrypt.compare(loginDto.password, user.passwordHash))) {
       return user;
     }
     throw new UnauthorizedException('Invalid credentials');
@@ -64,6 +64,23 @@ export class AuthService {
       access_token,
       refresh_token,
     };
+  }
+
+  async setupPassword(userId: string, password: string) {
+    const user = await this.userService.findById(userId);
+    
+    if (!user) {
+      throw new UnauthorizedException('User not found!');
+    }
+
+    if (user.passwordHash) {
+      throw new BadRequestException('This account already has a password!');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+    await this.userService.updatePasswordHash(userId, passwordHash);
+
+    return user;
   }
 
   async refreshTokens(userId: string, refreshToken: string) {
