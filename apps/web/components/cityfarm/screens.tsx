@@ -356,7 +356,6 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
   const router = useRouter();
   const fileInputId = useId();
   const [activeTab, setActiveTab] = useState<DetailTab>("Timeline");
-  const [assistantOpen, setAssistantOpen] = useState(false);
   const [journalEntries, setJournalEntries] = useState<JournalEntry[]>(plant.journal);
   const [careEntries] = useState<CareHistoryEntry[]>(plant.careHistory);
   const timeline = getTimelineForPlant(plant);
@@ -401,10 +400,10 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
           <button type="button" className={styles.glassButton} onClick={() => router.push("/garden")}>
             <ArrowLeftIcon />
           </button>
-          <button type="button" className={styles.glassButton} onClick={() => setAssistantOpen(true)}>
+          <Link href={`/chatbot?plantId=${encodeURIComponent(plant.id)}`} className={styles.glassButton}>
             <SparkleIcon />
             Gardening Assistant
-          </button>
+          </Link>
         </div>
         <div className={styles.detailHeroContent}>
           <div className={styles.headerRow}>
@@ -561,32 +560,6 @@ export function PlantDetailScreen({ plant }: { plant: Plant }) {
         <input id={fileInputId} type="file" accept="image/*" hidden onChange={handleAddPhoto} />
       </div>
 
-      {assistantOpen && (
-        <div className={styles.assistantOverlay} onClick={() => setAssistantOpen(false)}>
-          <div className={styles.assistantSheet} onClick={(event) => event.stopPropagation()}>
-            <div className={styles.sheetHead}>
-              <div>
-                <div className={styles.sectionTitle}>Gardening Assistant</div>
-                <div className={styles.sectionSubtitle}>Quick help for {plant.name}</div>
-              </div>
-              <button type="button" className={styles.iconButton} onClick={() => setAssistantOpen(false)}>
-                <CloseIcon />
-              </button>
-            </div>
-            <div className={styles.assistMessages}>
-              <div className={styles.assistBubbleBot}>
-                I checked the latest journal entry. The main signal is {plant.health === "warning" ? "heat stress" : "stable growth"}.
-              </div>
-              <div className={styles.assistBubble}>
-                What should I do next?
-              </div>
-              <div className={styles.assistBubbleBot}>
-                Prioritize: {plant.nextWatering}. After that, {plant.nextFertilizing.toLowerCase()}.
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
