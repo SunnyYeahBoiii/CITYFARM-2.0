@@ -55,35 +55,64 @@ export interface Reminder {
   icon: "water" | "sun" | "check";
 }
 
+// Post types
+export enum PostType {
+  SHOWCASE = "showcase",
+  QUESTION = "question",
+  PLANT_SHARE = "plant-share",
+}
+
+export interface UserMinimal {
+  id: string;
+  username: string;
+  profileImage?: string;
+  district?: string;
+  verifiedGrower?: boolean;
+}
+
 export interface FeedPost {
   id: string;
-  type: "showcase" | "question" | "plant-share";
-  user: string;
-  location: string;
+  postType: PostType;
   caption: string;
-  image?: string;
-  sharedPlantId?: string;
+  gardenPlantId?: string;
+  listingId?: string;
+  contentJson?: object;
+  imageAssetId?: string;
+  visibilityDistrict?: string;
+  isPublished: boolean;
+  publishedAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  user: UserMinimal;
   likes: number;
   comments: number;
-  time: string;
-  tags: string[];
-  isLiked: boolean;
+  isLiked?: boolean;
+}
+
+export interface FeedComment {
+  id: string;
+  postId: string;
+  parentCommentId?: string;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+  user: UserMinimal;
+  replies?: FeedComment[];
 }
 
 export interface MarketListing {
   id: string;
-  seller: {
-    name: string;
-    district: string;
-    verifiedGrower: boolean;
-  };
-  plant: string;
+  sellerId: string;
+  gardenPlantId: string;
+  product: string;
   quantity: string;
-  price: string;
-  imageUrl: string;
-  description: string;
-  postedTime: string;
-  plantingLogs: number;
+  priceAmount: number;
+  description?: string;
+  imageAssetId?: string;
+  expiresAt?: string;
+  createdAt: string;
+  updatedAt: string;
+  seller: UserMinimal;
 }
 
 export interface ScanRecommendation {
@@ -342,54 +371,78 @@ export const reminders: Reminder[] = [
 export const feedPosts: FeedPost[] = [
   {
     id: "feed-1",
-    type: "showcase",
-    user: "Sarah Chen",
-    location: "Dĩ An",
+    postType: PostType.SHOWCASE,
     caption: "My cherry tomatoes are finally setting fruit. The CITYFARM schedule is actually working.",
-    image: "/cityfarm/img/tomato.png",
+    imageAssetId: "/cityfarm/img/tomato.png",
+    user: {
+      id: "user-1",
+      username: "Sarah Chen",
+      district: "Dĩ An",
+      profileImage: undefined,
+      verifiedGrower: false,
+    },
     likes: 24,
     comments: 5,
-    time: "2h ago",
-    tags: ["#TomatoSeason", "#UrbanHarvest"],
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    isPublished: true,
     isLiked: false,
   },
   {
     id: "feed-2",
-    type: "question",
-    user: "Mike Ross",
-    location: "District 1",
+    postType: PostType.QUESTION,
     caption: "Mint leaves are yellowing at the tips. Too much sun or not enough water?",
-    image: "/cityfarm/img/mint.png",
+    imageAssetId: "/cityfarm/img/mint.png",
+    user: {
+      id: "user-2",
+      username: "Mike Ross",
+      district: "District 1",
+      profileImage: undefined,
+      verifiedGrower: false,
+    },
     likes: 12,
     comments: 8,
-    time: "4h ago",
-    tags: ["#HelpNeeded", "#Mint", "#Diagnosis"],
+    createdAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString(),
+    isPublished: true,
     isLiked: true,
   },
   {
     id: "feed-3",
-    type: "plant-share",
-    user: "David Nguyen",
-    location: "District 3",
+    postType: PostType.PLANT_SHARE,
     caption: "Check out my lettuce at 64% growth. Sharing my log for anyone curious about a shaded kitchen setup.",
-    sharedPlantId: "lettuce-02",
+    gardenPlantId: "lettuce-02",
+    user: {
+      id: "user-3",
+      username: "David Nguyen",
+      district: "District 3",
+      profileImage: undefined,
+      verifiedGrower: false,
+    },
     likes: 18,
     comments: 4,
-    time: "1h ago",
-    tags: ["#PlantSharing", "#LettuceGrowing"],
+    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    isPublished: true,
     isLiked: false,
   },
   {
     id: "feed-4",
-    type: "showcase",
-    user: "Anh Tran",
-    location: "Hoan Kiem",
+    postType: PostType.SHOWCASE,
     caption: "Just installed my new CITYFARM standing kit and the corner finally feels alive.",
-    image: "/cityfarm/img/kit/standing.jpg",
+    imageAssetId: "/cityfarm/img/kit/standing.jpg",
+    user: {
+      id: "user-4",
+      username: "Anh Tran",
+      district: "Hoan Kiem",
+      profileImage: undefined,
+      verifiedGrower: false,
+    },
     likes: 28,
     comments: 9,
-    time: "9h ago",
-    tags: ["#NewBeginner", "#GardenSetup"],
+    createdAt: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 9 * 60 * 60 * 1000).toISOString(),
+    isPublished: true,
     isLiked: false,
   },
 ];
@@ -397,63 +450,75 @@ export const feedPosts: FeedPost[] = [
 export const marketListings: MarketListing[] = [
   {
     id: "listing-101",
+    sellerId: "user-5",
+    gardenPlantId: "bok-choy-01",
+    product: "Organic Bok Choy",
+    quantity: "500g",
+    priceAmount: 30000,
+    imageAssetId: "/cityfarm/img/lettuce.png",
+    description: "Harvested this morning. No pesticides, grown in a compact balcony rack.",
+    createdAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(),
     seller: {
-      name: "Grandma Mai",
+      id: "user-5",
+      username: "Grandma Mai",
       district: "District 3",
       verifiedGrower: true,
     },
-    plant: "Organic Bok Choy",
-    quantity: "500g",
-    price: "30,000₫",
-    imageUrl: "/cityfarm/img/lettuce.png",
-    description: "Harvested this morning. No pesticides, grown in a compact balcony rack.",
-    postedTime: "1h ago",
-    plantingLogs: 45,
   },
   {
     id: "listing-102",
+    sellerId: "user-6",
+    gardenPlantId: "basil-01",
+    product: "Thai Basil Bundle",
+    quantity: "100g",
+    priceAmount: 15000,
+    imageAssetId: "/cityfarm/img/mint.png",
+    description: "Spicy aroma, extra leaves from this week's prune.",
+    createdAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
     seller: {
-      name: "Tom's Balcony",
+      id: "user-6",
+      username: "Tom's Balcony",
       district: "Thao Dien",
       verifiedGrower: false,
     },
-    plant: "Thai Basil Bundle",
-    quantity: "100g",
-    price: "15,000₫",
-    imageUrl: "/cityfarm/img/mint.png",
-    description: "Spicy aroma, extra leaves from this week's prune.",
-    postedTime: "3h ago",
-    plantingLogs: 20,
   },
   {
     id: "listing-103",
+    sellerId: "user-7",
+    gardenPlantId: "tomato-02",
+    product: "Fresh Cherry Tomatoes",
+    quantity: "300g",
+    priceAmount: 25000,
+    imageAssetId: "/cityfarm/img/tomato.png",
+    description: "Sweet and juicy, documented from seedling to harvest.",
+    createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString(),
     seller: {
-      name: "Green Thumbs Co",
+      id: "user-7",
+      username: "Green Thumbs Co",
       district: "District 1",
       verifiedGrower: true,
     },
-    plant: "Fresh Cherry Tomatoes",
-    quantity: "300g",
-    price: "25,000₫",
-    imageUrl: "/cityfarm/img/tomato.png",
-    description: "Sweet and juicy, documented from seedling to harvest.",
-    postedTime: "2h ago",
-    plantingLogs: 60,
   },
   {
     id: "listing-104",
+    sellerId: "user-8",
+    gardenPlantId: "onion-02",
+    product: "Green Onion Bundle",
+    quantity: "250g",
+    priceAmount: 12000,
+    imageAssetId: "/cityfarm/img/onion.png",
+    description: "Crisp, fresh, and ideal for same-day pickup.",
+    createdAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
+    updatedAt: new Date(Date.now() - 7 * 60 * 60 * 1000).toISOString(),
     seller: {
-      name: "Local Herbs",
+      id: "user-8",
+      username: "Local Herbs",
       district: "District 7",
       verifiedGrower: false,
     },
-    plant: "Green Onion Bundle",
-    quantity: "250g",
-    price: "12,000₫",
-    imageUrl: "/cityfarm/img/onion.png",
-    description: "Crisp, fresh, and ideal for same-day pickup.",
-    postedTime: "7h ago",
-    plantingLogs: 25,
   },
 ];
 
