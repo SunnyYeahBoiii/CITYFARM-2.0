@@ -27,6 +27,7 @@ import {
   type PlantHealth,
   type ScanRecommendation,
 } from "../../lib/cityfarm-data";
+import { getFeedPosts } from "../../lib/api";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
@@ -954,6 +955,20 @@ export function CommunityScreen() {
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
   const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
+
+  useEffect(() => {
+    async function loadData() {
+      try {
+        const apiPosts = await getFeedPosts();
+        if (apiPosts.length > 0) {
+          setPosts(apiPosts);
+        }
+      } catch {
+        // API unavailable – keep static fallback data already in state
+      }
+    }
+    void loadData();
+  }, []);
 
   const filteredPosts =
     feedFilter === "all" ? posts : posts.filter((post) => post.type === feedFilter);
