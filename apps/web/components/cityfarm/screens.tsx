@@ -6,13 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import {
   dirtOptions,
-  feedPosts,
   getPlantById,
   getPlants,
   getTimelineForPlant,
   homeStats,
   kits,
-  marketListings,
   potOptions,
   reminders,
   scanAnalysis,
@@ -28,6 +26,7 @@ import {
   type ScanRecommendation,
   PostType,
 } from "../../lib/cityfarm-data";
+import { createCommunityPost, loadCommunityData, toggleCommunityLike } from "../../lib/community-bridge";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
@@ -950,54 +949,110 @@ export function ScanScreen() {
 export function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
   const [feedFilter, setFeedFilter] = useState<PostType | "all">("all");
-  const [posts, setPosts] = useState<FeedPost[]>(feedPosts);
-  const [listings] = useState<MarketListing[]>(marketListings);
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [communitySource, setCommunitySource] = useState<"api" | "fallback" | "mixed">("fallback");
+  const [isCommunityLoading, setIsCommunityLoading] = useState(true);
+  const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
   const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
 
+  const reloadCommunityData = async (activeRef?: { current: boolean }) => {
+    try {
+      setIsCommunityLoading(true);
+      const result = await loadCommunityData();
+
+      if (activeRef && !activeRef.current) {
+        return;
+      }
+
+      setPosts(result.posts);
+      setListings(result.listings);
+      setCommunitySource(result.source);
+    } finally {
+      if (!activeRef || activeRef.current) {
+        setIsCommunityLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const activeRef = { current: true };
+
+    void reloadCommunityData(activeRef);
+
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isCommunityLoading || communitySource === "api") {
+      setShowFallbackToast(false);
+      return;
+    }
+
+    setShowFallbackToast(true);
+    const timer = window.setTimeout(() => {
+      setShowFallbackToast(false);
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [communitySource, isCommunityLoading]);
+
   const filteredPosts =
     feedFilter === "all" ? posts : posts.filter((post) => post.postType === feedFilter);
 
-  const handleLike = (postId: string) => {
+  const handleLike = async (postId: string) => {
+    const currentPost = posts.find((post) => post.id === postId);
+    const wasLiked = Boolean(currentPost?.isLiked);
+    const optimisticLiked = !wasLiked;
+
     setPosts((current) =>
       current.map((post) =>
         post.id === postId
           ? {
               ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+              isLiked: optimisticLiked,
+              likes: optimisticLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
+            }
+          : post,
+      ),
+    );
+
+    const actualLiked = await toggleCommunityLike(postId, wasLiked);
+    if (actualLiked === optimisticLiked) {
+      return;
+    }
+
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: actualLiked,
+              likes: actualLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
             }
           : post,
       ),
     );
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!caption.trim()) {
       return;
     }
 
-    const newPost: FeedPost = {
-      id: `${Date.now()}`,
-      postType: postType === "plant" ? PostType.PLANT_SHARE : postType === "image" ? PostType.SHOWCASE : PostType.SHOWCASE,
+    const newPost = await createCommunityPost({
+      postType: postType === "plant" ? PostType.PLANT_SHARE : PostType.SHOWCASE,
       caption,
       imageAssetId: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
       gardenPlantId: postType === "plant" ? selectedPlantId : undefined,
-      user: {
-        id: "current-user",
-        username: "You",
-        district: "Dĩ An",
-        verifiedGrower: false,
-      },
-      likes: 0,
-      comments: 0,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      isPublished: true,
-      isLiked: false,
-    };
+    });
 
     setPosts((current) => [newPost, ...current]);
     setCaption("");
@@ -1010,7 +1065,9 @@ export function CommunityScreen() {
       <header className={styles.screenHeader}>
         <div>
           <div className={styles.screenHeaderTitle}>Community</div>
-          <div className={styles.screenHeaderMeta}>Social feed and fresh market in one place.</div>
+          <div className={styles.screenHeaderMeta}>
+            Social feed and fresh market in one place. Source: {isCommunityLoading ? "loading" : communitySource}.
+          </div>
         </div>
         <div className={styles.headerActions}>
           {activeTab === "feed" && (
@@ -1025,6 +1082,25 @@ export function CommunityScreen() {
       </header>
 
       <div className={styles.screenPadded}>
+        {showFallbackToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginBottom: "0.75rem",
+              border: "1px solid #d7b76c",
+              background: "#fff7e6",
+              color: "#6b4f14",
+              borderRadius: "0.75rem",
+              padding: "0.65rem 0.8rem",
+              fontSize: "0.83rem",
+              fontWeight: 600,
+            }}
+          >
+            API is unavailable. Showing fallback Community data.
+          </div>
+        )}
+
         <div className={styles.modeTabs}>
           <button
             type="button"
@@ -1039,6 +1115,14 @@ export function CommunityScreen() {
             onClick={() => setActiveTab("market")}
           >
             Fresh Market
+          </button>
+          <button
+            type="button"
+            className={styles.filterChip}
+            disabled={isCommunityLoading}
+            onClick={() => void reloadCommunityData()}
+          >
+            {isCommunityLoading ? "Retrying..." : "Retry API"}
           </button>
         </div>
 
@@ -1073,6 +1157,10 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.postFeed}>
+              {isCommunityLoading && <div className={styles.metaText}>Loading community...</div>}
+              {!isCommunityLoading && filteredPosts.length === 0 && (
+                <div className={styles.metaText}>No posts available yet.</div>
+              )}
               {filteredPosts.map((post) => (
                 <div key={post.id} className={styles.postCard}>
                   <div className={styles.postHeader}>
@@ -1113,7 +1201,7 @@ export function CommunityScreen() {
 
                   <div className={styles.postBody}>
                     <div className={styles.postActions}>
-                      <button type="button" className={styles.ghostButton} onClick={() => handleLike(post.id)}>
+                      <button type="button" className={styles.ghostButton} onClick={() => void handleLike(post.id)}>
                         <HeartIcon filled={post.isLiked} />
                       </button>
                       <span className={styles.metaText}>{post.likes} likes</span>
@@ -1139,6 +1227,9 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.listingFeed} style={{ marginTop: "1rem" }}>
+              {!isCommunityLoading && listings.length === 0 && (
+                <div className={styles.metaText}>No marketplace listings available.</div>
+              )}
               {listings.map((listing) => (
                 <div key={listing.id} className={styles.listingCard}>
                   <div className={styles.listingBody}>
@@ -1252,7 +1343,7 @@ export function CommunityScreen() {
             )}
 
             <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-              <button type="button" className={styles.buttonPrimary} onClick={handleCreatePost}>
+              <button type="button" className={styles.buttonPrimary} onClick={() => void handleCreatePost()}>
                 Publish Post
               </button>
               <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
