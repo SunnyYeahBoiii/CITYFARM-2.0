@@ -1,18 +1,3 @@
-/**
- * auth-server.ts — CITYFARM 2.0
- *
- * Server-side auth helper.
- * Dùng trong Server Components, Route Handlers và Server Actions (Next.js App Router).
- *
- * Cách hoạt động:
- *  1. Đọc cookie `refresh_token` từ Next.js cookie store (server-side)
- *  2. Gọi backend GET /auth/profile bằng fetch (Node.js, không qua Axios)
- *  3. Trả về CurrentUser hoặc GUEST_USER nếu chưa đăng nhập / lỗi
- *
- * QUAN TRỌNG: Không import file này trong Client Components.
- * Hãy dùng useAuth() hook trong Client Components thay thế.
- */
-
 import { cookies } from 'next/headers';
 import type { CurrentUser } from './types/auth';
 import { GUEST_USER, UserRole } from './types/auth';
