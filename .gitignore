@@ -38,6 +38,8 @@ yarn-error.log*
 .DS_Store
 *.pem
 .env
+secret.txt
+secret.py
 
 #Docker
 docker-compose.yml
