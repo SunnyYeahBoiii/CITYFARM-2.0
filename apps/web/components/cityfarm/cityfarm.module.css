@@ -147,6 +147,12 @@
 .heroCardFooter {
   @apply flex items-center justify-between [gap:0.8rem] [margin-top:1rem];
 }
+.authGateActions {
+  @apply [flex-direction:column] items-stretch justify-start [gap:0.65rem];
+}
+.authGateActionButton {
+  @apply w-full justify-center text-center;
+}
 .primaryLink,
 .secondaryLink,
 .ghostButton,

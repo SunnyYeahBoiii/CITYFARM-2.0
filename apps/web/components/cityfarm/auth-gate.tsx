@@ -23,11 +23,11 @@ export function AuthGate({ children }: { children: React.ReactNode }) {
                   <p className={styles.marketBannerText}>
                     No features are available right now. Please log in to your account.
                   </p>
-                  <div className={styles.heroCardFooter}>
-                    <Link href="/login" className={styles.buttonPrimary}>
+                  <div className={`${styles.heroCardFooter} ${styles.authGateActions}`}>
+                    <Link href="/login" className={`${styles.buttonPrimary} ${styles.authGateActionButton}`}>
                       Log in to your account
                     </Link>
-                    <Link href="/register" className={styles.buttonOutline}>
+                    <Link href="/register" className={`${styles.buttonOutline} ${styles.authGateActionButton}`}>
                       Create account
                     </Link>
                   </div>
