@@ -15,6 +15,7 @@ import { FeedModule } from './feed/feed.module';
     PrismaModule,
     UserModule,
     AuthModule,
+    FeedModule,
   ],
   controllers: [AppController],
   providers: [AppService],
