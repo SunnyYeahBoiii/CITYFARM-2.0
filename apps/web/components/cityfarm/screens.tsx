@@ -3,7 +3,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, useRef } from "react";
 import {
   dirtOptions,
   getPlantById,
@@ -25,6 +25,7 @@ import {
 } from "../../lib/cityfarm-data";
 import { PostType, type FeedPost, type MarketListing } from "../../lib/types/community";
 import { createPost, loadCommunityData, toggleReaction } from "../../lib/api/community.api";
+import { uploadAsset } from "../../lib/api/assets.api";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
@@ -954,6 +955,29 @@ export function CommunityScreen() {
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
   const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetComposer = () => {
+    setCaption("");
+    setPostType("caption");
+    setSelectedImage(null);
+    setSelectedFile(null);
+    setIsCreating(false);
+  };
 
   const reloadCommunityData = async (activeRef?: { current: boolean }) => {
     try {
@@ -1027,17 +1051,28 @@ export function CommunityScreen() {
       return;
     }
 
+    let imageAssetId: string | undefined = undefined;
+
+    if (postType === "image" && selectedFile) {
+      try {
+        const asset = await uploadAsset(selectedFile, "POST_IMAGE");
+        imageAssetId = asset.id;
+      } catch (error) {
+        console.error("Failed to upload image:", error);
+        alert("Có lỗi khi tải ảnh lên. Vui lòng thử lại.");
+        return;
+      }
+    }
+
     const newPost = await createPost({
       postType: postType === "plant" ? PostType.PLANT_SHARE : PostType.SHOWCASE,
       caption,
-      imageAssetId: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
+      imageAssetId,
       gardenPlantId: postType === "plant" ? selectedPlantId : undefined,
     });
 
     setPosts((current) => [newPost, ...current]);
-    setCaption("");
-    setPostType("caption");
-    setIsCreating(false);
+    resetComposer();
   };
 
   return (
@@ -1077,14 +1112,6 @@ export function CommunityScreen() {
             onClick={() => setActiveTab("market")}
           >
             Fresh Market
-          </button>
-          <button
-            type="button"
-            className={styles.filterChip}
-            disabled={isCommunityLoading}
-            onClick={() => void reloadCommunityData()}
-          >
-            {isCommunityLoading ? "Retrying..." : "Retry API"}
           </button>
         </div>
 
@@ -1149,9 +1176,9 @@ export function CommunityScreen() {
                     </div>
                   </div>
 
-                  {post.postType !== PostType.PLANT_SHARE && post.imageAssetId && (
+                  {post.postType !== PostType.QUESTION && (post.imageUrl || post.imageAssetId) && (
                     <div className={styles.postImage}>
-                      <img src={post.imageAssetId} alt={post.caption} />
+                      <img src={post.imageUrl || post.imageAssetId} alt={post.caption} />
                     </div>
                   )}
 
@@ -1228,14 +1255,14 @@ export function CommunityScreen() {
       </div>
 
       {isCreating && (
-        <div className={styles.composerOverlay} onClick={() => setIsCreating(false)}>
+        <div className={styles.composerOverlay} onClick={resetComposer}>
           <div className={styles.composerSheet} onClick={(event) => event.stopPropagation()}>
             <div className={styles.sheetHead}>
               <div>
                 <div className={styles.sectionTitle}>Create Post</div>
                 <div className={styles.sectionSubtitle}>Share a progress update or ask a question.</div>
               </div>
-              <button type="button" className={styles.iconButton} onClick={() => setIsCreating(false)}>
+              <button type="button" className={styles.iconButton} onClick={resetComposer}>
                 <CloseIcon />
               </button>
             </div>
@@ -1273,6 +1300,48 @@ export function CommunityScreen() {
               />
             </div>
 
+            {postType === "image" && (
+              <div className={styles.section}>
+                <div className={styles.sectionSubtitle}>Select an image to share</div>
+                <div 
+                  className={styles.imagePlaceholder} 
+                  onClick={() => fileInputRef.current?.click()}
+                  style={{
+                    backgroundImage: selectedImage ? `url(${selectedImage})` : 'none',
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    cursor: 'pointer',
+                    minHeight: '220px',
+                    borderRadius: '1.25rem',
+                    backgroundColor: '#f1f6ec',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    border: '2px dashed #37542d33',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    transition: 'all 0.2s ease'
+                  }}
+                >
+                  {!selectedImage && (
+                    <div className="flex flex-col items-center gap-3 text-[#37542d]">
+                      <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
+                        <PlusIcon />
+                      </div>
+                      <span className="text-sm font-bold opacity-80">Tap to upload photo</span>
+                    </div>
+                  )}
+                  <input 
+                    ref={fileInputRef}
+                    type="file" 
+                    accept="image/*" 
+                    className="hidden" 
+                    onChange={handleImageChange}
+                  />
+                </div>
+              </div>
+            )}
+
             {postType === "plant" && (
               <div className={styles.section}>
                 <div className={styles.sectionSubtitle}>Select a plant to share</div>
@@ -1308,7 +1377,7 @@ export function CommunityScreen() {
               <button type="button" className={styles.buttonPrimary} onClick={() => void handleCreatePost()}>
                 Publish Post
               </button>
-              <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
+              <button type="button" className={styles.buttonOutline} onClick={resetComposer}>
                 Cancel
               </button>
             </div>

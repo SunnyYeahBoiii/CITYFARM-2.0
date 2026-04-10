@@ -21,12 +21,9 @@ import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketpl
 export class CommunityController {
   constructor(private communityService: CommunityService) {}
 
-  // ============ FEED POSTS ============
+  // ============ POSTS ============
 
-  /**
-   * Get paginated feed posts
-   * Query params: postType?, district?, page=1, limit=10
-   */
+  @UseGuards(JwtAuthGuard)
   @Get('feed')
   async getFeedPosts(
     @CurrentUser('id') userId: string,
@@ -45,26 +42,18 @@ export class CommunityController {
     return this.communityService.getFeedPosts(userId, postType, district, pageNum, limitNum);
   }
 
-  /**
-   * Get a single feed post by ID
-   */
+  @UseGuards(JwtAuthGuard)
   @Get('feed/:postId')
   async getFeedPost(@Param('postId') postId: string, @CurrentUser() userId: string) {
     return this.communityService.getFeedPostById(postId, userId);
   }
 
-  /**
-   * Create a new feed post
-   */
   @UseGuards(JwtAuthGuard)
   @Post('feed')
   async createFeedPost(@CurrentUser('id') userId: string, @Body() dto: CreateFeedPostDto) {
     return this.communityService.createFeedPost(userId, dto);
   }
 
-  /**
-   * Delete a feed post (only by author)
-   */
   @UseGuards(JwtAuthGuard)
   @Delete('feed/:postId')
   async deleteFeedPost(@Param('postId') postId: string, @CurrentUser() userId: string) {
@@ -74,9 +63,6 @@ export class CommunityController {
 
   // ============ COMMENTS ============
 
-  /**
-   * Get comments for a post
-   */
   @Get('feed/:postId/comments')
   async getPostComments(
     @Param('postId') postId: string,
@@ -93,9 +79,6 @@ export class CommunityController {
     return this.communityService.getPostComments(postId, pageNum, limitNum);
   }
 
-  /**
-   * Create a comment on a post
-   */
   @UseGuards(JwtAuthGuard)
   @Post('feed/:postId/comments')
   async createComment(
@@ -106,9 +89,6 @@ export class CommunityController {
     return this.communityService.createComment(postId, userId, dto);
   }
 
-  /**
-   * Delete a comment (only by author)
-   */
   @UseGuards(JwtAuthGuard)
   @Delete('comments/:commentId')
   async deleteComment(@Param('commentId') commentId: string, @CurrentUser() userId: string) {
@@ -116,11 +96,8 @@ export class CommunityController {
     return { message: 'Comment deleted successfully' };
   }
 
-  // ============ REACTIONS (LIKES) ============
+  // ============ REACTIONS ============
 
-  /**
-   * Toggle reaction on a post (like/unlike)
-   */
   @UseGuards(JwtAuthGuard)
   @Post('feed/:postId/reactions')
   async toggleReaction(
@@ -134,9 +111,6 @@ export class CommunityController {
 
   // ============ MARKETPLACE ============
 
-  /**
-   * Get marketplace listings
-   */
   @Get('marketplace')
   async getMarketplaceListings(
     @Query('district') district?: string,
@@ -153,9 +127,6 @@ export class CommunityController {
     return this.communityService.getMarketplaceListings(district, pageNum, limitNum);
   }
 
-  /**
-   * Create a marketplace listing
-   */
   @UseGuards(JwtAuthGuard)
   @Post('marketplace')
   async createMarketplaceListing(
@@ -165,9 +136,6 @@ export class CommunityController {
     return this.communityService.createMarketplaceListing(userId, dto);
   }
 
-  /**
-   * Delete a marketplace listing (only by seller)
-   */
   @UseGuards(JwtAuthGuard)
   @Delete('marketplace/:listingId')
   async deleteMarketplaceListing(

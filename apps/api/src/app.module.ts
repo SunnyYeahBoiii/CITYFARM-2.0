@@ -6,6 +6,7 @@ import { AuthModule } from './auth/auth.module';
 import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
+import { AssetsModule } from './assets/assets.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 
 @Module({
@@ -17,6 +18,7 @@ import { LoggingMiddleware } from './common/middleware/logging/logging.middlewar
     UserModule,
     AuthModule,
     CommunityModule,
+    AssetsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -20,6 +20,7 @@ export interface FeedPost {
   listingId?: string;
   contentJson?: object;
   imageAssetId?: string;
+  imageUrl?: string;
   visibilityDistrict?: string;
   isPublished: boolean;
   publishedAt?: string;
@@ -51,6 +52,7 @@ export interface MarketListing {
   priceAmount: number;
   description?: string;
   imageAssetId?: string;
+  imageUrl?: string;
   expiresAt?: string;
   createdAt: string;
   updatedAt: string;

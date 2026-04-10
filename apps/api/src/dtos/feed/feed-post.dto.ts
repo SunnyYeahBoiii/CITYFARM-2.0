@@ -16,6 +16,7 @@ export class FeedPostDto {
   listingId?: string;
   contentJson?: object;
   imageAssetId?: string;
+  imageUrl?: string;
   visibilityDistrict?: string;
   isPublished: boolean;
   publishedAt?: Date;
@@ -24,7 +25,7 @@ export class FeedPostDto {
   user: UserMinimalDto;
   likes: number;
   comments: number;
-  isLiked?: boolean; // Current user's like status
+  isLiked?: boolean;
 }
 
 export class FeedPostsPaginatedDto {

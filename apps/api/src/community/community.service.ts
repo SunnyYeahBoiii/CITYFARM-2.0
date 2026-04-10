@@ -1,17 +1,33 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedPostDto, PostType } from '../dtos/feed/create-feed-post.dto';
-import { FeedPostDto, UserMinimalDto, FeedPostsPaginatedDto } from '../dtos/feed/feed-post.dto';
-import { CreateFeedCommentDto, FeedCommentDto, FeedCommentsDto } from '../dtos/feed/feed-comment.dto';
-import { CreatePostReactionDto, ReactionType } from '../dtos/feed/post-reaction.dto';
+import {
+  FeedPostDto,
+  UserMinimalDto,
+  FeedPostsPaginatedDto,
+} from '../dtos/feed/feed-post.dto';
+import {
+  CreateFeedCommentDto,
+  FeedCommentDto,
+  FeedCommentsDto,
+} from '../dtos/feed/feed-comment.dto';
+import {
+  CreatePostReactionDto,
+  ReactionType,
+} from '../dtos/feed/post-reaction.dto';
 import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketplace-listing.dto';
-import { MarketplaceListingDto, MarketplaceListingsPaginatedDto } from '../dtos/marketplace/marketplace-listing.dto';
+import {
+  MarketplaceListingDto,
+  MarketplaceListingsPaginatedDto,
+} from '../dtos/marketplace/marketplace-listing.dto';
 
 @Injectable()
 export class CommunityService {
   constructor(private prisma: PrismaService) {}
-
-  // ============ FEED POSTS ============
 
   async getFeedPosts(
     userId: string,
@@ -53,9 +69,20 @@ export class CommunityService {
             },
           },
           reactions: {
-            where: { userId },
+            where: { userId: userId || '' },
+            select: { id: true },
           },
-          comments: true,
+          imageAsset: {
+            select: {
+              publicUrl: true,
+            },
+          },
+          _count: {
+            select: {
+              reactions: true,
+              comments: true,
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -77,7 +104,10 @@ export class CommunityService {
     };
   }
 
-  async createFeedPost(userId: string, dto: CreateFeedPostDto): Promise<FeedPostDto> {
+  async createFeedPost(
+    userId: string,
+    dto: CreateFeedPostDto,
+  ): Promise<FeedPostDto> {
     const post = await this.prisma.feedPost.create({
       data: {
         userId,
@@ -163,16 +193,18 @@ export class CommunityService {
     });
   }
 
-  // ============ COMMENTS ============
-
-  async getPostComments(postId: string, page: number = 1, limit: number = 20): Promise<FeedCommentsDto> {
+  async getPostComments(
+    postId: string,
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<FeedCommentsDto> {
     const skip = (page - 1) * limit;
 
     const [comments, total] = await Promise.all([
       this.prisma.feedComment.findMany({
         where: {
           postId,
-          parentCommentId: null, // Only root comments
+          parentCommentId: null,
         },
         include: {
           user: {
@@ -229,7 +261,11 @@ export class CommunityService {
     };
   }
 
-  async createComment(postId: string, userId: string, dto: CreateFeedCommentDto): Promise<FeedCommentDto> {
+  async createComment(
+    postId: string,
+    userId: string,
+    dto: CreateFeedCommentDto,
+  ): Promise<FeedCommentDto> {
     // Verify post exists
     const post = await this.prisma.feedPost.findUnique({
       where: { id: postId },
@@ -284,14 +320,11 @@ export class CommunityService {
     });
   }
 
-  // ============ REACTIONS (LIKES) ============
-
   async togglePostReaction(
     postId: string,
     userId: string,
     dto: CreatePostReactionDto,
   ): Promise<boolean> {
-    // Verify post exists
     const post = await this.prisma.feedPost.findUnique({
       where: { id: postId },
     });
@@ -309,13 +342,11 @@ export class CommunityService {
     });
 
     if (existingReaction) {
-      // Unlike
       await this.prisma.postReaction.delete({
         where: { id: existingReaction.id },
       });
-      return false; // Unliked
+      return false;
     } else {
-      // Like
       await this.prisma.postReaction.create({
         data: {
           postId,
@@ -323,7 +354,7 @@ export class CommunityService {
           reactionType: dto.reactionType,
         },
       });
-      return true; // Liked
+      return true;
     }
   }
 
@@ -389,7 +420,6 @@ export class CommunityService {
     userId: string,
     dto: CreateMarketplaceListingDto,
   ): Promise<MarketplaceListingDto> {
-    // Verify garden plant exists and belongs to user
     const gardenPlant = await this.prisma.gardenPlant.findUnique({
       where: { id: dto.gardenPlantId },
     });
@@ -402,7 +432,6 @@ export class CommunityService {
       throw new ForbiddenException('You can only list your own plants');
     }
 
-    // Get seller profile for pickup district
     const sellerProfile = await this.prisma.userProfile.findUnique({
       where: { userId },
     });
@@ -413,7 +442,7 @@ export class CommunityService {
         gardenPlantId: dto.gardenPlantId,
         title: dto.product,
         quantity: dto.quantity,
-        unit: 'unit', // Set default or update DTO if needed
+        unit: 'unit',
         priceAmount: dto.priceAmount,
         description: dto.description,
         imageAssetId: dto.imageAssetId,
@@ -441,7 +470,10 @@ export class CommunityService {
     return this.mapListingToDto(listing);
   }
 
-  async deleteMarketplaceListing(listingId: string, userId: string): Promise<void> {
+  async deleteMarketplaceListing(
+    listingId: string,
+    userId: string,
+  ): Promise<void> {
     const listing = await this.prisma.marketplaceListing.findUnique({
       where: { id: listingId },
     });
@@ -470,15 +502,16 @@ export class CommunityService {
       listingId: post.listingId,
       contentJson: post.contentJson,
       imageAssetId: post.imageAssetId,
+      imageUrl: post.imageAsset?.publicUrl,
       visibilityDistrict: post.visibilityDistrict,
       isPublished: post.isPublished,
       publishedAt: post.publishedAt,
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
       user: this.mapUserToMinimalDto(post.user),
-      likes: post.reactions?.length || 0,
-      comments: post.comments?.length || 0,
-      isLiked: post.reactions?.some((r) => r.userId === currentUserId) || false,
+      likes: post._count?.reactions || 0,
+      comments: post._count?.comments || 0,
+      isLiked: post.reactions?.length > 0,
     };
   }
 
@@ -491,7 +524,8 @@ export class CommunityService {
       createdAt: comment.createdAt,
       updatedAt: comment.updatedAt,
       user: this.mapUserToMinimalDto(comment.user),
-      replies: comment.replies?.map((reply) => this.mapCommentToDto(reply)) || [],
+      replies:
+        comment.replies?.map((reply) => this.mapCommentToDto(reply)) || [],
     };
   }
 
@@ -500,7 +534,7 @@ export class CommunityService {
       id: listing.id,
       sellerId: listing.sellerId,
       gardenPlantId: listing.gardenPlantId,
-      product: listing.title, // Map Prisma 'title' to DTO 'product'
+      product: listing.title,
       quantity: listing.quantity?.toString() || listing.quantity,
       priceAmount: listing.priceAmount,
       description: listing.description,
