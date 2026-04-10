@@ -13,7 +13,9 @@ export class AppService {
   // Hàm gọi Python được đổi thành private vì nó chỉ phục vụ nội bộ file này
   private async getAIAdvice(payload: any) {
     try {
-      const response = await fetch("http://model-api:3002/api/chat", {
+      // Gọi xuống Backend Python qua mạng LAN ảo của Docker
+      const modelBase = (process.env.MODEL_API_URL ?? "http://model-api:3002").replace(/\/$/, "");
+      const response = await fetch(`${modelBase}/api/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload)

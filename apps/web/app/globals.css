@@ -1,13 +1,29 @@
+@import "tailwindcss";
+
+@source "../app/**/*.{js,ts,jsx,tsx,mjs}";
+@source "../components/**/*.{js,ts,jsx,tsx,mjs}";
+@source "../lib/**/*.{js,ts,jsx,tsx,mjs}";
+@source "../../packages/**/*.{js,ts,jsx,tsx,mjs}";
+
 :root {
   --color-bg: #f4efe4;
   --color-surface: rgba(255, 255, 255, 0.72);
   --color-ink: #172718;
   --color-muted: #5c6b5f;
+  /* Khớp cityfarm.module (.screen, tiêu đề, viền, nút phụ) */
+  --color-screen: #f8faf7;
+  --color-heading: #1f2916;
+  --color-border-subtle: rgba(31, 41, 22, 0.08);
+  --color-interactive-bg: #eef4ea;
+  --color-interactive-hover: #dde8d3;
+  --color-interactive-ink: #425535;
   --color-line: rgba(38, 63, 40, 0.1);
   --color-green-deep: #355b31;
   --color-green-soft: #79965e;
   --color-soil: #cd924a;
+  --color-focus-ring: rgba(53, 91, 49, 0.28);
   --shadow-soft: 0 24px 60px rgba(27, 44, 31, 0.08);
+  --shadow-device: 0 30px 80px rgba(33, 49, 30, 0.12);
 }
 
 html,
@@ -29,10 +45,10 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-* {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
-  padding: 0;
-  margin: 0;
 }
 
 *::selection {
