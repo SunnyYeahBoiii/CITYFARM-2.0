@@ -6,13 +6,11 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useId, useState } from "react";
 import {
   dirtOptions,
-  feedPosts,
   getPlantById,
   getPlants,
   getTimelineForPlant,
   homeStats,
   kits,
-  marketListings,
   potOptions,
   reminders,
   scanAnalysis,
@@ -26,12 +24,13 @@ import {
   type Plant,
   type PlantHealth,
   type ScanRecommendation,
+  PostType,
 } from "../../lib/cityfarm-data";
+import { createCommunityPost, loadCommunityData, toggleCommunityLike } from "../../lib/community-bridge";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
 type SharedDetailTab = "Timeline" | "Journal";
-type FeedFilter = "all" | "showcase" | "question";
 type CommunityTab = "feed" | "market";
 type ScanStep = "camera" | "analyzing" | "results" | "visualization";
 type ProductType = "kit" | "seed" | "dirt" | "pot";
@@ -125,7 +124,9 @@ export function HomeScreen() {
               <div className={styles.brandTagline}>Grow clean, live green</div>
             </div>
           </div>
-          <div className={styles.profileBadge}>SG</div>
+          <Link href="/account" className={styles.profileBadge} aria-label="Open account">
+            SG
+          </Link>
         </div>
 
         <div className={styles.heroCard}>
@@ -947,50 +948,111 @@ export function ScanScreen() {
 
 export function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
-  const [posts, setPosts] = useState<FeedPost[]>(feedPosts);
-  const [listings] = useState<MarketListing[]>(marketListings);
+  const [feedFilter, setFeedFilter] = useState<PostType | "all">("all");
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [communitySource, setCommunitySource] = useState<"api" | "fallback" | "mixed">("fallback");
+  const [isCommunityLoading, setIsCommunityLoading] = useState(true);
+  const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
   const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
 
-  const filteredPosts =
-    feedFilter === "all" ? posts : posts.filter((post) => post.type === feedFilter);
+  const reloadCommunityData = async (activeRef?: { current: boolean }) => {
+    try {
+      setIsCommunityLoading(true);
+      const result = await loadCommunityData();
 
-  const handleLike = (postId: string) => {
+      if (activeRef && !activeRef.current) {
+        return;
+      }
+
+      setPosts(result.posts);
+      setListings(result.listings);
+      setCommunitySource(result.source);
+    } finally {
+      if (!activeRef || activeRef.current) {
+        setIsCommunityLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const activeRef = { current: true };
+
+    void reloadCommunityData(activeRef);
+
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isCommunityLoading || communitySource === "api") {
+      setShowFallbackToast(false);
+      return;
+    }
+
+    setShowFallbackToast(true);
+    const timer = window.setTimeout(() => {
+      setShowFallbackToast(false);
+    }, 2800);
+
+    return () => {
+      window.clearTimeout(timer);
+    };
+  }, [communitySource, isCommunityLoading]);
+
+  const filteredPosts =
+    feedFilter === "all" ? posts : posts.filter((post) => post.postType === feedFilter);
+
+  const handleLike = async (postId: string) => {
+    const currentPost = posts.find((post) => post.id === postId);
+    const wasLiked = Boolean(currentPost?.isLiked);
+    const optimisticLiked = !wasLiked;
+
     setPosts((current) =>
       current.map((post) =>
         post.id === postId
           ? {
               ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+              isLiked: optimisticLiked,
+              likes: optimisticLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
+            }
+          : post,
+      ),
+    );
+
+    const actualLiked = await toggleCommunityLike(postId, wasLiked);
+    if (actualLiked === optimisticLiked) {
+      return;
+    }
+
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: actualLiked,
+              likes: actualLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
             }
           : post,
       ),
     );
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!caption.trim()) {
       return;
     }
 
-    const newPost: FeedPost = {
-      id: `${Date.now()}`,
-      type: postType === "plant" ? "plant-share" : postType === "image" ? "showcase" : "showcase",
-      user: "You",
-      location: "Dĩ An",
+    const newPost = await createCommunityPost({
+      postType: postType === "plant" ? PostType.PLANT_SHARE : PostType.SHOWCASE,
       caption,
-      image: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
-      sharedPlantId: postType === "plant" ? selectedPlantId : undefined,
-      likes: 0,
-      comments: 0,
-      time: "Just now",
-      tags: postType === "plant" ? ["#PlantShare"] : ["#CityFarm"],
-      isLiked: false,
-    };
+      imageAssetId: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
+      gardenPlantId: postType === "plant" ? selectedPlantId : undefined,
+    });
 
     setPosts((current) => [newPost, ...current]);
     setCaption("");
@@ -1003,7 +1065,9 @@ export function CommunityScreen() {
       <header className={styles.screenHeader}>
         <div>
           <div className={styles.screenHeaderTitle}>Community</div>
-          <div className={styles.screenHeaderMeta}>Social feed and fresh market in one place.</div>
+          <div className={styles.screenHeaderMeta}>
+            Social feed and fresh market in one place. Source: {isCommunityLoading ? "loading" : communitySource}.
+          </div>
         </div>
         <div className={styles.headerActions}>
           {activeTab === "feed" && (
@@ -1018,6 +1082,25 @@ export function CommunityScreen() {
       </header>
 
       <div className={styles.screenPadded}>
+        {showFallbackToast && (
+          <div
+            role="status"
+            aria-live="polite"
+            style={{
+              marginBottom: "0.75rem",
+              border: "1px solid #d7b76c",
+              background: "#fff7e6",
+              color: "#6b4f14",
+              borderRadius: "0.75rem",
+              padding: "0.65rem 0.8rem",
+              fontSize: "0.83rem",
+              fontWeight: 600,
+            }}
+          >
+            API is unavailable. Showing fallback Community data.
+          </div>
+        )}
+
         <div className={styles.modeTabs}>
           <button
             type="button"
@@ -1033,6 +1116,14 @@ export function CommunityScreen() {
           >
             Fresh Market
           </button>
+          <button
+            type="button"
+            className={styles.filterChip}
+            disabled={isCommunityLoading}
+            onClick={() => void reloadCommunityData()}
+          >
+            {isCommunityLoading ? "Retrying..." : "Retry API"}
+          </button>
         </div>
 
         {activeTab === "feed" && (
@@ -1047,8 +1138,8 @@ export function CommunityScreen() {
               </button>
               <button
                 type="button"
-                className={feedFilter === "showcase" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setFeedFilter("showcase")}
+                className={feedFilter === PostType.SHOWCASE ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setFeedFilter(PostType.SHOWCASE)}
               >
                 <CameraIcon />
                 Showcase
@@ -1056,9 +1147,9 @@ export function CommunityScreen() {
               <button
                 type="button"
                 className={
-                  feedFilter === "question" ? styles.filterChipQuestionActive : `${styles.filterChip} ${styles.filterChipQuestion}`
+                  feedFilter === PostType.QUESTION ? styles.filterChipQuestionActive : `${styles.filterChip} ${styles.filterChipQuestion}`
                 }
-                onClick={() => setFeedFilter("question")}
+                onClick={() => setFeedFilter(PostType.QUESTION)}
               >
                 <HelpIcon />
                 Q&amp;A
@@ -1066,57 +1157,59 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.postFeed}>
+              {isCommunityLoading && <div className={styles.metaText}>Loading community...</div>}
+              {!isCommunityLoading && filteredPosts.length === 0 && (
+                <div className={styles.metaText}>No posts available yet.</div>
+              )}
               {filteredPosts.map((post) => (
                 <div key={post.id} className={styles.postCard}>
                   <div className={styles.postHeader}>
                     <div className={styles.feedHead}>
                       <div className={styles.avatarRow}>
-                        <Avatar name={post.user} />
+                        <Avatar name={post.user.username} />
                         <div>
                           <div className={styles.headerRow}>
-                            <div className={styles.plantName}>{post.user}</div>
-                            {post.type === "question" && <div className={styles.questionPill}>Question</div>}
-                            {post.type === "plant-share" && <div className={styles.sharePill}>Plant Share</div>}
+                            <div className={styles.plantName}>{post.user.username}</div>
+                            {post.postType === PostType.QUESTION && <div className={styles.questionPill}>Question</div>}
+                            {post.postType === PostType.PLANT_SHARE && <div className={styles.sharePill}>Plant Share</div>}
                           </div>
-                          <div className={styles.feedMetaText}>{post.location}</div>
+                          <div className={styles.feedMetaText}>{post.user.district}</div>
                         </div>
                       </div>
-                      <div className={styles.feedMetaText}>{post.time}</div>
+                      <div className={styles.feedMetaText}>
+                        {new Date(post.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {post.type !== "plant-share" && post.image && (
+                  {post.postType !== PostType.PLANT_SHARE && post.imageAssetId && (
                     <div className={styles.postImage}>
-                      <img src={post.image} alt={post.caption} />
+                      <img src={post.imageAssetId} alt={post.caption} />
                     </div>
                   )}
 
-                  {post.type === "plant-share" && post.sharedPlantId && getPlantById(post.sharedPlantId) && (
-                    <Link href={`/community/shared/${post.sharedPlantId}`} className={styles.shareImage}>
-                      <img src={getPlantById(post.sharedPlantId)?.imageUrl} alt={post.caption} />
+                  {post.postType === PostType.PLANT_SHARE && post.gardenPlantId && getPlantById(post.gardenPlantId) && (
+                    <Link href={`/community/shared/${post.gardenPlantId}`} className={styles.shareImage}>
+                      <img src={getPlantById(post.gardenPlantId)?.imageUrl} alt={post.caption} />
                     </Link>
                   )}
 
                   <div className={styles.postBody}>
                     <div className={styles.postActions}>
-                      <button type="button" className={styles.ghostButton} onClick={() => handleLike(post.id)}>
+                      <button type="button" className={styles.ghostButton} onClick={() => void handleLike(post.id)}>
                         <HeartIcon filled={post.isLiked} />
                       </button>
                       <span className={styles.metaText}>{post.likes} likes</span>
                       <span className={styles.metaText}>{post.comments} comments</span>
                     </div>
                     <div className={styles.captionText}>
-                      <strong>{post.user}</strong> {post.caption}
+                      <strong>{post.user.username}</strong> {post.caption}
                     </div>
-                    {post.tags.length > 0 && (
-                      <div className={styles.tagRow} style={{ marginTop: "0.7rem" }}>
-                        {post.tags.map((tag) => (
-                          <span key={tag} className={styles.tag}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -1134,20 +1227,135 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.listingFeed} style={{ marginTop: "1rem" }}>
+              {!isCommunityLoading && listings.length === 0 && (
+                <div className={styles.metaText}>No marketplace listings available.</div>
+              )}
               {listings.map((listing) => (
                 <div key={listing.id} className={styles.listingCard}>
                   <div className={styles.listingBody}>
                     <div className={styles.listingRow}>
                       <div className={styles.listingImage}>
-                        <img src={listing.imageUrl} alt={listing.plant} />
+                        <img src={listing.imageAssetId} alt={listing.product} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <div className={styles.listingHead}>
                           <div>
-                            <div className={styles.plantName}>{listing.plant}</div>
+                            <div className={styles.plantName}>{listing.product}</div>
                             <div className={styles.metaText}>
-                              {listing.quantity} • {listing.postedTime}
+                              {listing.quantity} • {new Date(listing.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                             </div>
+                          </div>
+                          <div className={styles.matchPill}>₫{listing.priceAmount.toLocaleString()}</div>
+                        </div>
+                        <div className={styles.captionText} style={{ marginTop: "0.55rem" }}>
+                          {listing.description}
+                        </div>
+                        <div className={styles.tagRow} style={{ marginTop: "0.75rem" }}>
+                          <span className={styles.tag}>{listing.seller.username}</span>
+                          <span className={styles.tag}>{listing.seller.district}</span>
+                          {listing.seller.verifiedGrower && <span className={styles.verifiedPill}>Verified Grower</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isCreating && (
+        <div className={styles.composerOverlay} onClick={() => setIsCreating(false)}>
+          <div className={styles.composerSheet} onClick={(event) => event.stopPropagation()}>
+            <div className={styles.sheetHead}>
+              <div>
+                <div className={styles.sectionTitle}>Create Post</div>
+                <div className={styles.sectionSubtitle}>Share a progress update or ask a question.</div>
+              </div>
+              <button type="button" className={styles.iconButton} onClick={() => setIsCreating(false)}>
+                <CloseIcon />
+              </button>
+            </div>
+
+            <div className={styles.orderTabs}>
+              <button
+                type="button"
+                className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setPostType("caption")}
+              >
+                Caption
+              </button>
+              <button
+                type="button"
+                className={postType === "image" ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setPostType("image")}
+              >
+                Image
+              </button>
+              <button
+                type="button"
+                className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setPostType("plant")}
+              >
+                Plant Share
+              </button>
+            </div>
+
+            <div className={styles.section}>
+              <textarea
+                className={styles.textarea}
+                placeholder="Write your update..."
+                value={caption}
+                onChange={(event) => setCaption(event.target.value)}
+              />
+            </div>
+
+            {postType === "plant" && (
+              <div className={styles.section}>
+                <div className={styles.sectionSubtitle}>Select a plant to share</div>
+                <div className={styles.gridTwo}>
+                  {getPlants().map((plant) => (
+                    <button
+                      key={plant.id}
+                      type="button"
+                      className={styles.selectorCard}
+                      onClick={() => setSelectedPlantId(plant.id)}
+                      style={{
+                        outline: selectedPlantId === plant.id ? "2px solid #567a3d" : "none",
+                      }}
+                    >
+                      <div className={styles.selectorBody}>
+                        <div className={styles.avatarRow}>
+                          <div className={styles.plantThumb} style={{ width: "3.25rem", height: "3.25rem" }}>
+                            <img src={plant.imageUrl} alt={plant.name} />
+                          </div>
+                          <div>
+                            <div className={styles.plantName}>{plant.name}</div>
+                            <div className={styles.metaText}>Day {plant.daysGrowing}</div>
+                          </div>
+                        </div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
+              <button type="button" className={styles.buttonPrimary} onClick={() => void handleCreatePost()}>
+                Publish Post
+              </button>
+              <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
                           </div>
                           <div className={styles.matchPill}>{listing.price}</div>
                         </div>

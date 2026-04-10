@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
-import { AuthProvider } from "@/context/AuthContext";
+import { Providers } from "./providers";
 import { getUser } from "@/lib/auth-server";
 
 const geistSans = localFont({
@@ -28,10 +28,8 @@ export default async function RootLayout({
 
   return (
     <html lang="vi">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
-        <AuthProvider initialUser={user}>
-          {children}
-        </AuthProvider>
+      <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );
