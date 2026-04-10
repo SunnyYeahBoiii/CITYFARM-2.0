@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useAuth } from "../../../components/cityfarm/auth-context";
+import { useAuth } from "@/context/AuthContext";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import styles from "../../../components/cityfarm/cityfarm.module.css";
 
@@ -40,10 +40,7 @@ export default function LoginPage() {
       return;
     }
 
-    const authenticated = await login({
-      email: email.trim(),
-      password: password.trim(),
-    });
+    const authenticated = await login(email.trim(), password.trim());
 
     if (!authenticated) {
       return;

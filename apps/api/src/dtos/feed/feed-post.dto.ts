@@ -1,4 +1,4 @@
-import { PostType } from './create-feed-post.dto';
+import { PostType } from 'generated/prisma/enums';
 
 export class UserMinimalDto {
   id: string;

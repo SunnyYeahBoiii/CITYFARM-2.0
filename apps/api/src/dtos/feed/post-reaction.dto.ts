@@ -1,10 +1,7 @@
 import { IsEnum } from 'class-validator';
+import { ReactionType } from 'generated/prisma/enums';
 
-export enum ReactionType {
-  LIKE = 'like',
-  LOVE = 'love',
-  HELPFUL = 'helpful',
-}
+export { ReactionType };
 
 export class CreatePostReactionDto {
   @IsEnum(ReactionType)

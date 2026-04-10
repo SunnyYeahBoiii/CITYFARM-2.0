@@ -1,17 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useAuth } from "./auth-context";
+import { useAuth } from "@/context/AuthContext";
 import styles from "./cityfarm.module.css";
 
 export function AuthGate({ children }: { children: React.ReactNode }) {
-  const { ready, loggedIn } = useAuth();
+  const { isAuthReady, isAuthenticated } = useAuth();
 
-  if (!ready) {
+  if (!isAuthReady) {
     return null;
   }
 
-  if (!loggedIn) {
+  if (!isAuthenticated) {
     return (
       <div className={styles.appBackdrop}>
         <div className={styles.shellCenter}>

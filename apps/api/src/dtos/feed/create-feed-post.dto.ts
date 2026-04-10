@@ -1,10 +1,7 @@
 import { IsEnum, IsString, IsOptional, IsJSON } from 'class-validator';
+import { PostType } from 'generated/prisma/enums';
 
-export enum PostType {
-  SHOWCASE = 'showcase',
-  QUESTION = 'question',
-  PLANT_SHARE = 'plant-share',
-}
+export { PostType };
 
 export class CreateFeedPostDto {
   @IsEnum(PostType)

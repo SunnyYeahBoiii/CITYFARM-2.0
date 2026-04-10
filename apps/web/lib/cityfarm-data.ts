@@ -57,9 +57,9 @@ export interface Reminder {
 
 // Post types
 export enum PostType {
-  SHOWCASE = "showcase",
-  QUESTION = "question",
-  PLANT_SHARE = "plant-share",
+  SHOWCASE = "SHOWCASE",
+  QUESTION = "QUESTION",
+  PLANT_SHARE = "PLANT_SHARE",
 }
 
 export interface UserMinimal {

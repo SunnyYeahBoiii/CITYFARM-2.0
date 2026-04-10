@@ -2,19 +2,19 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
-import { useAuth } from "../components/cityfarm/auth-context";
+import { useAuth } from "@/context/AuthContext";
 
 export default function Home() {
   const router = useRouter();
-  const { ready, loggedIn } = useAuth();
+  const { isAuthReady, isAuthenticated } = useAuth();
 
   useEffect(() => {
-    if (!ready) {
+    if (!isAuthReady) {
       return;
     }
 
-    router.replace(loggedIn ? "/home" : "/login");
-  }, [router, ready, loggedIn]);
+    router.replace(isAuthenticated ? "/home" : "/login");
+  }, [router, isAuthReady, isAuthenticated]);
 
   return null;
 }

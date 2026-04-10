@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { useAuth } from "../../../components/cityfarm/auth-context";
+import { useAuth } from "@/context/AuthContext";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import styles from "../../../components/cityfarm/cityfarm.module.css";
 
@@ -26,37 +26,33 @@ export default function RegisterPage() {
 
   const emailError =
     touched.email && email.trim().length === 0
-      ? "This field cannot be empty."
+      ? "Email cannot be empty."
       : touched.email && !emailRegex.test(email.trim())
-        ? "Please enter a valid email address."
+        ? "Please enter a valid email."
         : "";
-  const usernameError = touched.username && username.trim().length === 0 ? "This field cannot be empty." : "";
+
+  const usernameError = touched.username && username.trim().length === 0 ? "Username cannot be empty." : "";
+
   const passwordError =
     touched.password && password.trim().length === 0
-      ? "This field cannot be empty."
+      ? "Password cannot be empty."
       : touched.password && password.trim().length < 8
         ? "Password must be at least 8 characters."
         : "";
+
   const confirmPasswordError =
-    touched.confirmPassword && confirmPassword.trim().length === 0
-      ? "This field cannot be empty."
-      : touched.confirmPassword && confirmPassword.trim().length < 8
-        ? "Password must be at least 8 characters."
-      : touched.confirmPassword && confirmPassword !== password
-        ? "Confirm password must match password."
-        : "";
+    touched.confirmPassword && (!confirmPassword || confirmPassword !== password)
+      ? "Passwords do not match."
+      : "";
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-
-    const nextTouched = {
+    setTouched({
       email: true,
       username: true,
       password: true,
       confirmPassword: true,
-    };
-
-    setTouched(nextTouched);
+    });
 
     if (
       email.trim().length === 0 ||
@@ -71,9 +67,8 @@ export default function RegisterPage() {
 
     const authenticated = await register({
       email: email.trim(),
-      username: username.trim(),
       password: password.trim(),
-      confirmPassword: confirmPassword.trim(),
+      displayName: username.trim(),
     });
 
     if (!authenticated) {

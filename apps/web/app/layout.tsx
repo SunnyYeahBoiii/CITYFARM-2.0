@@ -29,7 +29,7 @@ export default async function RootLayout({
   return (
     <html lang="vi">
       <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
-        <Providers>{children}</Providers>
+        <Providers initialUser={user}>{children}</Providers>
       </body>
     </html>
   );

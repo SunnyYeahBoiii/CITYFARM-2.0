@@ -1,7 +1,8 @@
 "use client";
 
-import { AuthProvider } from "../components/cityfarm/auth-context";
+import { AuthProvider } from "@/context/AuthContext";
+import type { CurrentUser } from "@/lib/types/auth";
 
-export function Providers({ children }: { children: React.ReactNode }) {
-  return <AuthProvider>{children}</AuthProvider>;
+export function Providers({ children, initialUser }: { children: React.ReactNode, initialUser: CurrentUser }) {
+  return <AuthProvider initialUser={initialUser}>{children}</AuthProvider>;
 }
