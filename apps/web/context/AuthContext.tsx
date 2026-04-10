@@ -19,6 +19,7 @@ interface AuthContextValue {
   }) => Promise<boolean>;
   logout: () => Promise<void>;
   refresh: () => Promise<boolean>;
+  setupPassword: (password: string) => Promise<boolean>;
 }
 
 interface AuthProviderProps {
@@ -37,6 +38,7 @@ const AuthContext = createContext<AuthContextValue>({
   register: async () => false,
   logout: async () => {},
   refresh: async () => false,
+  setupPassword: async () => false,
 });
 
 export function AuthProvider({ children, initialUser }: AuthProviderProps) {
@@ -100,6 +102,16 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     }
   };
 
+  const setupPassword = async (password: string) => {
+    try {
+      await authApi.setupPassword(password);
+      await syncProfile();
+      return true;
+    } catch {
+      return false;
+    }
+  };
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -111,6 +123,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       register,
       logout,
       refresh,
+      setupPassword,
     }),
     [user, isAuthReady, syncProfile],
   );

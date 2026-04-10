@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { CurrentUser } from '../auth/decorators/current-user.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CreateFeedPostDto, PostType } from '../dtos/feed/create-feed-post.dto';
 import { CreateFeedCommentDto } from '../dtos/feed/feed-comment.dto';
 import { CreatePostReactionDto } from '../dtos/feed/post-reaction.dto';
@@ -29,7 +29,7 @@ export class CommunityController {
    */
   @Get('feed')
   async getFeedPosts(
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
     @Query('postType') postType?: PostType,
     @Query('district') district?: string,
     @Query('page') page: string = '1',
@@ -58,7 +58,7 @@ export class CommunityController {
    */
   @UseGuards(JwtAuthGuard)
   @Post('feed')
-  async createFeedPost(@CurrentUser() userId: string, @Body() dto: CreateFeedPostDto) {
+  async createFeedPost(@CurrentUser('id') userId: string, @Body() dto: CreateFeedPostDto) {
     return this.communityService.createFeedPost(userId, dto);
   }
 
@@ -100,7 +100,7 @@ export class CommunityController {
   @Post('feed/:postId/comments')
   async createComment(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateFeedCommentDto,
   ) {
     return this.communityService.createComment(postId, userId, dto);
@@ -125,7 +125,7 @@ export class CommunityController {
   @Post('feed/:postId/reactions')
   async toggleReaction(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreatePostReactionDto,
   ) {
     const isLiked = await this.communityService.togglePostReaction(postId, userId, dto);
@@ -159,7 +159,7 @@ export class CommunityController {
   @UseGuards(JwtAuthGuard)
   @Post('marketplace')
   async createMarketplaceListing(
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
     @Body() dto: CreateMarketplaceListingDto,
   ) {
     return this.communityService.createMarketplaceListing(userId, dto);
@@ -172,7 +172,7 @@ export class CommunityController {
   @Delete('marketplace/:listingId')
   async deleteMarketplaceListing(
     @Param('listingId') listingId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     await this.communityService.deleteMarketplaceListing(listingId, userId);
     return { message: 'Listing deleted successfully' };

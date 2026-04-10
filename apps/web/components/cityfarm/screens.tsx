@@ -17,16 +17,14 @@ import {
   scanRecommendations,
   seeds,
   type CareHistoryEntry,
-  type FeedPost,
   type JournalEntry,
   type Kit,
-  type MarketListing,
   type Plant,
   type PlantHealth,
   type ScanRecommendation,
-  PostType,
 } from "../../lib/cityfarm-data";
-import { createCommunityPost, loadCommunityData, toggleCommunityLike } from "../../lib/community-bridge";
+import { PostType, type FeedPost, type MarketListing } from "../../lib/types/community";
+import { createPost, loadCommunityData, toggleReaction } from "../../lib/api/community.api";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
@@ -951,9 +949,7 @@ export function CommunityScreen() {
   const [feedFilter, setFeedFilter] = useState<PostType | "all">("all");
   const [posts, setPosts] = useState<FeedPost[]>([]);
   const [listings, setListings] = useState<MarketListing[]>([]);
-  const [communitySource, setCommunitySource] = useState<"api" | "fallback" | "mixed">("fallback");
   const [isCommunityLoading, setIsCommunityLoading] = useState(true);
-  const [showFallbackToast, setShowFallbackToast] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
@@ -970,7 +966,6 @@ export function CommunityScreen() {
 
       setPosts(result.posts);
       setListings(result.listings);
-      setCommunitySource(result.source);
     } finally {
       if (!activeRef || activeRef.current) {
         setIsCommunityLoading(false);
@@ -988,21 +983,6 @@ export function CommunityScreen() {
     };
   }, []);
 
-  useEffect(() => {
-    if (isCommunityLoading || communitySource === "api") {
-      setShowFallbackToast(false);
-      return;
-    }
-
-    setShowFallbackToast(true);
-    const timer = window.setTimeout(() => {
-      setShowFallbackToast(false);
-    }, 2800);
-
-    return () => {
-      window.clearTimeout(timer);
-    };
-  }, [communitySource, isCommunityLoading]);
 
   const filteredPosts =
     feedFilter === "all" ? posts : posts.filter((post) => post.postType === feedFilter);
@@ -1024,7 +1004,7 @@ export function CommunityScreen() {
       ),
     );
 
-    const actualLiked = await toggleCommunityLike(postId, wasLiked);
+    const actualLiked = await toggleReaction(postId);
     if (actualLiked === optimisticLiked) {
       return;
     }
@@ -1047,7 +1027,7 @@ export function CommunityScreen() {
       return;
     }
 
-    const newPost = await createCommunityPost({
+    const newPost = await createPost({
       postType: postType === "plant" ? PostType.PLANT_SHARE : PostType.SHOWCASE,
       caption,
       imageAssetId: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
@@ -1066,7 +1046,7 @@ export function CommunityScreen() {
         <div>
           <div className={styles.screenHeaderTitle}>Community</div>
           <div className={styles.screenHeaderMeta}>
-            Social feed and fresh market in one place. Source: {isCommunityLoading ? "loading" : communitySource}.
+            Social feed and fresh market in one place.
           </div>
         </div>
         <div className={styles.headerActions}>
@@ -1082,24 +1062,6 @@ export function CommunityScreen() {
       </header>
 
       <div className={styles.screenPadded}>
-        {showFallbackToast && (
-          <div
-            role="status"
-            aria-live="polite"
-            style={{
-              marginBottom: "0.75rem",
-              border: "1px solid #d7b76c",
-              background: "#fff7e6",
-              color: "#6b4f14",
-              borderRadius: "0.75rem",
-              padding: "0.65rem 0.8rem",
-              fontSize: "0.83rem",
-              fontWeight: 600,
-            }}
-          >
-            API is unavailable. Showing fallback Community data.
-          </div>
-        )}
 
         <div className={styles.modeTabs}>
           <button

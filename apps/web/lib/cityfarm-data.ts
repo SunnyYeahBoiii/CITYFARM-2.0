@@ -1,3 +1,4 @@
+import { PostType } from "./types/community";
 export type PlantHealth = "healthy" | "warning" | "critical";
 
 export interface PlantTimelineStage {
@@ -53,13 +54,6 @@ export interface Reminder {
   action: string;
   time: string;
   icon: "water" | "sun" | "check";
-}
-
-// Post types
-export enum PostType {
-  SHOWCASE = "SHOWCASE",
-  QUESTION = "QUESTION",
-  PLANT_SHARE = "PLANT_SHARE",
 }
 
 export interface UserMinimal {

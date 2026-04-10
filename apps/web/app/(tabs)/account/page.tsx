@@ -144,21 +144,6 @@ export default function AccountPage() {
             </button>
           </div>
         </section>
-
-        <section className={styles.section}>
-          <button type="button" className={styles.taskCard} onClick={handleLogout}>
-            <div className={styles.taskLead}>
-              <div className={styles.taskIcon} style={{ background: "#fde7e2", color: "#a3452d" }}>
-                <FaRightFromBracket size={18} aria-hidden="true" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className={styles.taskTitle}>End session</div>
-                <div className={styles.taskText}>This clears the current demo login state.</div>
-              </div>
-            </div>
-            <div className={styles.timePill}>Logout</div>
-          </button>
-        </section>
       </div>
     </div>
   );

@@ -12,11 +12,6 @@ import { SetupPasswordDto } from 'src/dtos/auth/setup-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 
-function readCookie(req: Request, cookieName: string): string {
-  const cookieValue: unknown = req.cookies?.[cookieName];
-  return typeof cookieValue === "string" ? cookieValue : "";
-}
-
 @Controller('auth')
 export class AuthController {
   private readonly frontendUrl: string;
@@ -101,7 +96,7 @@ export class AuthController {
     res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
     res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
     
-    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/auth/setup-password?source=google`;
+    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/setup-password?source=google`;
 
     res.redirect(redirectUrl);
   }
@@ -123,7 +118,7 @@ export class AuthController {
 
   @Get('profile')
   async getProfile(@Req() req: Request) {
-    const refresh_token = readCookie(req, 'refresh_token');
+    const refresh_token = this.authService.readCookie(req, 'refresh_token');
 
     if (!refresh_token) {
       return this.getGuestProfile();
