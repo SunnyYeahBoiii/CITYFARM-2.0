@@ -20,6 +20,7 @@ const chatClient = axios.create({
   headers: { "Content-Type": "application/json" },
 });
 
+/** Cùng origin → Route Next proxy → chỉ NestJS (`NEST_API_URL`). */
 export async function postChat(body: ChatRequestBody): Promise<ChatApiResponse> {
   const { data } = await chatClient.post<ChatApiResponse>("/api/chat", body);
   return data;

@@ -23,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const upstream = await fetch(`${nestBaseUrl()}/chat`, {
+    const upstream = await fetch(`${nestBaseUrl()}/api/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -33,7 +33,10 @@ export async function POST(request: Request) {
     return NextResponse.json(data, { status: upstream.status });
   } catch {
     return NextResponse.json(
-      { success: false, error: "Không kết nối được tới API. Kiểm tra NEST_API_URL và server NestJS." },
+      {
+        success: false,
+        error: "Không kết nối được tới NestJS. Kiểm tra NEST_API_URL và server API.",
+      },
       { status: 502 },
     );
   }

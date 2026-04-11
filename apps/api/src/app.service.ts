@@ -4,10 +4,89 @@ import { PrismaService } from './prisma/prisma.service';
 @Injectable()
 export class AppService {
   // Inject PrismaService để tương tác với Database
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   getHello(): string {
     return 'Hello World!';
+  }
+
+  /** Context phẳng từ web demo (CityFarm) — map sang RAG giống payload Prisma. */
+  private isWebDemoContext(c: unknown): c is {
+    name: string;
+    type: string;
+    health: string;
+    daysGrowing: number;
+    note: string;
+  } {
+    if (!c || typeof c !== 'object') return false;
+    const o = c as Record<string, unknown>;
+    return (
+      typeof o.name === 'string' &&
+      typeof o.type === 'string' &&
+      typeof o.health === 'string' &&
+      typeof o.daysGrowing === 'number' &&
+      typeof o.note === 'string' &&
+      !('species' in o)
+    );
+  }
+
+  private webDemoContextToRag(context: {
+    name: string;
+    type: string;
+    health: string;
+    daysGrowing: number;
+    note: string;
+  }) {
+    return {
+      user: {
+        displayName: 'Người dùng',
+        bio: 'Không có bio',
+        location: 'Chưa cập nhật',
+      },
+      species: {
+        commonName: context.name,
+        scientificName: context.type,
+        difficulty: 'Chưa cập nhật',
+        lightRequirement: 'Chưa cập nhật',
+        careGuide: {},
+      },
+      currentPlant: {
+        nickname: context.name,
+        status: 'Chưa cập nhật',
+        health: context.health,
+        growthStage: 'Chưa cập nhật',
+        daysGrowing: context.daysGrowing,
+        zoneName: 'Chưa cập nhật',
+        notes: context.note,
+      },
+      history: {
+        recentTasks: [] as string[],
+        recentJournals: [] as string[],
+      },
+    };
+  }
+
+  /**
+   * Luồng chat thống nhất: có plantId → RAG từ DB; có context demo web → map RAG; còn lại → gọi model với context tùy chỉnh hoặc rỗng.
+   */
+  async handleChatRequest(
+    userId: string,
+    body: { message: string; plantId?: string; context?: unknown },
+  ) {
+    const { message, plantId, context } = body;
+    const pid = plantId?.trim();
+    if (pid) {
+      return this.processChatRequest(userId, pid, message);
+    }
+    if (this.isWebDemoContext(context)) {
+      const ragContext = this.webDemoContextToRag(context);
+      return this.getAIAdvice({ message, context: ragContext });
+    }
+    const ctx =
+      context !== undefined && context !== null && typeof context === 'object'
+        ? context
+        : {};
+    return this.getAIAdvice({ message, context: ctx });
   }
 
   // Hàm gọi Python được đổi thành private vì nó chỉ phục vụ nội bộ file này
