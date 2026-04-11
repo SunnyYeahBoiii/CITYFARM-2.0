@@ -1,4 +1,4 @@
-import { DetailShell } from "../../components/cityfarm/screens";
+import { DetailShell } from "@/components/cityfarm/layout/AppShell";
 import { AuthGate } from "../../components/auth/AuthGate";
 
 export default function DetailLayout({

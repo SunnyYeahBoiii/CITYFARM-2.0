@@ -135,8 +135,21 @@ export class CommunityService {
             },
           },
         },
-        reactions: true,
-        comments: true,
+        reactions: {
+          where: { userId },
+          select: { id: true },
+        },
+        imageAsset: {
+          select: {
+            publicUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            reactions: true,
+            comments: true,
+          },
+        },
       },
     });
 
@@ -163,8 +176,19 @@ export class CommunityService {
         },
         reactions: {
           where: { userId },
+          select: { id: true },
         },
-        comments: true,
+        imageAsset: {
+          select: {
+            publicUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            reactions: true,
+            comments: true,
+          },
+        },
       },
     });
 

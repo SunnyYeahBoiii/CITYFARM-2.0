@@ -1,13 +1,13 @@
 @reference "tailwindcss";
 
 .appBackdrop {
-  @apply min-h-screen [padding:0_1rem] [background:radial-gradient(circle_at_top_left,rgba(111,150,84,0.14),transparent_24%),radial-gradient(circle_at_88%_16%,rgba(228,168,98,0.16),transparent_18%),linear-gradient(180deg,#eff3eb_0%,#e4ebde_100%)];
+  @apply min-h-screen [background:radial-gradient(circle_at_top_left,rgba(111,150,84,0.14),transparent_24%),radial-gradient(circle_at_88%_16%,rgba(228,168,98,0.16),transparent_18%),linear-gradient(180deg,#eff3eb_0%,#e4ebde_100%)];
 }
 .shellCenter {
   @apply [width:min(100%,420px)] mx-auto;
 }
 .deviceFrame {
-  @apply min-h-screen flex flex-col bg-white [box-shadow:0_30px_80px_rgba(33,49,30,0.12)];
+  @apply h-screen flex flex-col bg-white overflow-hidden relative mx-auto [width:min(100%,420px)];
 }
 
 .authViewport {
@@ -72,7 +72,13 @@
   }
 }
 .shellMain {
-  @apply flex-1;
+  @apply flex-1 overflow-y-auto;
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
+}
+
+.shellMain::-webkit-scrollbar {
+  display: none; /* Chrome, Safari and Opera */
 }
 .screen {
   @apply [min-height:100%] [background:#f8faf7];
@@ -87,7 +93,23 @@
   @apply min-h-screen bg-white [padding-bottom:6rem];
 }
 .screenHeader {
-  @apply sticky top-0 z-10 flex items-center justify-between [gap:1rem] [padding:1rem_1.25rem] [background:rgba(255,255,255,0.92)] [backdrop-filter:blur(14px)] [border-bottom:1px_solid_rgba(31,41,22,0.08)];
+  @apply sticky top-0 z-[15] flex items-center justify-between [gap:1rem] [padding:1rem_1.25rem] [background:rgba(255,255,255,0.92)] [backdrop-filter:blur(14px)] [border-bottom:1px_solid_rgba(31,41,22,0.08)];
+}
+.screenHeaderTall {
+  @apply flex-col items-stretch [padding:0];
+}
+.screenHeaderMain {
+  @apply flex items-center justify-between [gap:1rem] [padding:0.75rem_1.25rem_0.15rem];
+}
+.headerTabs {
+  @apply flex [padding:0_0.75rem] [margin-bottom:-1px];
+}
+.headerTab,
+.headerTabActive {
+  @apply flex-1 flex flex-col items-center [padding:0.5rem_0] [color:#7c8777] font-bold text-[0.9rem] [border-bottom:2px_solid_transparent] [transition:all_0.2s_ease];
+}
+.headerTabActive {
+  @apply [color:#567a3d] [border-bottom-color:#567a3d];
 }
 .screenHeaderTitle {
   @apply text-xl font-bold [color:#1f2916];
@@ -184,7 +206,7 @@
   @apply [transform:translateY(-1px)];
 }
 .section {
-  @apply [margin-top:1.35rem];
+  @apply [margin-top:1rem];
 }
 .sectionHead {
   @apply flex items-center justify-between [gap:1rem] [margin-bottom:0.85rem];
@@ -354,10 +376,10 @@
   @apply inline-flex items-center [padding:0.35rem_0.65rem] rounded-full [background:#f2f6ef] [border:1px_solid_rgba(31,41,22,0.08)] [color:#567a3d] text-xs font-bold;
 }
 .bottomNav {
-  @apply sticky bottom-0 z-20 bg-white [border-top:1px_solid_rgba(31,41,22,0.08)] [box-shadow:0_-14px_32px_rgba(32,47,29,0.08)];
+  @apply shrink-0 bg-white [border-top:1px_solid_rgba(31,41,22,0.08)] [box-shadow:0_-14px_32px_rgba(32,47,29,0.08)];
 }
 .bottomNavInner {
-  @apply relative flex [align-items:flex-end] justify-between [height:5.3rem] [padding:0_0.75rem];
+  @apply relative flex [align-items:flex-end] justify-between [height:4rem] [padding:0_0.75rem];
 }
 .bottomNavGroup {
   @apply flex flex-1 [align-items:flex-end] [justify-content:space-around] [padding-bottom:0.55rem];
@@ -522,7 +544,7 @@
 .filterRow,
 .orderTabs,
 .modeTabs {
-  @apply flex [gap:0.55rem] [overflow-x:auto] [padding-bottom:0.1rem];
+  @apply flex [gap:0.55rem] [overflow-x:auto] [padding-bottom:0.1rem] [margin-bottom:1rem];
 }
 .filterChip,
 .filterChipActive {
@@ -535,7 +557,7 @@
   @apply [color:#a05b14] [border-color:rgba(160,91,20,0.14)];
 }
 .filterChipQuestionActive {
-  @apply [background:#eb8c2c] text-white [border-color:#eb8c2c];
+  @apply inline-flex items-center [gap:0.35rem] [padding:0.55rem_0.85rem] rounded-full text-white [background:#eb8c2c] [border:1px_solid_#eb8c2c] text-xs font-extrabold whitespace-nowrap;
 }
 .marketBannerTitle {
   @apply text-base font-extrabold [color:#26401c];
@@ -734,9 +756,6 @@
 @media (min-width: 721px) {
   .appBackdrop {
     @apply [padding-block:0];
-  }
-  .deviceFrame {
-    @apply [border-inline:1px_solid_rgba(31,41,22,0.08)];
   }
 }
 
