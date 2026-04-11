@@ -905,10 +905,18 @@ export function CommunityScreen() {
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
-  const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
+  const userPlants = getPlants();
+  const [currentPlantIndex, setCurrentPlantIndex] = useState(0);
+  const [selectedPlantId, setSelectedPlantId] = useState(userPlants[0]?.id ?? "");
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (userPlants[currentPlantIndex]) {
+      setSelectedPlantId(userPlants[currentPlantIndex].id);
+    }
+  }, [currentPlantIndex, userPlants]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -927,6 +935,7 @@ export function CommunityScreen() {
     setPostType("caption");
     setSelectedImage(null);
     setSelectedFile(null);
+    setCurrentPlantIndex(0);
     setIsCreating(false);
   };
 
@@ -1015,8 +1024,13 @@ export function CommunityScreen() {
       }
     }
 
+    let typeToSend = PostType.SHOWCASE;
+    if (postType === "plant") {
+      typeToSend = PostType.PLANT_SHARE;
+    }
+
     const newPost = await createPost({
-      postType: postType === "plant" ? PostType.PLANT_SHARE : PostType.SHOWCASE,
+      postType: typeToSend,
       caption,
       imageAssetId,
       gardenPlantId: postType === "plant" ? selectedPlantId : undefined,
@@ -1213,126 +1227,162 @@ export function CommunityScreen() {
             <div className={styles.sheetHead}>
               <div>
                 <div className={styles.sectionTitle}>Create Post</div>
-                <div className={styles.sectionSubtitle}>Share a progress update or ask a question.</div>
+                <div className={styles.sectionSubtitle}>Share your journey with the community</div>
               </div>
               <button type="button" className={styles.iconButton} onClick={resetComposer}>
                 <CloseIcon />
               </button>
             </div>
 
-            <div className={styles.orderTabs}>
-              <button
-                type="button"
-                className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("caption")}
-              >
-                Caption
-              </button>
-              <button
-                type="button"
-                className={postType === "image" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("image")}
-              >
-                Image
-              </button>
-              <button
-                type="button"
-                className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("plant")}
-              >
-                Plant Share
-              </button>
-            </div>
-
-            <div className={styles.section}>
-              <textarea
-                className={styles.textarea}
-                placeholder="Write your update..."
-                value={caption}
-                onChange={(event) => setCaption(event.target.value)}
-              />
-            </div>
-
-            {postType === "image" && (
-              <div className={styles.section}>
-                <div className={styles.sectionSubtitle}>Select an image to share</div>
-                <div 
-                  className={styles.imagePlaceholder} 
-                  onClick={() => fileInputRef.current?.click()}
-                  style={{
-                    backgroundImage: selectedImage ? `url(${selectedImage})` : 'none',
-                    backgroundSize: 'cover',
-                    backgroundPosition: 'center',
-                    cursor: 'pointer',
-                    minHeight: '220px',
-                    borderRadius: '1.25rem',
-                    backgroundColor: '#f1f6ec',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px dashed #37542d33',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    transition: 'all 0.2s ease'
-                  }}
+            <div className={styles.sheetBody}>
+              <div className={styles.orderTabs}>
+                <button
+                  type="button"
+                  className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("caption")}
                 >
-                  {!selectedImage && (
-                    <div className="flex flex-col items-center gap-3 text-[#37542d]">
-                      <div className="w-12 h-12 rounded-full bg-white flex items-center justify-center shadow-sm">
-                        <PlusIcon />
-                      </div>
-                      <span className="text-sm font-bold opacity-80">Tap to upload photo</span>
-                    </div>
-                  )}
-                  <input 
-                    ref={fileInputRef}
-                    type="file" 
-                    accept="image/*" 
-                    className="hidden" 
-                    onChange={handleImageChange}
-                  />
-                </div>
+                  <PinIcon />
+                  Caption
+                </button>
+                <button
+                  type="button"
+                  className={postType === "image" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("image")}
+                >
+                  <ImageIcon />
+                  Photo
+                </button>
+                <button
+                  type="button"
+                  className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("plant")}
+                >
+                  <SproutIcon />
+                  Plant
+                </button>
               </div>
-            )}
 
-            {postType === "plant" && (
               <div className={styles.section}>
-                <div className={styles.sectionSubtitle}>Select a plant to share</div>
-                <div className={styles.gridTwo}>
-                  {getPlants().map((plant) => (
-                    <button
-                      key={plant.id}
-                      type="button"
-                      className={styles.selectorCard}
-                      onClick={() => setSelectedPlantId(plant.id)}
-                      style={{
-                        outline: selectedPlantId === plant.id ? "2px solid #567a3d" : "none",
-                      }}
-                    >
-                      <div className={styles.selectorBody}>
-                        <div className={styles.avatarRow}>
-                          <div className={styles.plantThumb} style={{ width: "3.25rem", height: "3.25rem" }}>
-                            <img src={plant.imageUrl} alt={plant.name} />
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Write your update..."
+                  value={caption}
+                  onChange={(event) => setCaption(event.target.value)}
+                  style={{ minHeight: "130px", fontSize: "1rem" }}
+                />
+              </div>
+
+              {postType === "image" && (
+                <div className={styles.section}>
+                  <div className={styles.sectionSubtitle}>Select a photo</div>
+                  <div 
+                    className={styles.imagePlaceholder} 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      backgroundImage: selectedImage ? `url(${selectedImage})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      minHeight: '200px',
+                      borderRadius: '1.25rem',
+                      backgroundColor: '#f1f6ec',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {!selectedImage && (
+                      <div className="flex flex-col items-center gap-2 text-[#37542d] opacity-50">
+                        <PlusIcon />
+                        <span className="text-sm font-bold">Tap to upload</span>
+                      </div>
+                    )}
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageChange}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {postType === "plant" && userPlants.length > 0 && (() => {
+                const activePlant = userPlants[currentPlantIndex];
+                if (!activePlant) return null;
+
+                return (
+                  <div className={styles.section}>
+                    <div className={styles.sectionSubtitle}>Select a plant to share</div>
+                    
+                    <div className={styles.horizontalSelector}>
+                      <button 
+                        type="button" 
+                        className={`${styles.navButton} ${styles.navButtonLeft}`}
+                        onClick={() => setCurrentPlantIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentPlantIndex === 0}
+                      >
+                        <ArrowLeftIcon />
+                      </button>
+
+                      <div className={styles.selectorContainer}>
+                        <div className={styles.plantSlide}>
+                          <div className={styles.plantSlideImage}>
+                            <img src={activePlant.imageUrl} alt={activePlant.name} />
                           </div>
-                          <div>
-                            <div className={styles.plantName}>{plant.name}</div>
-                            <div className={styles.metaText}>Day {plant.daysGrowing}</div>
+                          <div className={styles.plantSlideContent}>
+                            <div className={styles.plantSlideType}>{activePlant.type}</div>
+                            <div className={styles.plantSlideName}>{activePlant.name}</div>
+                            
+                            <div className={styles.progressBarContainer}>
+                              <div className={styles.progressBarBase}>
+                                <div 
+                                  className={styles.progressBarFill} 
+                                  style={{ width: `${activePlant.progress}%` }} 
+                                />
+                              </div>
+                              <div className={styles.progressInfo}>
+                                <span>Day {activePlant.daysGrowing}</span>
+                                <span>{activePlant.progress}%</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-              <button type="button" className={styles.buttonPrimary} onClick={() => void handleCreatePost()}>
-                Publish Post
-              </button>
-              <button type="button" className={styles.buttonOutline} onClick={resetComposer}>
-                Cancel
-              </button>
+                      <button 
+                        type="button" 
+                        className={`${styles.navButton} ${styles.navButtonRight}`}
+                        onClick={() => setCurrentPlantIndex(prev => Math.min(userPlants.length - 1, prev + 1))}
+                        disabled={currentPlantIndex === userPlants.length - 1}
+                      >
+                        <ArrowLeftIcon style={{ transform: 'rotate(180deg)' }} />
+                      </button>
+                    </div>
+
+                    <div className={styles.navIndicator}>
+                      {userPlants.map((_, idx) => (
+                        <div 
+                          key={idx} 
+                          className={idx === currentPlantIndex ? `${styles.navDot} ${styles.navDotActive}` : styles.navDot} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ marginTop: "2rem" }}>
+                <button 
+                  type="button" 
+                  className={styles.buttonPrimary} 
+                  style={{ width: "100%", padding: "1rem" }}
+                  onClick={() => void handleCreatePost()}
+                >
+                  Post to Community
+                </button>
+              </div>
             </div>
           </div>
         </div>

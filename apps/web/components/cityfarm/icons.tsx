@@ -1,6 +1,13 @@
 import React from "react";
 
-function baseIcon(children: React.ReactNode) {
+interface IconProps {
+  style?: React.CSSProperties;
+  className?: string;
+  filled?: boolean;
+}
+
+function baseIcon(children: React.ReactNode, props: IconProps = {}) {
+  const { filled, ...svgProps } = props;
   return (
     <svg
       viewBox="0 0 24 24"
@@ -12,6 +19,7 @@ function baseIcon(children: React.ReactNode) {
       width="20"
       height="20"
       aria-hidden="true"
+      {...svgProps}
     >
       {children}
     </svg>
@@ -27,22 +35,24 @@ export function HomeIcon() {
   );
 }
 
-export function BagIcon() {
+export function BagIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="M6 8h12l-1 12H7L6 8Z" />
       <path d="M9 8a3 3 0 0 1 6 0" />
-    </>
+    </>,
+    props
   );
 }
 
-export function SproutIcon() {
+export function SproutIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="M12 20v-8" />
       <path d="M12 12c0-4-2.5-6-6-6 0 4 2.5 6 6 6Z" />
       <path d="M12 12c0-4 2.5-6 6-6 0 4-2.5 6-6 6Z" />
-    </>
+    </>,
+    props
   );
 }
 
@@ -97,14 +107,17 @@ export function ClockIcon() {
   );
 }
 
-export function ArrowLeftIcon() {
+export function ArrowLeftIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="M14.5 5 8 11.5 14.5 18" />
       <path d="M9 11.5h10" />
-    </>
+    </>,
+    props
   );
 }
+
+
 
 export function SparkleIcon() {
   return baseIcon(
@@ -126,12 +139,13 @@ export function TrashIcon() {
   );
 }
 
-export function PlusIcon() {
+export function PlusIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="M12 5v14" />
       <path d="M5 12h14" />
-    </>
+    </>,
+    props
   );
 }
 
@@ -144,11 +158,11 @@ export function SearchIcon() {
   );
 }
 
-export function HeartIcon({ filled = false }: { filled?: boolean }) {
+export function HeartIcon(props: IconProps) {
   return (
     <svg
       viewBox="0 0 24 24"
-      fill={filled ? "currentColor" : "none"}
+      fill={props.filled ? "currentColor" : "none"}
       stroke="currentColor"
       strokeWidth="1.8"
       strokeLinecap="round"
@@ -156,38 +170,43 @@ export function HeartIcon({ filled = false }: { filled?: boolean }) {
       width="20"
       height="20"
       aria-hidden="true"
+      style={props.style}
+      className={props.className}
     >
       <path d="M12 20.4 4.8 13.3A4.6 4.6 0 1 1 11.3 6.8L12 7.6l.7-.8a4.6 4.6 0 1 1 6.5 6.5L12 20.4Z" />
     </svg>
   );
 }
 
-export function HelpIcon() {
+export function HelpIcon(props: IconProps) {
   return baseIcon(
     <>
       <circle cx="12" cy="12" r="8.5" />
       <path d="M9.8 9.2a2.5 2.5 0 1 1 4.4 1.6c-.8.7-1.5 1-1.5 2.2" />
       <circle cx="12" cy="16.8" r=".5" fill="currentColor" stroke="none" />
-    </>
+    </>,
+    props
   );
 }
 
-export function ImageIcon() {
+export function ImageIcon(props: IconProps) {
   return baseIcon(
     <>
       <rect x="4" y="5" width="16" height="14" rx="2" />
       <circle cx="9" cy="10" r="1.2" />
       <path d="m20 15-4-4-6 6-2-2-4 4" />
-    </>
+    </>,
+    props
   );
 }
 
-export function PinIcon() {
+export function PinIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="M12 20s5-4.7 5-9a5 5 0 1 0-10 0c0 4.3 5 9 5 9Z" />
       <circle cx="12" cy="11" r="1.8" />
-    </>
+    </>,
+    props
   );
 }
 
@@ -212,11 +231,12 @@ export function RecycleIcon() {
   );
 }
 
-export function CloseIcon() {
+export function CloseIcon(props: IconProps) {
   return baseIcon(
     <>
       <path d="m6 6 12 12" />
       <path d="M18 6 6 18" />
-    </>
+    </>,
+    props
   );
 }

@@ -185,7 +185,7 @@
 }
 .primaryLink,
 .buttonPrimary {
-  @apply bg-white [color:#37542d] [box-shadow:0_12px_28px_rgba(0,0,0,0.12)];
+  @apply [background:#516f46] text-white [box-shadow:0_12px_28px_rgba(81,111,70,0.22)];
 }
 .secondaryLink,
 .buttonSecondary {
@@ -711,16 +711,68 @@
 .codeValue {
   @apply [margin-top:0.4rem] [color:#99d267] [font-family:var(--font-geist-mono),monospace] [font-size:1.55rem] font-extrabold [letter-spacing:0.05em];
 }
-.composerOverlay,
+.composerOverlay {
+  @apply fixed inset-0 z-[100] flex items-center justify-center [background:rgba(30,45,28,0.4)] [backdrop-filter:blur(10px)] [padding:1.5rem];
+}
 .assistantOverlay {
   @apply fixed inset-0 [background:rgba(17,23,15,0.36)] flex [align-items:flex-end] justify-center z-40 [padding:1rem];
 }
-.composerSheet,
+.composerSheet {
+  @apply bg-white w-full [max-width:440px] rounded-[2rem] [box-shadow:0_25px_60px_-12px_rgba(0,0,0,0.25)] flex flex-col overflow-hidden;
+}
 .assistantSheet {
   @apply [width:min(100%,420px)] [border-radius:1.5rem_1.5rem_0_0] bg-white [box-shadow:0_-18px_52px_rgba(24,33,20,0.18)] [padding:1rem_1rem_1.2rem];
 }
+.sheetBody {
+  @apply flex-1 overflow-y-auto [padding:1.5rem_1.75rem_2rem];
+}
+.horizontalSelector {
+  @apply relative flex items-center [margin-top:0.5rem];
+}
+.selectorContainer {
+  @apply w-full overflow-hidden rounded-[1.25rem] [border:1px_solid_rgba(31,41,22,0.08)];
+}
+.plantSlide {
+  @apply flex items-center [gap:1.25rem] [padding:1.25rem] bg-white transition-all duration-300;
+}
+.plantSlideImage {
+  @apply [width:80px] [height:80px] rounded-[1rem] overflow-hidden bg-[#f1f6ec] shrink-0;
+}
+.plantSlideImage img {
+  @apply w-full h-full object-cover;
+}
+.plantSlideContent {
+  @apply flex-1 flex flex-col [gap:0.35rem];
+}
+.plantSlideType {
+  @apply text-[10px] font-bold uppercase tracking-wider [color:#567a3d] opacity-80;
+}
+.plantSlideName {
+  @apply text-base font-bold [color:#1f2916];
+}
+.progressBarContainer {
+  @apply flex flex-col [gap:0.35rem] [margin-top:0.5rem];
+}
+.progressBarBase {
+  @apply w-full [height:6px] bg-[#f1f6ec] rounded-full overflow-hidden;
+}
+.progressBarFill {
+  @apply h-full [background:#567a3d] rounded-full transition-all duration-500;
+}
+.progressInfo {
+  @apply flex items-center justify-between text-[11px] font-bold [color:#567a3d];
+}
+.navButton {
+  @apply absolute z-10 w-9 h-9 flex items-center justify-center rounded-full bg-white [box-shadow:0_4px_12px_rgba(0,0,0,0.1)] [border:1px_solid_rgba(0,0,0,0.05)] [transition:all_0.2s_ease] disabled:opacity-30;
+}
+.navButtonLeft {
+  @apply [left:-0.75rem];
+}
+.navButtonRight {
+  @apply [right:-0.75rem];
+}
 .sheetHead {
-  @apply flex items-center justify-between [gap:1rem] [margin-bottom:1rem];
+  @apply flex items-center justify-between [gap:1rem] [padding:1.5rem_1.75rem_0.75rem] [border-bottom:1px_solid_rgba(0,0,0,0.05)];
 }
 .input,
 .textarea {
