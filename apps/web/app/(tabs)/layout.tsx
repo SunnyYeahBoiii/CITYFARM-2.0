@@ -1,14 +1,22 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/cityfarm/layout/AppShell";
-import { AuthGate } from "@/components/auth/AuthGate";
+import { getUser } from "@/lib/auth-server";
+import { isAuthenticated } from "@/lib/types/auth";
 
-export default function TabsLayout({
+export default async function TabsLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <AuthGate>
-      <AppShell>{children}</AppShell>
-    </AuthGate>
-  );
+  const user = await getUser();
+
+  if (!isAuthenticated(user)) {
+    redirect("/login");
+  }
+
+  if (user.requiresPasswordSetup) {
+    redirect("/setup-password");
+  }
+
+  return <AppShell>{children}</AppShell>;
 }

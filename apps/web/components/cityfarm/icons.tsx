@@ -7,7 +7,6 @@ interface IconProps {
 }
 
 function baseIcon(children: React.ReactNode, props: IconProps = {}) {
-  const { filled, ...svgProps } = props;
   return (
     <svg
       viewBox="0 0 24 24"
@@ -19,7 +18,7 @@ function baseIcon(children: React.ReactNode, props: IconProps = {}) {
       width="20"
       height="20"
       aria-hidden="true"
-      {...svgProps}
+      {...props}
     >
       {children}
     </svg>

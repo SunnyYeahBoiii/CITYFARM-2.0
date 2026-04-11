@@ -60,7 +60,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     void syncProfile();
   }, [syncProfile]);
 
-  const login = async (email: string, password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     try {
       await authApi.login(email, password);
       await syncProfile();
@@ -68,9 +68,9 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } catch {
       return false;
     }
-  };
+  }, [syncProfile]);
 
-  const register = async (data: {
+  const register = useCallback(async (data: {
     email: string;
     password: string;
     displayName: string;
@@ -82,17 +82,17 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } catch {
       return false;
     }
-  };
+  }, [syncProfile]);
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     try {
       await authApi.logout();
     } finally {
       setUser(GUEST_USER);
     }
-  };
+  }, []);
 
-  const refresh = async () => {
+  const refresh = useCallback(async () => {
     try {
       await authApi.refreshTokens();
       await syncProfile();
@@ -100,9 +100,9 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } catch {
       return false;
     }
-  };
+  }, [syncProfile]);
 
-  const setupPassword = async (password: string) => {
+  const setupPassword = useCallback(async (password: string) => {
     try {
       await authApi.setupPassword(password);
       await syncProfile();
@@ -110,7 +110,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
     } catch {
       return false;
     }
-  };
+  }, [syncProfile]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -125,7 +125,7 @@ export function AuthProvider({ children, initialUser }: AuthProviderProps) {
       refresh,
       setupPassword,
     }),
-    [user, isAuthReady, syncProfile],
+    [user, isAuthReady, login, register, logout, refresh, setupPassword],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

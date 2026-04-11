@@ -1,20 +1,17 @@
-"use client";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth-server";
+import { isAuthenticated } from "@/lib/types/auth";
 
-import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { useAuth } from "@/context/AuthContext";
+export default async function Home() {
+  const user = await getUser();
 
-export default function Home() {
-  const router = useRouter();
-  const { isAuthReady, isAuthenticated } = useAuth();
+  if (!isAuthenticated(user)) {
+    redirect("/login");
+  }
 
-  useEffect(() => {
-    if (!isAuthReady) {
-      return;
-    }
+  if (user.requiresPasswordSetup) {
+    redirect("/setup-password");
+  }
 
-    router.replace(isAuthenticated ? "/home" : "/login");
-  }, [router, isAuthReady, isAuthenticated]);
-
-  return null;
+  redirect("/home");
 }

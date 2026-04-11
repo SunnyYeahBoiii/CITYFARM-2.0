@@ -3,13 +3,10 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
-import styles from "../../../components/cityfarm/cityfarm.module.css";
 import {
-  FaArrowLeft,
   FaBell,
   FaCircleQuestion,
   FaGlobe,
-  FaHouse,
   FaRightFromBracket,
   FaShieldHalved,
   FaCircleUser,
@@ -25,124 +22,149 @@ export default function AccountPage() {
   };
 
   return (
-    <div className={styles.screen}>
-      <header className={styles.screenHeader}>
-        <div>
-          <div className={styles.screenHeaderTitle}>Account</div>
-          <div className={styles.screenHeaderMeta}>Profile, settings, and session controls.</div>
+    <div className="min-h-full bg-[var(--color-screen)] px-4 py-4">
+      <header className="mb-4">
+        <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-[var(--color-green-soft)]">
+          Account
         </div>
-        <div className={styles.headerActions}>
-          <button type="button" className={styles.iconButton} onClick={() => router.back()} aria-label="Go back">
-            <FaArrowLeft size={18} aria-hidden="true" />
-          </button>
-          <Link href="/home" className={styles.iconButton} aria-label="Go home">
-            <FaHouse size={18} aria-hidden="true" />
-          </Link>
-        </div>
+        <h2 className="text-xl font-extrabold text-[var(--color-heading)]">Profile and settings</h2>
+        <p className="mt-1 text-xs leading-5 text-[var(--color-muted)]">
+          Session controls and personal preferences.
+        </p>
       </header>
 
-      <div className={styles.screenPadded}>
-        <section className={styles.section}>
-          <div className={styles.heroBanner}>
-            <div className={styles.heroBannerTitle}>
-              {isAuthenticated && user.profile?.displayName ? user.profile.displayName : "Cityfarm User"}
-            </div>
-            <p className={styles.marketBannerText}>
-              {isAuthenticated ? "Logged in and ready for your garden" : "Session not active"}
-            </p>
-            <div className={styles.heroCardFooter} style={{ marginTop: "1rem" }}>
-              <div className={styles.statusPill}>{isAuthenticated ? "Active" : "Inactive"}</div>
-            </div>
+      <div className="space-y-3">
+        <section className="rounded-[1.25rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-3.5 shadow-[0_8px_20px_rgba(33,49,30,0.06)]">
+          <div className="text-base font-extrabold text-[var(--color-heading)]">
+            {isAuthenticated && user.profile?.displayName ? user.profile.displayName : "Cityfarm User"}
+          </div>
+          <p className="mt-1 text-xs text-[var(--color-muted)]">
+            {isAuthenticated ? "Logged in and ready for your garden" : "Session not active"}
+          </p>
+          <div className="mt-2.5 inline-flex rounded-full bg-[var(--color-interactive-bg)] px-2.5 py-1 text-[11px] font-semibold text-[var(--color-green-deep)]">
+            {isAuthenticated ? "Active" : "Inactive"}
           </div>
         </section>
 
-        <section className={styles.section}>
-          <div className={styles.sectionHead}>
-            <div>
-              <div className={styles.sectionTitle}>Account Settings</div>
-              <div className={styles.sectionSubtitle}>Manage your personal info and app preferences.</div>
+        <section className="space-y-2">
+          <div>
+            <h3 className="text-sm font-extrabold uppercase tracking-[0.08em] text-[var(--color-heading)]">
+              Account Settings
+            </h3>
+            <p className="text-xs text-[var(--color-muted)]">Manage your personal info and app preferences.</p>
+          </div>
+
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaCircleUser size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Personal info</div>
+                <div className="text-xs text-[var(--color-muted)]">Edit name, email, and profile details.</div>
+              </div>
             </div>
-          </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              Edit
+            </span>
+          </button>
 
-          <div className={styles.listStack}>
-            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
-              <div className={styles.taskLead}>
-                <div className={styles.taskIcon}>
-                  <FaCircleUser size={18} aria-hidden="true" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={styles.taskTitle}>Personal info</div>
-                  <div className={styles.taskText}>Edit name, email, and profile details.</div>
-                </div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaBell size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Notifications</div>
+                <div className="text-xs text-[var(--color-muted)]">Care reminders, order updates, and alerts.</div>
               </div>
-              <div className={styles.timePill}>Edit</div>
-            </button>
+            </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              On
+            </span>
+          </button>
 
-            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
-              <div className={styles.taskLead}>
-                <div className={styles.taskIcon}>
-                  <FaBell size={18} aria-hidden="true" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={styles.taskTitle}>Notifications</div>
-                  <div className={styles.taskText}>Care reminders, order updates, and alerts.</div>
-                </div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaShieldHalved size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Privacy & security</div>
+                <div className="text-xs text-[var(--color-muted)]">Password, session, and app permissions.</div>
               </div>
-              <div className={styles.timePill}>On</div>
-            </button>
+            </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              Safe
+            </span>
+          </button>
 
-            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
-              <div className={styles.taskLead}>
-                <div className={styles.taskIcon}>
-                  <FaShieldHalved size={18} aria-hidden="true" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={styles.taskTitle}>Privacy & security</div>
-                  <div className={styles.taskText}>Password, session, and app permissions.</div>
-                </div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaGlobe size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Language</div>
+                <div className="text-xs text-[var(--color-muted)]">English / Vietnamese</div>
               </div>
-              <div className={styles.timePill}>Safe</div>
-            </button>
+            </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              EN
+            </span>
+          </button>
 
-            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
-              <div className={styles.taskLead}>
-                <div className={styles.taskIcon}>
-                  <FaGlobe size={18} aria-hidden="true" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={styles.taskTitle}>Language</div>
-                  <div className={styles.taskText}>English / Vietnamese</div>
-                </div>
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/home")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaCircleQuestion size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Help center</div>
+                <div className="text-xs text-[var(--color-muted)]">FAQ, support, and gardening tips.</div>
               </div>
-              <div className={styles.timePill}>EN</div>
-            </button>
-
-            <button type="button" className={styles.taskCard} onClick={() => router.push("/home")}>
-              <div className={styles.taskLead}>
-                <div className={styles.taskIcon}>
-                  <FaCircleQuestion size={18} aria-hidden="true" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className={styles.taskTitle}>Help center</div>
-                  <div className={styles.taskText}>FAQ, support, and gardening tips.</div>
-                </div>
-              </div>
-              <div className={styles.timePill}>Open</div>
-            </button>
-          </div>
+            </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              Open
+            </span>
+          </button>
         </section>
 
-        <section className={styles.section}>
-          <div className={styles.listStack}>
-            <Link href="/home" className={styles.buttonOutline}>
-              <FaHouse size={16} aria-hidden="true" />
-              Back to Home
-            </Link>
-            <button type="button" className={styles.buttonPrimary} onClick={handleLogout}>
-              <FaRightFromBracket size={16} aria-hidden="true" />
-              Log out
-            </button>
-          </div>
+        <section className="space-y-2">
+          <Link
+            href="/home"
+            className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[color:rgba(31,41,22,0.08)] bg-white px-4 py-2.5 text-sm font-semibold text-[var(--color-interactive-ink)] transition-colors hover:bg-[var(--color-screen)]"
+          >
+            Back to Home
+          </Link>
+          <button
+            type="button"
+            className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-full bg-[var(--color-green-deep)] px-4 py-2.5 text-sm font-bold text-white shadow-[0_10px_22px_rgba(53,91,49,0.24)] transition-transform hover:-translate-y-px"
+            onClick={handleLogout}
+          >
+            <FaRightFromBracket size={14} aria-hidden="true" />
+            Log out
+          </button>
         </section>
       </div>
     </div>

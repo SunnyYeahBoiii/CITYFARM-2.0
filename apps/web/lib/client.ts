@@ -31,7 +31,9 @@ const processQueue = (error: Error | null) => {
 
 const isPublicRoute = (pathname: string): boolean => {
   return (
-    pathname.startsWith("/auth") ||
+    pathname === "/login" ||
+    pathname === "/register" ||
+    pathname === "/setup-password" ||
     pathname === "/" ||
     pathname.startsWith("/plants")
   );
@@ -87,7 +89,7 @@ api.interceptors.response.use(
     if (typeof window !== "undefined" && status === 401) {
       const pathname = window.location.pathname;
       if (!isPublicRoute(pathname)) {
-        window.location.href = "/auth/login";
+        window.location.href = "/login";
       }
     }
 

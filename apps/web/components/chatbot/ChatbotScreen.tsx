@@ -8,7 +8,6 @@ import type { ChatContextPayload } from "../../lib/plant-chat-context";
 import { postChat } from "../../lib/chat-api";
 import { AssistantMessageBody } from "./assistant-message-body";
 import { TypingIndicator } from "./typing-indicator";
-import { useParams } from "next/navigation";
 
 type ChatRole = "user" | "assistant";
 
@@ -85,7 +84,6 @@ export function ChatbotScreen({
   const [loading, setLoading] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const plantId = useParams().plantId;
 
   const scrollToBottom = useCallback(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });

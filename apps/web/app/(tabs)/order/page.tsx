@@ -1,4 +1,4 @@
-import { OrderScreen } from "../../../components/cityfarm/screens";
+import { OrderScreen } from "../../../components/cityfarm/features/OrderScreen";
 
 export default async function OrderPage({
   searchParams,

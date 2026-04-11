@@ -90,7 +90,7 @@ export function ShellChrome({ variant }: { variant: ShellVariant }) {
 
   return (
     <>
-      <header className="sticky top-0 z-20 border-b border-[color:rgba(31,41,22,0.08)] bg-white/95 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md">
+      <header className="shrink-0 border-b border-[color:rgba(31,41,22,0.08)] bg-white/95 px-5 pb-4 pt-[max(1rem,env(safe-area-inset-top))] backdrop-blur-md">
         <div className="flex items-start gap-3">
           {header.backHref ? (
             <Link
@@ -115,7 +115,7 @@ export function ShellChrome({ variant }: { variant: ShellVariant }) {
         </div>
       </header>
 
-      <nav className="sticky bottom-0 z-20 border-t border-[color:rgba(31,41,22,0.08)] bg-white/95 px-3 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
+      <nav className="shrink-0 border-t border-[color:rgba(31,41,22,0.08)] bg-white/95 px-3 pb-[max(0.9rem,env(safe-area-inset-bottom))] pt-3 backdrop-blur-md">
         <div className="grid grid-cols-5 gap-2">
           {tabItems.map((item) => {
             const active = isActive(pathname, item.href);

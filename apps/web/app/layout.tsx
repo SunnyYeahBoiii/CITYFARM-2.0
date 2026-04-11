@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
@@ -14,9 +14,18 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "CITYFARM 2.0",
+  title: {
+    default: "CITYFARM 2.0",
+    template: "%s | CITYFARM 2.0",
+  },
   description:
     "CITYFARM 2.0 frontend trên Next.js với các screen legacy được tách thành route thật: home, scan, garden, community, shared plant và order.",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#355b31",
 };
 
 export default async function RootLayout({

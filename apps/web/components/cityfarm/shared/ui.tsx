@@ -23,6 +23,8 @@ export function CityImage({
   unoptimized?: boolean;
   fit?: "cover" | "contain";
 }) {
+  const shouldSkipOptimization = unoptimized || /^(https?:|blob:|data:|\/\/)/.test(src);
+
   return (
     <div className={cn("relative overflow-hidden", className)}>
       <Image
@@ -31,7 +33,7 @@ export function CityImage({
         fill
         sizes={sizes}
         priority={priority}
-        unoptimized={unoptimized}
+        unoptimized={shouldSkipOptimization}
         className={fit === "contain" ? "object-contain" : "object-cover"}
       />
     </div>

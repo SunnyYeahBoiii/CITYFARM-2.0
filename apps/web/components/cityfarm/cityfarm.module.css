@@ -1,76 +1,4 @@
 @reference "tailwindcss";
-
-.appBackdrop {
-  @apply min-h-screen [background:radial-gradient(circle_at_top_left,rgba(111,150,84,0.14),transparent_24%),radial-gradient(circle_at_88%_16%,rgba(228,168,98,0.16),transparent_18%),linear-gradient(180deg,#eff3eb_0%,#e4ebde_100%)];
-}
-.shellCenter {
-  @apply [width:min(100%,420px)] mx-auto;
-}
-.deviceFrame {
-  @apply h-screen flex flex-col bg-white overflow-hidden relative mx-auto [width:min(100%,420px)];
-}
-
-.authViewport {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 2rem 1rem;
-  background: linear-gradient(180deg, #f0f6eb 0%, #e9f1e3 100%);
-}
-
-.authCard {
-  width: 100%;
-  max-width: 24rem;
-  border-radius: 1.35rem;
-  border: 1px solid rgba(31, 41, 22, 0.08);
-  background: #ffffff;
-  box-shadow: 0 10px 28px rgba(33, 49, 30, 0.06);
-}
-
-.authCardInner {
-  padding: 1.5rem 1.2rem 1.7rem;
-}
-
-.authStack {
-  display: flex;
-  flex-direction: column;
-  gap: 1.75rem;
-}
-
-.authHeader {
-  display: flex;
-  flex-direction: column;
-  gap: 0.8rem;
-}
-
-.authForm {
-  display: flex;
-  flex-direction: column;
-  gap: 1.25rem;
-}
-
-.authLabel {
-  display: block;
-  margin-bottom: 0.55rem;
-}
-
-.authInput {
-  width: 100%;
-  min-height: 3.35rem;
-  padding: 0.9rem 1rem;
-}
-
-@media (min-width: 420px) {
-  .authViewport {
-    padding-left: 1.2rem;
-    padding-right: 1.2rem;
-  }
-
-  .authCardInner {
-    padding: 1.7rem 1.45rem 1.9rem;
-  }
-}
 .shellMain {
   @apply flex-1 overflow-y-auto;
   -ms-overflow-style: none; /* IE and Edge */
@@ -168,12 +96,6 @@
 }
 .heroCardFooter {
   @apply flex items-center justify-between [gap:0.8rem] [margin-top:1rem];
-}
-.authGateActions {
-  @apply [flex-direction:column] items-stretch justify-start [gap:0.65rem];
-}
-.authGateActionButton {
-  @apply w-full justify-center text-center;
 }
 .primaryLink,
 .secondaryLink,
@@ -374,32 +296,6 @@
 }
 .tag {
   @apply inline-flex items-center [padding:0.35rem_0.65rem] rounded-full [background:#f2f6ef] [border:1px_solid_rgba(31,41,22,0.08)] [color:#567a3d] text-xs font-bold;
-}
-.bottomNav {
-  @apply shrink-0 bg-white [border-top:1px_solid_rgba(31,41,22,0.08)] [box-shadow:0_-14px_32px_rgba(32,47,29,0.08)];
-}
-.bottomNavInner {
-  @apply relative flex [align-items:flex-end] justify-between [height:4rem] [padding:0_0.75rem];
-}
-.bottomNavGroup {
-  @apply flex flex-1 [align-items:flex-end] [justify-content:space-around] [padding-bottom:0.55rem];
-}
-.navItem,
-.navItemActive {
-  @apply inline-flex flex-col items-center [justify-content:flex-end] [gap:0.25rem] [min-width:3.9rem] [color:#8a9687] text-[10px] font-bold;
-}
-.navItemActive {
-  @apply [color:#567a3d];
-}
-.navGap {
-  @apply [width:5rem] shrink-0;
-}
-.scanFab,
-.scanFabActive {
-  @apply absolute [left:50%] [top:-1.35rem] [transform:translateX(-50%)] [width:4rem] [height:4rem] rounded-full inline-flex items-center justify-center [border:5px_solid_#ffffff] [box-shadow:0_18px_34px_rgba(33,49,30,0.26)] [background:linear-gradient(145deg,#567a3d,#37542d)] text-white;
-}
-.scanFabActive {
-  @apply [background:linear-gradient(145deg,#3a4d28,#2d3b20)];
 }
 .detailHero {
   @apply relative [height:17rem] overflow-hidden;
@@ -803,22 +699,4 @@
 }
 .safeSpacer {
   @apply [height:1rem];
-}
-
-@media (min-width: 721px) {
-  .appBackdrop {
-    @apply [padding-block:0];
-  }
-}
-
-@media (max-width: 720px) {
-  .appBackdrop {
-    @apply [padding:0] [background:#eef3eb];
-  }
-  .shellCenter {
-    @apply w-full;
-  }
-  .deviceFrame {
-    @apply [box-shadow:none];
-  }
 }
