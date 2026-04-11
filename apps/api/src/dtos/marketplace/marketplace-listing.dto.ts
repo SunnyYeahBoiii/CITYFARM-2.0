@@ -9,6 +9,7 @@ export class MarketplaceListingDto {
   priceAmount: number;
   description?: string;
   imageAssetId?: string;
+  imageUrl?: string;
   expiresAt?: Date;
   createdAt: Date;
   updatedAt: Date;

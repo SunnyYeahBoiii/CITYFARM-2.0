@@ -1191,7 +1191,7 @@ export function CommunityScreen() {
                   <div className={styles.listingBody}>
                     <div className={styles.listingRow}>
                       <div className={styles.listingImage}>
-                        <img src={listing.imageAssetId} alt={listing.product} />
+                        <img src={listing.imageUrl || listing.imageAssetId} alt={listing.product} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <div className={styles.listingHead}>

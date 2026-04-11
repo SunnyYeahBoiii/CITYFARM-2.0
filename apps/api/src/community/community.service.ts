@@ -413,11 +413,17 @@ export class CommunityService {
                 select: {
                   displayName: true,
                   avatarAssetId: true,
+                  avatarAsset: {
+                    select: { publicUrl: true },
+                  },
                   district: true,
                   growerVerificationStatus: true,
                 },
               },
             },
+          },
+          imageAsset: {
+            select: { publicUrl: true },
           },
         },
         orderBy: {
@@ -473,23 +479,29 @@ export class CommunityService {
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
         pickupDistrict: sellerProfile?.district || 'Unknown',
       },
-      include: {
-        seller: {
-          select: {
-            id: true,
-            email: true,
-            profile: {
-              select: {
-                displayName: true,
-                avatarAssetId: true,
-                district: true,
-                growerVerificationStatus: true,
+        include: {
+          seller: {
+            select: {
+              id: true,
+              email: true,
+              profile: {
+                select: {
+                  displayName: true,
+                  avatarAssetId: true,
+                  avatarAsset: {
+                    select: { publicUrl: true },
+                  },
+                  district: true,
+                  growerVerificationStatus: true,
+                },
               },
             },
           },
+          imageAsset: {
+            select: { publicUrl: true },
+          },
         },
-      },
-    });
+      });
 
     return this.mapListingToDto(listing);
   }
@@ -563,6 +575,7 @@ export class CommunityService {
       priceAmount: listing.priceAmount,
       description: listing.description,
       imageAssetId: listing.imageAssetId,
+      imageUrl: listing.imageAsset?.publicUrl,
       expiresAt: listing.expiresAt,
       createdAt: listing.createdAt,
       updatedAt: listing.updatedAt,
@@ -574,7 +587,7 @@ export class CommunityService {
     return {
       id: user.id,
       username: user.profile?.displayName || user.email.split('@')[0],
-      profileImage: user.profile?.avatarAssetId,
+      profileImage: user.profile?.avatarAsset?.publicUrl,
       district: user.profile?.district,
       verifiedGrower: user.profile?.growerVerificationStatus === 'VERIFIED',
     };
