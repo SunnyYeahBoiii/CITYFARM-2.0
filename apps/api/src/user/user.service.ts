@@ -21,7 +21,10 @@ export class UserService {
     });
     if (user) {
       const { passwordHash, refreshToken, ...safeUser } = user;
-      return safeUser;
+      return {
+        ...safeUser,
+        requiresPasswordSetup: !passwordHash,
+      };
     }
     return null;
   }

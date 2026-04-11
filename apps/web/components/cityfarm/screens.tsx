@@ -3,113 +3,62 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useId, useState, useRef } from "react";
 import {
   dirtOptions,
-  feedPosts,
   getPlantById,
   getPlants,
   getTimelineForPlant,
   homeStats,
   kits,
-  marketListings,
   potOptions,
   reminders,
   scanAnalysis,
   scanRecommendations,
   seeds,
   type CareHistoryEntry,
-  type FeedPost,
   type JournalEntry,
   type Kit,
-  type MarketListing,
   type Plant,
   type PlantHealth,
   type ScanRecommendation,
 } from "../../lib/cityfarm-data";
+import {
+  HomeIcon,
+  BagIcon,
+  SproutIcon,
+  UsersIcon,
+  CameraIcon,
+  DropletIcon,
+  SunIcon,
+  CheckIcon,
+  ClockIcon,
+  ArrowLeftIcon,
+  SparkleIcon,
+  TrashIcon,
+  PlusIcon,
+  SearchIcon,
+  HeartIcon,
+  HelpIcon,
+  ImageIcon,
+  PinIcon,
+  CloudIcon,
+  RecycleIcon,
+  CloseIcon,
+} from "./icons";
+import { PostType, type FeedPost, type MarketListing } from "../../lib/types/community";
+import { createPost, loadCommunityData, toggleReaction } from "../../lib/api/community.api";
+import { uploadAsset } from "../../lib/api/assets.api";
 import styles from "./cityfarm.module.css";
 
 type DetailTab = "Timeline" | "Care" | "Journal";
 type SharedDetailTab = "Timeline" | "Journal";
-type FeedFilter = "all" | "showcase" | "question";
 type CommunityTab = "feed" | "market";
 type ScanStep = "camera" | "analyzing" | "results" | "visualization";
 type ProductType = "kit" | "seed" | "dirt" | "pot";
 type OrderStep = "select" | "confirm" | "success";
 
-export function AppShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={styles.appBackdrop}>
-      <div className={styles.shellCenter}>
-        <div className={styles.deviceFrame}>
-          <main className={styles.shellMain}>{children}</main>
-          <BottomNavigation />
-        </div>
-      </div>
-    </div>
-  );
-}
 
-export function DetailShell({ children }: { children: React.ReactNode }) {
-  return (
-    <div className={styles.appBackdrop}>
-      <div className={styles.shellCenter}>
-        <div className={styles.deviceFrame}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function BottomNavigation() {
-  const pathname = usePathname();
-
-  const navItems = [
-    { href: "/home", label: "Home", icon: <HomeIcon /> },
-    { href: "/order", label: "Order", icon: <BagIcon /> },
-    { href: "/garden", label: "Garden", icon: <SproutIcon /> },
-    { href: "/community", label: "Social", icon: <UsersIcon /> },
-  ];
-
-  return (
-    <nav className={styles.bottomNav}>
-      <div className={styles.bottomNavInner}>
-        <div className={styles.bottomNavGroup}>
-          {navItems.slice(0, 2).map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link key={item.href} href={item.href} className={active ? styles.navItemActive : styles.navItem}>
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-
-        <div className={styles.navGap} />
-
-        <Link
-          href="/scan"
-          className={pathname === "/scan" ? styles.scanFabActive : styles.scanFab}
-          aria-label="Open Scan"
-        >
-          <CameraIcon />
-        </Link>
-
-        <div className={styles.bottomNavGroup}>
-          {navItems.slice(2).map((item) => {
-            const active = pathname === item.href;
-            return (
-              <Link key={item.href} href={item.href} className={active ? styles.navItemActive : styles.navItem}>
-                {item.icon}
-                <span>{item.label}</span>
-              </Link>
-            );
-          })}
-        </div>
-      </div>
-    </nav>
-  );
-}
 
 export function HomeScreen() {
   const plants = getPlants();
@@ -125,7 +74,9 @@ export function HomeScreen() {
               <div className={styles.brandTagline}>Grow clean, live green</div>
             </div>
           </div>
-          <div className={styles.profileBadge}>SG</div>
+          <Link href="/account" className={styles.profileBadge} aria-label="Open account">
+            SG
+          </Link>
         </div>
 
         <div className={styles.heroCard}>
@@ -920,96 +871,192 @@ export function ScanScreen() {
 
 export function CommunityScreen() {
   const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
-  const [feedFilter, setFeedFilter] = useState<FeedFilter>("all");
-  const [posts, setPosts] = useState<FeedPost[]>(feedPosts);
-  const [listings] = useState<MarketListing[]>(marketListings);
+  const [feedFilter, setFeedFilter] = useState<PostType | "all">("all");
+  const [posts, setPosts] = useState<FeedPost[]>([]);
+  const [listings, setListings] = useState<MarketListing[]>([]);
+  const [isCommunityLoading, setIsCommunityLoading] = useState(true);
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<"caption" | "image" | "plant">("caption");
   const [caption, setCaption] = useState("");
-  const [selectedPlantId, setSelectedPlantId] = useState(getPlants()[0]?.id ?? "");
+  const userPlants = getPlants();
+  const [currentPlantIndex, setCurrentPlantIndex] = useState(0);
+  const [selectedPlantId, setSelectedPlantId] = useState(userPlants[0]?.id ?? "");
+  const [selectedImage, setSelectedImage] = useState<string | null>(null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (userPlants[currentPlantIndex]) {
+      setSelectedPlantId(userPlants[currentPlantIndex].id);
+    }
+  }, [currentPlantIndex, userPlants]);
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSelectedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const resetComposer = () => {
+    setCaption("");
+    setPostType("caption");
+    setSelectedImage(null);
+    setSelectedFile(null);
+    setCurrentPlantIndex(0);
+    setIsCreating(false);
+  };
+
+  const reloadCommunityData = async (activeRef?: { current: boolean }) => {
+    try {
+      setIsCommunityLoading(true);
+      const result = await loadCommunityData();
+
+      if (activeRef && !activeRef.current) {
+        return;
+      }
+
+      setPosts(result.posts);
+      setListings(result.listings);
+    } finally {
+      if (!activeRef || activeRef.current) {
+        setIsCommunityLoading(false);
+      }
+    }
+  };
+
+  useEffect(() => {
+    const activeRef = { current: true };
+
+    void reloadCommunityData(activeRef);
+
+    return () => {
+      activeRef.current = false;
+    };
+  }, []);
+
 
   const filteredPosts =
-    feedFilter === "all" ? posts : posts.filter((post) => post.type === feedFilter);
+    feedFilter === "all" ? posts : posts.filter((post) => post.postType === feedFilter);
 
-  const handleLike = (postId: string) => {
+  const handleLike = async (postId: string) => {
+    const currentPost = posts.find((post) => post.id === postId);
+    const wasLiked = Boolean(currentPost?.isLiked);
+    const optimisticLiked = !wasLiked;
+
     setPosts((current) =>
       current.map((post) =>
         post.id === postId
           ? {
               ...post,
-              isLiked: !post.isLiked,
-              likes: post.isLiked ? post.likes - 1 : post.likes + 1,
+              isLiked: optimisticLiked,
+              likes: optimisticLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
+            }
+          : post,
+      ),
+    );
+
+    const actualLiked = await toggleReaction(postId);
+    if (actualLiked === optimisticLiked) {
+      return;
+    }
+
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              isLiked: actualLiked,
+              likes: actualLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
             }
           : post,
       ),
     );
   };
 
-  const handleCreatePost = () => {
+  const handleCreatePost = async () => {
     if (!caption.trim()) {
       return;
     }
 
-    const newPost: FeedPost = {
-      id: `${Date.now()}`,
-      type: postType === "plant" ? "plant-share" : postType === "image" ? "showcase" : "showcase",
-      user: "You",
-      location: "Dĩ An",
+    let imageAssetId: string | undefined = undefined;
+
+    if (postType === "image" && selectedFile) {
+      try {
+        const asset = await uploadAsset(selectedFile, "POST_IMAGE");
+        imageAssetId = asset.id;
+      } catch (error) {
+        console.error("Failed to upload image:", error);
+        alert("Có lỗi khi tải ảnh lên. Vui lòng thử lại.");
+        return;
+      }
+    }
+
+    let typeToSend = PostType.SHOWCASE;
+    if (postType === "plant") {
+      typeToSend = PostType.PLANT_SHARE;
+    }
+
+    const newPost = await createPost({
+      postType: typeToSend,
       caption,
-      image: postType === "image" ? "/cityfarm/img/kit/standing.jpg" : undefined,
-      sharedPlantId: postType === "plant" ? selectedPlantId : undefined,
-      likes: 0,
-      comments: 0,
-      time: "Just now",
-      tags: postType === "plant" ? ["#PlantShare"] : ["#CityFarm"],
-      isLiked: false,
-    };
+      imageAssetId,
+      gardenPlantId: postType === "plant" ? selectedPlantId : undefined,
+    });
 
     setPosts((current) => [newPost, ...current]);
-    setCaption("");
-    setPostType("caption");
-    setIsCreating(false);
+    resetComposer();
   };
 
   return (
     <div className={styles.screen}>
-      <header className={styles.screenHeader}>
-        <div>
-          <div className={styles.screenHeaderTitle}>Community</div>
-          <div className={styles.screenHeaderMeta}>Social feed and fresh market in one place.</div>
-        </div>
-        <div className={styles.headerActions}>
-          {activeTab === "feed" && (
-            <button type="button" className={styles.iconButton} onClick={() => setIsCreating(true)}>
-              <PlusIcon />
+      <header className={`${styles.screenHeader} ${styles.screenHeaderTall}`}>
+        <div className={styles.screenHeaderMain}>
+          <div>
+            <div className={styles.screenHeaderTitle}>Community</div>
+            <div className={styles.screenHeaderMeta}>
+              Feed &amp; Marketplace
+            </div>
+          </div>
+          <div className={styles.headerActions}>
+            {activeTab === "feed" && (
+              <button type="button" className={styles.iconButton} onClick={() => setIsCreating(true)}>
+                <PlusIcon />
+              </button>
+            )}
+            <button type="button" className={styles.iconButton}>
+              <SearchIcon />
             </button>
-          )}
-          <button type="button" className={styles.iconButton}>
-            <SearchIcon />
-          </button>
+          </div>
         </div>
-      </header>
-
-      <div className={styles.screenPadded}>
-        <div className={styles.modeTabs}>
+        
+        <div className={styles.headerTabs}>
           <button
             type="button"
-            className={activeTab === "feed" ? styles.filterChipActive : styles.filterChip}
+            className={activeTab === "feed" ? styles.headerTabActive : styles.headerTab}
             onClick={() => setActiveTab("feed")}
           >
             Social Feed
           </button>
           <button
             type="button"
-            className={activeTab === "market" ? styles.filterChipActive : styles.filterChip}
+            className={activeTab === "market" ? styles.headerTabActive : styles.headerTab}
             onClick={() => setActiveTab("market")}
           >
             Fresh Market
           </button>
         </div>
+      </header>
+
+      <div className={styles.screenPadded}>
 
         {activeTab === "feed" && (
-          <div className={styles.section}>
+          <div className={styles.section} style={{ marginTop: 0 }}>
             <div className={styles.filterRow}>
               <button
                 type="button"
@@ -1020,8 +1067,8 @@ export function CommunityScreen() {
               </button>
               <button
                 type="button"
-                className={feedFilter === "showcase" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setFeedFilter("showcase")}
+                className={feedFilter === PostType.SHOWCASE ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setFeedFilter(PostType.SHOWCASE)}
               >
                 <CameraIcon />
                 Showcase
@@ -1029,9 +1076,9 @@ export function CommunityScreen() {
               <button
                 type="button"
                 className={
-                  feedFilter === "question" ? styles.filterChipQuestionActive : `${styles.filterChip} ${styles.filterChipQuestion}`
+                  feedFilter === PostType.QUESTION ? styles.filterChipQuestionActive : `${styles.filterChip} ${styles.filterChipQuestion}`
                 }
-                onClick={() => setFeedFilter("question")}
+                onClick={() => setFeedFilter(PostType.QUESTION)}
               >
                 <HelpIcon />
                 Q&amp;A
@@ -1039,57 +1086,59 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.postFeed}>
+              {isCommunityLoading && <div className={styles.metaText}>Loading community...</div>}
+              {!isCommunityLoading && filteredPosts.length === 0 && (
+                <div className={styles.metaText}>No posts available yet.</div>
+              )}
               {filteredPosts.map((post) => (
                 <div key={post.id} className={styles.postCard}>
                   <div className={styles.postHeader}>
                     <div className={styles.feedHead}>
                       <div className={styles.avatarRow}>
-                        <Avatar name={post.user} />
+                        <Avatar name={post.user.username} />
                         <div>
                           <div className={styles.headerRow}>
-                            <div className={styles.plantName}>{post.user}</div>
-                            {post.type === "question" && <div className={styles.questionPill}>Question</div>}
-                            {post.type === "plant-share" && <div className={styles.sharePill}>Plant Share</div>}
+                            <div className={styles.plantName}>{post.user.username}</div>
+                            {post.postType === PostType.QUESTION && <div className={styles.questionPill}>Question</div>}
+                            {post.postType === PostType.PLANT_SHARE && <div className={styles.sharePill}>Plant Share</div>}
                           </div>
-                          <div className={styles.feedMetaText}>{post.location}</div>
+                          <div className={styles.feedMetaText}>{post.user.district}</div>
                         </div>
                       </div>
-                      <div className={styles.feedMetaText}>{post.time}</div>
+                      <div className={styles.feedMetaText}>
+                        {new Date(post.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
+                      </div>
                     </div>
                   </div>
 
-                  {post.type !== "plant-share" && post.image && (
+                  {post.postType !== PostType.QUESTION && (post.imageUrl || post.imageAssetId) && (
                     <div className={styles.postImage}>
-                      <img src={post.image} alt={post.caption} />
+                      <img src={post.imageUrl || post.imageAssetId} alt={post.caption} />
                     </div>
                   )}
 
-                  {post.type === "plant-share" && post.sharedPlantId && getPlantById(post.sharedPlantId) && (
-                    <Link href={`/community/shared/${post.sharedPlantId}`} className={styles.shareImage}>
-                      <img src={getPlantById(post.sharedPlantId)?.imageUrl} alt={post.caption} />
+                  {post.postType === PostType.PLANT_SHARE && post.gardenPlantId && getPlantById(post.gardenPlantId) && (
+                    <Link href={`/community/shared/${post.gardenPlantId}`} className={styles.shareImage}>
+                      <img src={getPlantById(post.gardenPlantId)?.imageUrl} alt={post.caption} />
                     </Link>
                   )}
 
                   <div className={styles.postBody}>
                     <div className={styles.postActions}>
-                      <button type="button" className={styles.ghostButton} onClick={() => handleLike(post.id)}>
+                      <button type="button" className={styles.ghostButton} onClick={() => void handleLike(post.id)}>
                         <HeartIcon filled={post.isLiked} />
                       </button>
                       <span className={styles.metaText}>{post.likes} likes</span>
                       <span className={styles.metaText}>{post.comments} comments</span>
                     </div>
                     <div className={styles.captionText}>
-                      <strong>{post.user}</strong> {post.caption}
+                      <strong>{post.user.username}</strong> {post.caption}
                     </div>
-                    {post.tags.length > 0 && (
-                      <div className={styles.tagRow} style={{ marginTop: "0.7rem" }}>
-                        {post.tags.map((tag) => (
-                          <span key={tag} className={styles.tag}>
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
-                    )}
                   </div>
                 </div>
               ))}
@@ -1098,7 +1147,7 @@ export function CommunityScreen() {
         )}
 
         {activeTab === "market" && (
-          <div className={styles.section}>
+          <div className={styles.section} style={{ marginTop: 0 }}>
             <div className={styles.marketBanner}>
               <div className={styles.marketBannerTitle}>Fresh Market</div>
               <div className={styles.marketBannerText}>
@@ -1107,30 +1156,32 @@ export function CommunityScreen() {
             </div>
 
             <div className={styles.listingFeed} style={{ marginTop: "1rem" }}>
+              {!isCommunityLoading && listings.length === 0 && (
+                <div className={styles.metaText}>No marketplace listings available.</div>
+              )}
               {listings.map((listing) => (
                 <div key={listing.id} className={styles.listingCard}>
                   <div className={styles.listingBody}>
                     <div className={styles.listingRow}>
                       <div className={styles.listingImage}>
-                        <img src={listing.imageUrl} alt={listing.plant} />
+                        <img src={listing.imageUrl || listing.imageAssetId} alt={listing.product} />
                       </div>
                       <div style={{ flex: 1 }}>
                         <div className={styles.listingHead}>
                           <div>
-                            <div className={styles.plantName}>{listing.plant}</div>
+                            <div className={styles.plantName}>{listing.product}</div>
                             <div className={styles.metaText}>
-                              {listing.quantity} • {listing.postedTime}
+                              {listing.quantity} • {new Date(listing.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                             </div>
                           </div>
-                          <div className={styles.matchPill}>{listing.price}</div>
+                          <div className={styles.matchPill}>₫{listing.priceAmount.toLocaleString()}</div>
                         </div>
                         <div className={styles.captionText} style={{ marginTop: "0.55rem" }}>
                           {listing.description}
                         </div>
                         <div className={styles.tagRow} style={{ marginTop: "0.75rem" }}>
-                          <span className={styles.tag}>{listing.seller.name}</span>
+                          <span className={styles.tag}>{listing.seller.username}</span>
                           <span className={styles.tag}>{listing.seller.district}</span>
-                          <span className={styles.tag}>{listing.plantingLogs} planting logs</span>
                           {listing.seller.verifiedGrower && <span className={styles.verifiedPill}>Verified Grower</span>}
                         </div>
                       </div>
@@ -1144,89 +1195,167 @@ export function CommunityScreen() {
       </div>
 
       {isCreating && (
-        <div className={styles.composerOverlay} onClick={() => setIsCreating(false)}>
+        <div className={styles.composerOverlay} onClick={resetComposer}>
           <div className={styles.composerSheet} onClick={(event) => event.stopPropagation()}>
             <div className={styles.sheetHead}>
               <div>
                 <div className={styles.sectionTitle}>Create Post</div>
-                <div className={styles.sectionSubtitle}>Share a progress update or ask a question.</div>
+                <div className={styles.sectionSubtitle}>Share your journey with the community</div>
               </div>
-              <button type="button" className={styles.iconButton} onClick={() => setIsCreating(false)}>
+              <button type="button" className={styles.iconButton} onClick={resetComposer}>
                 <CloseIcon />
               </button>
             </div>
 
-            <div className={styles.orderTabs}>
-              <button
-                type="button"
-                className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("caption")}
-              >
-                Caption
-              </button>
-              <button
-                type="button"
-                className={postType === "image" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("image")}
-              >
-                Image
-              </button>
-              <button
-                type="button"
-                className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("plant")}
-              >
-                Plant Share
-              </button>
-            </div>
+            <div className={styles.sheetBody}>
+              <div className={styles.orderTabs}>
+                <button
+                  type="button"
+                  className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("caption")}
+                >
+                  <PinIcon />
+                  Caption
+                </button>
+                <button
+                  type="button"
+                  className={postType === "image" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("image")}
+                >
+                  <ImageIcon />
+                  Photo
+                </button>
+                <button
+                  type="button"
+                  className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
+                  onClick={() => setPostType("plant")}
+                >
+                  <SproutIcon />
+                  Plant
+                </button>
+              </div>
 
-            <div className={styles.section}>
-              <textarea
-                className={styles.textarea}
-                placeholder="Write your update..."
-                value={caption}
-                onChange={(event) => setCaption(event.target.value)}
-              />
-            </div>
-
-            {postType === "plant" && (
               <div className={styles.section}>
-                <div className={styles.sectionSubtitle}>Select a plant to share</div>
-                <div className={styles.gridTwo}>
-                  {getPlants().map((plant) => (
-                    <button
-                      key={plant.id}
-                      type="button"
-                      className={styles.selectorCard}
-                      onClick={() => setSelectedPlantId(plant.id)}
-                      style={{
-                        outline: selectedPlantId === plant.id ? "2px solid #567a3d" : "none",
-                      }}
-                    >
-                      <div className={styles.selectorBody}>
-                        <div className={styles.avatarRow}>
-                          <div className={styles.plantThumb} style={{ width: "3.25rem", height: "3.25rem" }}>
-                            <img src={plant.imageUrl} alt={plant.name} />
+                <textarea
+                  className={styles.textarea}
+                  placeholder="Write your update..."
+                  value={caption}
+                  onChange={(event) => setCaption(event.target.value)}
+                  style={{ minHeight: "130px", fontSize: "1rem" }}
+                />
+              </div>
+
+              {postType === "image" && (
+                <div className={styles.section}>
+                  <div className={styles.sectionSubtitle}>Select a photo</div>
+                  <div 
+                    className={styles.imagePlaceholder} 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{
+                      backgroundImage: selectedImage ? `url(${selectedImage})` : 'none',
+                      backgroundSize: 'cover',
+                      backgroundPosition: 'center',
+                      minHeight: '200px',
+                      borderRadius: '1.25rem',
+                      backgroundColor: '#f1f6ec',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    {!selectedImage && (
+                      <div className="flex flex-col items-center gap-2 text-[#37542d] opacity-50">
+                        <PlusIcon />
+                        <span className="text-sm font-bold">Tap to upload</span>
+                      </div>
+                    )}
+                    <input 
+                      ref={fileInputRef}
+                      type="file" 
+                      accept="image/*" 
+                      className="hidden" 
+                      onChange={handleImageChange}
+                    />
+                  </div>
+                </div>
+              )}
+
+              {postType === "plant" && userPlants.length > 0 && (() => {
+                const activePlant = userPlants[currentPlantIndex];
+                if (!activePlant) return null;
+
+                return (
+                  <div className={styles.section}>
+                    <div className={styles.sectionSubtitle}>Select a plant to share</div>
+                    
+                    <div className={styles.horizontalSelector}>
+                      <button 
+                        type="button" 
+                        className={`${styles.navButton} ${styles.navButtonLeft}`}
+                        onClick={() => setCurrentPlantIndex(prev => Math.max(0, prev - 1))}
+                        disabled={currentPlantIndex === 0}
+                      >
+                        <ArrowLeftIcon />
+                      </button>
+
+                      <div className={styles.selectorContainer}>
+                        <div className={styles.plantSlide}>
+                          <div className={styles.plantSlideImage}>
+                            <img src={activePlant.imageUrl} alt={activePlant.name} />
                           </div>
-                          <div>
-                            <div className={styles.plantName}>{plant.name}</div>
-                            <div className={styles.metaText}>Day {plant.daysGrowing}</div>
+                          <div className={styles.plantSlideContent}>
+                            <div className={styles.plantSlideType}>{activePlant.type}</div>
+                            <div className={styles.plantSlideName}>{activePlant.name}</div>
+                            
+                            <div className={styles.progressBarContainer}>
+                              <div className={styles.progressBarBase}>
+                                <div 
+                                  className={styles.progressBarFill} 
+                                  style={{ width: `${activePlant.progress}%` }} 
+                                />
+                              </div>
+                              <div className={styles.progressInfo}>
+                                <span>Day {activePlant.daysGrowing}</span>
+                                <span>{activePlant.progress}%</span>
+                              </div>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
 
-            <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-              <button type="button" className={styles.buttonPrimary} onClick={handleCreatePost}>
-                Publish Post
-              </button>
-              <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
-                Cancel
-              </button>
+                      <button 
+                        type="button" 
+                        className={`${styles.navButton} ${styles.navButtonRight}`}
+                        onClick={() => setCurrentPlantIndex(prev => Math.min(userPlants.length - 1, prev + 1))}
+                        disabled={currentPlantIndex === userPlants.length - 1}
+                      >
+                        <ArrowLeftIcon style={{ transform: 'rotate(180deg)' }} />
+                      </button>
+                    </div>
+
+                    <div className={styles.navIndicator}>
+                      {userPlants.map((_, idx) => (
+                        <div 
+                          key={idx} 
+                          className={idx === currentPlantIndex ? `${styles.navDot} ${styles.navDotActive}` : styles.navDot} 
+                        />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <div style={{ marginTop: "2rem" }}>
+                <button 
+                  type="button" 
+                  className={styles.buttonPrimary} 
+                  style={{ width: "100%", padding: "1rem" }}
+                  onClick={() => void handleCreatePost()}
+                >
+                  Post to Community
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -1650,204 +1779,3 @@ function getReminderIcon(icon: "water" | "sun" | "check") {
 }
 
 type ShopItem = Kit | (typeof seeds)[number] | (typeof dirtOptions)[number] | (typeof potOptions)[number];
-
-function baseIcon(children: React.ReactNode) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" aria-hidden="true">
-      {children}
-    </svg>
-  );
-}
-
-function HomeIcon() {
-  return baseIcon(
-    <>
-      <path d="M3 10.5 12 3l9 7.5" />
-      <path d="M5 9.5V20h14V9.5" />
-    </>,
-  );
-}
-
-function BagIcon() {
-  return baseIcon(
-    <>
-      <path d="M6 8h12l-1 12H7L6 8Z" />
-      <path d="M9 8a3 3 0 0 1 6 0" />
-    </>,
-  );
-}
-
-function SproutIcon() {
-  return baseIcon(
-    <>
-      <path d="M12 20v-8" />
-      <path d="M12 12c0-4-2.5-6-6-6 0 4 2.5 6 6 6Z" />
-      <path d="M12 12c0-4 2.5-6 6-6 0 4-2.5 6-6 6Z" />
-    </>,
-  );
-}
-
-function UsersIcon() {
-  return baseIcon(
-    <>
-      <path d="M7.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-      <path d="M16.5 11a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z" />
-      <path d="M3.5 19c0-2.2 1.8-4 4-4h1" />
-      <path d="M20.5 19c0-2.2-1.8-4-4-4h-1" />
-      <path d="M8.5 19c0-2.5 1.8-4.5 4-4.5s4 2 4 4.5" />
-    </>,
-  );
-}
-
-function CameraIcon() {
-  return baseIcon(
-    <>
-      <path d="M4 7h3l1.4-2h7.2L17 7h3v11H4V7Z" />
-      <circle cx="12" cy="12.5" r="3.25" />
-    </>,
-  );
-}
-
-function DropletIcon() {
-  return baseIcon(
-    <>
-      <path d="M12 3c3 4 5 6.6 5 9.3A5 5 0 0 1 7 12.3C7 9.6 9 7 12 3Z" />
-    </>,
-  );
-}
-
-function SunIcon() {
-  return baseIcon(
-    <>
-      <circle cx="12" cy="12" r="3.5" />
-      <path d="M12 2.5v2.2M12 19.3v2.2M4.7 4.7l1.6 1.6M17.7 17.7l1.6 1.6M2.5 12h2.2M19.3 12h2.2M4.7 19.3l1.6-1.6M17.7 6.3l1.6-1.6" />
-    </>,
-  );
-}
-
-function CheckIcon() {
-  return baseIcon(<path d="m5 12 4 4 10-10" />);
-}
-
-function ClockIcon() {
-  return baseIcon(
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M12 7.5v5l3 1.8" />
-    </>,
-  );
-}
-
-function ArrowLeftIcon() {
-  return baseIcon(
-    <>
-      <path d="M14.5 5 8 11.5 14.5 18" />
-      <path d="M9 11.5h10" />
-    </>,
-  );
-}
-
-function SparkleIcon() {
-  return baseIcon(
-    <>
-      <path d="m12 3 1.2 3.8L17 8l-3.8 1.2L12 13l-1.2-3.8L7 8l3.8-1.2L12 3Z" />
-      <path d="m18.5 14 .7 2.1 2.1.7-2.1.7-.7 2.1-.7-2.1-2.1-.7 2.1-.7.7-2.1Z" />
-      <path d="m5.5 14 .9 2.7 2.6.9-2.6.9-.9 2.7-.9-2.7-2.6-.9 2.6-.9.9-2.7Z" />
-    </>,
-  );
-}
-
-function TrashIcon() {
-  return baseIcon(
-    <>
-      <path d="M4.5 7h15" />
-      <path d="M9.5 3.5h5l.5 2h-6l.5-2Z" />
-      <path d="M6.5 7 7.3 19h9.4L17.5 7" />
-    </>,
-  );
-}
-
-function PlusIcon() {
-  return baseIcon(
-    <>
-      <path d="M12 5v14" />
-      <path d="M5 12h14" />
-    </>,
-  );
-}
-
-function SearchIcon() {
-  return baseIcon(
-    <>
-      <circle cx="11" cy="11" r="6" />
-      <path d="m20 20-4.2-4.2" />
-    </>,
-  );
-}
-
-function HeartIcon({ filled = false }: { filled?: boolean }) {
-  return (
-    <svg viewBox="0 0 24 24" fill={filled ? "currentColor" : "none"} stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" width="20" height="20" aria-hidden="true">
-      <path d="M12 20.4 4.8 13.3A4.6 4.6 0 1 1 11.3 6.8L12 7.6l.7-.8a4.6 4.6 0 1 1 6.5 6.5L12 20.4Z" />
-    </svg>
-  );
-}
-
-function HelpIcon() {
-  return baseIcon(
-    <>
-      <circle cx="12" cy="12" r="8.5" />
-      <path d="M9.8 9.2a2.5 2.5 0 1 1 4.4 1.6c-.8.7-1.5 1-1.5 2.2" />
-      <circle cx="12" cy="16.8" r=".5" fill="currentColor" stroke="none" />
-    </>,
-  );
-}
-
-function ImageIcon() {
-  return baseIcon(
-    <>
-      <rect x="4" y="5" width="16" height="14" rx="2" />
-      <circle cx="9" cy="10" r="1.2" />
-      <path d="m20 15-4-4-6 6-2-2-4 4" />
-    </>,
-  );
-}
-
-function PinIcon() {
-  return baseIcon(
-    <>
-      <path d="M12 20s5-4.7 5-9a5 5 0 1 0-10 0c0 4.3 5 9 5 9Z" />
-      <circle cx="12" cy="11" r="1.8" />
-    </>,
-  );
-}
-
-function CloudIcon() {
-  return baseIcon(
-    <>
-      <path d="M7 18h9a4 4 0 0 0 .3-8 5 5 0 0 0-9.5 1.4A3.5 3.5 0 0 0 7 18Z" />
-    </>,
-  );
-}
-
-function RecycleIcon() {
-  return baseIcon(
-    <>
-      <path d="m9 5 2-2 2 2" />
-      <path d="M11 3v5l-2 2" />
-      <path d="m15 19-2 2-2-2" />
-      <path d="M13 21v-5l2-2" />
-      <path d="m4 12 2-2 2 2" />
-      <path d="M6 10h5l2 2" />
-    </>,
-  );
-}
-
-function CloseIcon() {
-  return baseIcon(
-    <>
-      <path d="m6 6 12 12" />
-      <path d="M18 6 6 18" />
-    </>,
-  );
-}

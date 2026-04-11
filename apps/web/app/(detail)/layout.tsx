@@ -1,9 +1,14 @@
-import { DetailShell } from "../../components/cityfarm/screens";
+import { DetailShell } from "@/components/cityfarm/layout/AppShell";
+import { AuthGate } from "../../components/auth/AuthGate";
 
 export default function DetailLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <DetailShell>{children}</DetailShell>;
+  return (
+    <AuthGate>
+      <DetailShell>{children}</DetailShell>
+    </AuthGate>
+  );
 }

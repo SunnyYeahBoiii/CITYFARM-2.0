@@ -1,14 +1,16 @@
 import { Controller, Post, Body, Res, Get, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthRegisterDto } from '../dtos/auth/auth-register.dto';
 import { AuthLoginDto } from '../dtos/auth/auth-login.dto';
 import { AuthGuard } from '@nestjs/passport';
-import type { Response } from 'express';
 import { UserService } from '../user/user.service';
 import { JwtRefreshAuthGuard } from './guards/jwt-refresh.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
 import { SetupPasswordDto } from 'src/dtos/auth/setup-password.dto';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcrypt';
 
 @Controller('auth')
 export class AuthController {
@@ -17,9 +19,20 @@ export class AuthController {
   constructor(
     private readonly authService: AuthService,
     private readonly userService: UserService,
-    private readonly configService: ConfigService,  
+    private readonly configService: ConfigService,
+    private readonly jwtService: JwtService,
   ) {
     this.frontendUrl = this.configService.getOrThrow<string>('FRONTEND_URL');
+  }
+
+  private getGuestProfile() {
+    return {
+      id: '',
+      email: '',
+      role: 'GUEST',
+      requiresPasswordSetup: false,
+      profile: null,
+    };
   }
 
   @Post('register')
@@ -83,7 +96,7 @@ export class AuthController {
     res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
     res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
     
-    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/auth/setup-password?source=google`;
+    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/setup-password?source=google`;
 
     res.redirect(redirectUrl);
   }
@@ -103,9 +116,28 @@ export class AuthController {
     return { message: 'Password set up successfully' };
   }
 
-  @UseGuards(JwtAuthGuard)
   @Get('profile')
-  async getProfile(@Req() req: any) {
-    return this.userService.findByIdWithProfile(req.user.id);
+  async getProfile(@Req() req: Request) {
+    const refresh_token = this.authService.readCookie(req, 'refresh_token');
+
+    if (!refresh_token) {
+      return this.getGuestProfile();
+    }
+
+    try {
+      const payload = this.jwtService.verify(refresh_token, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+
+      const user = await this.userService.findById(payload.sub);
+      if (!user || !user.refreshToken || !(await bcrypt.compare(refresh_token, user.refreshToken))) {
+        return this.getGuestProfile();
+      }
+
+      const detailedUser = await this.userService.findByIdWithProfile(user.id);
+      return detailedUser ?? this.getGuestProfile();
+    } catch {
+      return this.getGuestProfile();
+    }
   }
 }

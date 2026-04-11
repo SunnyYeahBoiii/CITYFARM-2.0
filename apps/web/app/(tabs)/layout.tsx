@@ -1,9 +1,14 @@
-import { AppShell } from "../../components/cityfarm/screens";
+import { AppShell } from "@/components/cityfarm/layout/AppShell";
+import { AuthGate } from "@/components/auth/AuthGate";
 
 export default function TabsLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return <AppShell>{children}</AppShell>;
+  return (
+    <AuthGate>
+      <AppShell>{children}</AppShell>
+    </AuthGate>
+  );
 }

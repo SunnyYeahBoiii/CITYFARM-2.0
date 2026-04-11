@@ -1,4 +1,5 @@
 import { Injectable, ConflictException, UnauthorizedException, BadRequestException } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { UserService } from '../user/user.service';
@@ -13,6 +14,11 @@ export class AuthService {
     private jwtService: JwtService,
     private configService: ConfigService,
   ) {}
+
+  readCookie(req: Request, cookieName: string): string {
+    const cookieValue: unknown = req.cookies?.[cookieName];
+    return typeof cookieValue === "string" ? cookieValue : "";
+  }
 
   async register(registerDto: AuthRegisterDto) {
     const existingUser = await this.userService.findByEmail(registerDto.email);
