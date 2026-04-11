@@ -8,6 +8,7 @@ import type { ChatContextPayload } from "../../lib/plant-chat-context";
 import { postChat } from "../../lib/chat-api";
 import { AssistantMessageBody } from "./assistant-message-body";
 import { TypingIndicator } from "./typing-indicator";
+import { useParams } from "next/navigation";
 
 type ChatRole = "user" | "assistant";
 
@@ -45,8 +46,15 @@ const QUICK_REPLIES = [
   "Đất trồng phù hợp loại cây",
 ];
 
+/** Fixed TZ avoids SSR vs browser locale default mismatch (hydration errors). */
+const META_TIME_ZONE = "Asia/Ho_Chi_Minh";
+
 function formatMetaTime(ts: number): string {
-  return new Date(ts).toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" });
+  return new Date(ts).toLocaleTimeString("vi-VN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: META_TIME_ZONE,
+  });
 }
 
 function makeId(): string {
@@ -77,6 +85,7 @@ export function ChatbotScreen({
   const [loading, setLoading] = useState(false);
   const listEndRef = useRef<HTMLDivElement | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const plantId = useParams().plantId;
 
   const scrollToBottom = useCallback(() => {
     listEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
