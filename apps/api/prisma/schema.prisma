@@ -106,6 +106,12 @@ model Order {
   pickupDistrict    String?
   pickupAddressNote String?
   customerNote      String?
+  recipientName     String?
+  recipientPhone    String?
+  deliveryAddress   String?
+  deliveryCity      String?
+  deliveryDistrict  String?
+  deliveryWard      String?
   confirmedAt       DateTime?
   readyForPickupAt  DateTime?
   completedAt       DateTime?

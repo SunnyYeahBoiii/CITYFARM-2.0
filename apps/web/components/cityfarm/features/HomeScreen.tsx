@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getPlants, homeStats, reminders } from "../../../lib/cityfarm";
+import { WeatherWidget } from "./WeatherWidget";
 import { BagIcon, CameraIcon, CheckIcon, DropletIcon, SunIcon } from "../shared/icons";
 import { CityImage, HealthBadge, cn } from "../shared/ui";
 
@@ -49,6 +50,8 @@ export function HomeScreen() {
             </Link>
           </div>
         </section>
+
+        <WeatherWidget />
 
         <section className="mt-4">
           <div className="mb-2.5 flex items-end justify-between gap-3">

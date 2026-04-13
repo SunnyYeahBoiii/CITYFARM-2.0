@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { createOrder, type CreateOrderPayload } from "../../../lib/api/orders.api";
 import { dirtOptions, kits, potOptions, seeds, type Kit } from "../../../lib/cityfarm";
 import styles from "../cityfarm.module.css";
 import { ArrowLeftIcon, BagIcon, CheckIcon, DropletIcon, RecycleIcon, SproutIcon } from "../shared/icons";
 import { CityImage, OrderTab } from "../shared/ui";
 
 type ProductType = "kit" | "seed" | "dirt" | "pot";
-type OrderStep = "select" | "confirm" | "success";
+type OrderStep = "select" | "shipping" | "confirm" | "success";
 type ShopItem = Kit | (typeof seeds)[number] | (typeof dirtOptions)[number] | (typeof potOptions)[number];
+
+const PHONE_REGEX = /^(0|\+84)[0-9]{9,10}$/;
 
 function getSelectedProduct({
   productType,
@@ -43,6 +46,36 @@ function hasImagePreview(product: ShopItem): product is Kit {
   return "image" in product;
 }
 
+function mapProductTypeToApi(productType: ProductType): CreateOrderPayload["productType"] {
+  const map: Record<ProductType, CreateOrderPayload["productType"]> = {
+    kit: "KIT",
+    seed: "SEED",
+    dirt: "SOIL",
+    pot: "POT",
+  };
+  return map[productType];
+}
+
+interface ShippingForm {
+  recipientName: string;
+  recipientPhone: string;
+  deliveryAddress: string;
+  customerNote: string;
+}
+
+interface ValidationErrors {
+  recipientName?: string;
+  recipientPhone?: string;
+  deliveryAddress?: string;
+}
+
+const EMPTY_SHIPPING: ShippingForm = {
+  recipientName: "",
+  recipientPhone: "",
+  deliveryAddress: "",
+  customerNote: "",
+};
+
 export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
   const [productType, setProductType] = useState<ProductType>("kit");
   const [step, setStep] = useState<OrderStep>("select");
@@ -51,6 +84,10 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
   const [selectedDirt, setSelectedDirt] = useState<(typeof dirtOptions)[number] | null>(null);
   const [selectedPot, setSelectedPot] = useState<(typeof potOptions)[number] | null>(null);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [shipping, setShipping] = useState<ShippingForm>(EMPTY_SHIPPING);
+  const [errors, setErrors] = useState<ValidationErrors>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!initialSeed) {
@@ -65,7 +102,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
     if (matchedSeed) {
       setSelectedSeed(matchedSeed);
       setProductType("seed");
-      setStep("confirm");
+      setStep("shipping");
     }
   }, [initialSeed]);
 
@@ -77,14 +114,67 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
     selectedPot,
   });
 
-  const handleOrder = () => {
-    if (!selectedProduct) {
-      return;
+  const validateShipping = (): boolean => {
+    const newErrors: ValidationErrors = {};
+
+    if (!shipping.recipientName.trim()) {
+      newErrors.recipientName = "Vui lòng nhập tên người nhận";
     }
 
-    const uniqueId = Math.floor(1000 + Math.random() * 9000);
-    setGeneratedCode(`${productType.toUpperCase()}-${selectedProduct.id}-${uniqueId}`);
-    setStep("success");
+    if (!shipping.recipientPhone.trim()) {
+      newErrors.recipientPhone = "Vui lòng nhập số điện thoại";
+    } else if (!PHONE_REGEX.test(shipping.recipientPhone.trim())) {
+      newErrors.recipientPhone = "SĐT không đúng định dạng Việt Nam (VD: 0912345678)";
+    }
+
+    if (!shipping.deliveryAddress.trim()) {
+      newErrors.deliveryAddress = "Vui lòng nhập địa chỉ giao hàng";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleProceedToShipping = () => {
+    if (!selectedProduct) return;
+    setStep("shipping");
+  };
+
+  const handleProceedToConfirm = () => {
+    if (validateShipping()) {
+      setStep("confirm");
+    }
+  };
+
+  const handleOrder = async () => {
+    if (!selectedProduct) return;
+
+    setIsSubmitting(true);
+    setSubmitError(null);
+
+    try {
+      const result = await createOrder({
+        productType: mapProductTypeToApi(productType),
+        productId: selectedProduct.id,
+        quantity: 1,
+        recipientName: shipping.recipientName.trim(),
+        recipientPhone: shipping.recipientPhone.trim(),
+        deliveryAddress: shipping.deliveryAddress.trim(),
+        deliveryDistrict: shipping.customerNote ? undefined : undefined,
+        customerNote: shipping.customerNote.trim() || undefined,
+      });
+
+      setGeneratedCode(result.orderCode);
+      setStep("success");
+    } catch (err: unknown) {
+      const message =
+        err && typeof err === "object" && "response" in err
+          ? (err as { response?: { data?: { message?: string } } }).response?.data?.message
+          : "Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại.";
+      setSubmitError(message ?? "Có lỗi xảy ra khi đặt hàng. Vui lòng thử lại.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -96,6 +186,13 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
       await navigator.clipboard.writeText(generatedCode);
     } catch {
       // Ignore clipboard failures in non-secure contexts.
+    }
+  };
+
+  const updateShipping = (field: keyof ShippingForm, value: string) => {
+    setShipping((prev) => ({ ...prev, [field]: value }));
+    if (errors[field as keyof ValidationErrors]) {
+      setErrors((prev) => ({ ...prev, [field]: undefined }));
     }
   };
 
@@ -120,7 +217,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                     className={styles.plantCard}
                     onClick={() => {
                       setSelectedKit(kit);
-                      setStep("confirm");
+                      setStep("shipping");
                     }}
                   >
                     <div className={styles.plantCardInner}>
@@ -154,7 +251,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                     className={styles.selectorCard}
                     onClick={() => {
                       setSelectedSeed(seed);
-                      setStep("confirm");
+                      setStep("shipping");
                     }}
                   >
                     <div className={styles.selectorBody} style={{ textAlign: "center" }}>
@@ -181,7 +278,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                     style={{ textAlign: "left" }}
                     onClick={() => {
                       setSelectedDirt(dirt);
-                      setStep("confirm");
+                      setStep("shipping");
                     }}
                   >
                     <div className={styles.plantTopRow}>
@@ -205,7 +302,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                     className={styles.selectorCard}
                     onClick={() => {
                       setSelectedPot(pot);
-                      setStep("confirm");
+                      setStep("shipping");
                     }}
                   >
                     <div className={styles.selectorBody} style={{ textAlign: "center" }}>
@@ -224,6 +321,85 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
             ) : null}
           </div>
         </>
+      ) : null}
+
+      {step === "shipping" ? (
+        <div className={styles.summaryCard}>
+          <div className={styles.screenHeaderTitle}>Thông tin giao hàng</div>
+
+          <div className={styles.section} style={{ display: "grid", gap: "1rem" }}>
+            <div>
+              <label className={styles.summaryLabel} style={{ marginBottom: "0.35rem", display: "block" }}>
+                Tên người nhận <span style={{ color: "#e53e3e" }}>*</span>
+              </label>
+              <input
+                type="text"
+                className={styles.input}
+                value={shipping.recipientName}
+                onChange={(e) => updateShipping("recipientName", e.target.value)}
+                placeholder="Nguyễn Văn A"
+              />
+              {errors.recipientName && (
+                <p style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "#e53e3e" }}>{errors.recipientName}</p>
+              )}
+            </div>
+
+            <div>
+              <label className={styles.summaryLabel} style={{ marginBottom: "0.35rem", display: "block" }}>
+                Số điện thoại <span style={{ color: "#e53e3e" }}>*</span>
+              </label>
+              <input
+                type="tel"
+                className={styles.input}
+                value={shipping.recipientPhone}
+                onChange={(e) => updateShipping("recipientPhone", e.target.value)}
+                placeholder="0912345678"
+              />
+              {errors.recipientPhone && (
+                <p style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "#e53e3e" }}>{errors.recipientPhone}</p>
+              )}
+            </div>
+
+            <div>
+              <label className={styles.summaryLabel} style={{ marginBottom: "0.35rem", display: "block" }}>
+                Địa chỉ giao hàng <span style={{ color: "#e53e3e" }}>*</span>
+              </label>
+              <textarea
+                className={styles.textarea}
+                style={{ minHeight: "5rem" }}
+                value={shipping.deliveryAddress}
+                onChange={(e) => updateShipping("deliveryAddress", e.target.value)}
+                placeholder="Số nhà, đường, phường/xã, quận/huyện"
+              />
+              {errors.deliveryAddress && (
+                <p style={{ marginTop: "0.3rem", fontSize: "0.78rem", color: "#e53e3e" }}>{errors.deliveryAddress}</p>
+              )}
+            </div>
+
+            <div>
+              <label className={styles.summaryLabel} style={{ marginBottom: "0.35rem", display: "block" }}>
+                Ghi chú
+              </label>
+              <input
+                type="text"
+                className={styles.input}
+                value={shipping.customerNote}
+                onChange={(e) => updateShipping("customerNote", e.target.value)}
+                placeholder="Tùy chọn: ghi chú cho đơn hàng"
+              />
+            </div>
+          </div>
+
+          <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
+            <button type="button" className={styles.buttonPrimary} onClick={handleProceedToConfirm}>
+              Tiếp tục
+            </button>
+            <button type="button" className={styles.buttonOutline} onClick={() => setStep("select")}>
+              <ArrowLeftIcon />
+              Quay lại
+            </button>
+          </div>
+        </div>
       ) : null}
 
       {step === "confirm" && selectedProduct ? (
@@ -255,13 +431,64 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
             </div>
           ) : null}
 
+          <div
+            className={styles.section}
+            style={{
+              marginTop: "1rem",
+              padding: "0.85rem",
+              borderRadius: "0.75rem",
+              background: "#f8faf7",
+              border: "1px solid rgba(31,41,22,0.08)",
+            }}
+          >
+            <div className={styles.summaryLabel} style={{ marginBottom: "0.5rem" }}>Thông tin giao hàng</div>
+            <div style={{ fontSize: "0.85rem", lineHeight: "1.7", color: "#24301c" }}>
+              <div>
+                <strong>Người nhận:</strong> {shipping.recipientName}
+              </div>
+              <div>
+                <strong>SĐT:</strong> {shipping.recipientPhone}
+              </div>
+              <div>
+                <strong>Địa chỉ:</strong> {shipping.deliveryAddress}
+              </div>
+              {shipping.customerNote && (
+                <div>
+                  <strong>Ghi chú:</strong> {shipping.customerNote}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {submitError && (
+            <div
+              style={{
+                marginTop: "0.75rem",
+                padding: "0.75rem",
+                borderRadius: "0.75rem",
+                background: "#fff5f5",
+                border: "1px solid #fed7d7",
+                color: "#c53030",
+                fontSize: "0.85rem",
+              }}
+            >
+              {submitError}
+            </div>
+          )}
+
           <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-            <button type="button" className={styles.buttonPrimary} onClick={handleOrder}>
-              Confirm Order
+            <button
+              type="button"
+              className={styles.buttonPrimary}
+              onClick={handleOrder}
+              disabled={isSubmitting}
+              style={{ opacity: isSubmitting ? 0.6 : 1 }}
+            >
+              {isSubmitting ? "Đang xử lý..." : "Xác nhận & Đặt hàng"}
             </button>
-            <button type="button" className={styles.buttonOutline} onClick={() => setStep("select")}>
+            <button type="button" className={styles.buttonOutline} onClick={() => setStep("shipping")}>
               <ArrowLeftIcon />
-              Back
+              Chỉnh sửa thông tin
             </button>
           </div>
         </div>

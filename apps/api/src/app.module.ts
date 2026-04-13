@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
+import { OrderModule } from './order/order.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 
 @Module({
@@ -19,6 +20,7 @@ import { LoggingMiddleware } from './common/middleware/logging/logging.middlewar
     AuthModule,
     CommunityModule,
     AssetsModule,
+    OrderModule,
   ],
   controllers: [AppController],
   providers: [AppService],
