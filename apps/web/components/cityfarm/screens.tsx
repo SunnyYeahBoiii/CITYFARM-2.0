@@ -931,14 +931,17 @@ export function ScanScreen() {
                 src={selectedRecommendation.imageUrl}
                 alt={selectedRecommendation.name}
               />
-              <div className={styles.visualizationCaption}>
-                <div className={styles.plantName}>{selectedRecommendation.name}</div>
-                <div className={styles.captionText}>
-                  {selectedRecommendation.reason}
-                </div>
-              </div>
             </div>
           </div>
+
+          <section className={styles.section}>
+            <div className={styles.mutedCard} style={{ padding: "1rem 1rem 0.95rem" }}>
+              <div className={styles.plantName}>{selectedRecommendation.name}</div>
+              <div className={styles.captionText} style={{ marginTop: "0.35rem" }}>
+                {selectedRecommendation.reason}
+              </div>
+            </div>
+          </section>
 
           <section className={styles.section}>
             <Link href={`/order?seed=${selectedRecommendation.id}`} className={styles.buttonPrimary} style={{ width: "100%" }}>
