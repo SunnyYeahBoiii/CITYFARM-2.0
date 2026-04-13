@@ -1,7 +1,10 @@
 import type { ComponentType } from "react";
 import { BagIcon, CameraIcon, HomeIcon, SproutIcon, UsersIcon } from "../shared/icons";
 
-export type ShellVariant = "tabs" | "detail";
+export type ShellVariant = "tabs" | "detail" | "chat";
+export type HeaderOptions = {
+  chatPlantId?: string | null;
+};
 
 export type HeaderConfig = {
   title: string;
@@ -21,7 +24,20 @@ export const tabItems: Array<{
   { href: "/community", label: "Social", Icon: UsersIcon },
 ];
 
-export function resolveHeader(pathname: string, variant: ShellVariant): HeaderConfig {
+export function resolveHeader(
+  pathname: string,
+  variant: ShellVariant,
+  options?: HeaderOptions,
+): HeaderConfig {
+  if (pathname.startsWith("/chatbot")) {
+    const plantId = options?.chatPlantId?.trim();
+    return {
+      title: "CityFarm AI",
+      subtitle: "Chăm cây, đất, nước, sâu bệnh — gợi ý theo ngữ cảnh vườn bạn.",
+      backHref: plantId ? `/garden/${encodeURIComponent(plantId)}` : "/home",
+    };
+  }
+
   if (pathname.startsWith("/garden/")) {
     return {
       title: variant === "detail" ? "Plant Detail" : "My Garden",

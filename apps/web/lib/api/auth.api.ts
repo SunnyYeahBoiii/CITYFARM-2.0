@@ -1,71 +1,55 @@
-import { api } from '../client';
-import type { CurrentUser } from '../types/auth';
-import { GUEST_USER, UserRole } from '../types/auth';
+import { AxiosError } from "axios";
+import { api } from "../client";
+import type { CurrentUser } from "../types/auth";
+import { GUEST_USER } from "../types/auth";
+import { mapRawProfileToCurrentUser, type RawProfileResponse } from "./auth-profile";
 
-interface RawProfileResponse {
-  id?: string;
-  email?: string;
-  role?: string;
-  externalAuthId?: string | null;
-  requiresPasswordSetup?: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  profile?: {
-    id?: string;
-    displayName?: string;
-    bio?: string | null;
-    city?: string | null;
-    district?: string | null;
-    ward?: string | null;
-    growerVerificationStatus?: string;
-    totalHarvests?: number;
-    totalCareLogs?: number;
-    avatarAsset?: {
-      publicUrl?: string;
-    } | null;
-  } | null;
-}
+type AuthApiFailure = {
+  ok: false;
+  error?: string;
+};
 
-function mapRawProfileToCurrentUser(data: RawProfileResponse): CurrentUser {
-  const role =
-    data.role && Object.values(UserRole).includes(data.role as UserRole)
-      ? (data.role as UserRole)
-      : UserRole.GUEST;
+type AuthApiSuccess<T> = {
+  ok: true;
+  data: T;
+};
 
-  return {
-    id: data.id ?? '',
-    email: data.email ?? '',
-    role,
-    requiresPasswordSetup: data.requiresPasswordSetup ?? false,
-    profile: data.profile
-      ? {
-          id: data.profile.id ?? '',
-          displayName: data.profile.displayName ?? '',
-          bio: data.profile.bio ?? null,
-          city: data.profile.city ?? null,
-          district: data.profile.district ?? null,
-          ward: data.profile.ward ?? null,
-          avatarUrl: data.profile.avatarAsset?.publicUrl ?? null,
-          growerVerificationStatus:
-            data.profile.growerVerificationStatus ?? 'NONE',
-          totalHarvests: data.profile.totalHarvests ?? 0,
-          totalCareLogs: data.profile.totalCareLogs ?? 0,
-        }
-      : null,
-  };
+export type LoginResult = AuthApiSuccess<CurrentUser> | AuthApiFailure;
+export type RegisterResult = AuthApiSuccess<{ nextStep: "login" }> | AuthApiFailure;
+export type LogoutResult = AuthApiSuccess<CurrentUser> | AuthApiFailure;
+export type RefreshResult = AuthApiSuccess<CurrentUser> | AuthApiFailure;
+export type SetupPasswordResult = AuthApiSuccess<CurrentUser> | AuthApiFailure;
+
+function getApiErrorMessage(error: unknown): string | undefined {
+  if (error instanceof AxiosError) {
+    const responseMessage = error.response?.data as { message?: string } | undefined;
+    return responseMessage?.message ?? error.message;
+  }
+
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  return undefined;
 }
 
 export async function getProfile(): Promise<CurrentUser> {
   try {
-    const { data } = await api.get<RawProfileResponse>('/auth/profile');
+    const { data } = await api.get<RawProfileResponse>("/auth/profile");
     return mapRawProfileToCurrentUser(data);
   } catch {
     return GUEST_USER;
   }
 }
 
-export async function login(email: string, password: string): Promise<void> {
-  await api.post('/auth/login', { email, password });
+export async function login(email: string, password: string): Promise<LoginResult> {
+  try {
+    await api.post("/auth/login", { email, password });
+    const user = await getProfile();
+    return { ok: true, data: user };
+  } catch (error) {
+    return { ok: false, error: getApiErrorMessage(error) };
+  }
 }
 
 /**
@@ -84,18 +68,40 @@ export async function register(data: {
   city?: string;
   district?: string;
   ward?: string;
-}): Promise<void> {
-  await api.post('/auth/register', data);
+}): Promise<RegisterResult> {
+  try {
+    await api.post("/auth/register", data);
+    return { ok: true, data: { nextStep: "login" } };
+  } catch (error) {
+    return { ok: false, error: getApiErrorMessage(error) };
+  }
 }
 
-export async function logout(): Promise<void> {
-  await api.post('/auth/logout');
+export async function logout(): Promise<LogoutResult> {
+  try {
+    await api.post("/auth/logout");
+    return { ok: true, data: GUEST_USER };
+  } catch (error) {
+    return { ok: false, error: getApiErrorMessage(error) };
+  }
 }
 
-export async function refreshTokens(): Promise<void> {
-  await api.post('/auth/refresh');
+export async function refreshTokens(): Promise<RefreshResult> {
+  try {
+    await api.post("/auth/refresh");
+    const user = await getProfile();
+    return { ok: true, data: user };
+  } catch (error) {
+    return { ok: false, error: getApiErrorMessage(error) };
+  }
 }
 
-export async function setupPassword(password: string): Promise<void> {
-  await api.post('/auth/setup-password', { password });
+export async function setupPassword(password: string): Promise<SetupPasswordResult> {
+  try {
+    await api.post("/auth/setup-password", { password });
+    const user = await getProfile();
+    return { ok: true, data: user };
+  } catch (error) {
+    return { ok: false, error: getApiErrorMessage(error) };
+  }
 }

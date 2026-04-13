@@ -6,15 +6,15 @@ import type { Components } from "react-markdown";
 
 const mdComponents: Components = {
   p: ({ children }) => (
-    <p className="mb-2 text-sm leading-relaxed text-[var(--color-ink)] last:mb-0">{children}</p>
+    <p className="mb-1.5 text-[13px] leading-snug text-[var(--color-ink)] last:mb-0">{children}</p>
   ),
   ul: ({ children }) => (
-    <ul className="mb-2 list-disc space-y-1 pl-4 text-sm text-[var(--color-ink)] last:mb-0">{children}</ul>
+    <ul className="mb-1.5 list-disc space-y-0.5 pl-3.5 text-[13px] text-[var(--color-ink)] last:mb-0">{children}</ul>
   ),
   ol: ({ children }) => (
-    <ol className="mb-2 list-decimal space-y-1 pl-4 text-sm text-[var(--color-ink)] last:mb-0">{children}</ol>
+    <ol className="mb-1.5 list-decimal space-y-0.5 pl-3.5 text-[13px] text-[var(--color-ink)] last:mb-0">{children}</ol>
   ),
-  li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+  li: ({ children }) => <li className="leading-snug">{children}</li>,
   strong: ({ children }) => (
     <strong className="font-semibold text-[var(--color-green-deep)]">{children}</strong>
   ),
@@ -45,20 +45,20 @@ const mdComponents: Components = {
     );
   },
   h1: ({ children }) => (
-    <h3 className="mb-2 text-base font-bold text-[var(--color-heading)]">{children}</h3>
+    <h3 className="mb-1.5 text-[15px] font-bold leading-snug text-[var(--color-heading)]">{children}</h3>
   ),
   h2: ({ children }) => (
-    <h4 className="mb-2 text-sm font-bold text-[var(--color-green-deep)]">{children}</h4>
+    <h4 className="mb-1.5 text-[13px] font-bold leading-snug text-[var(--color-green-deep)]">{children}</h4>
   ),
   h3: ({ children }) => (
-    <h4 className="mb-1 text-sm font-semibold text-[var(--color-green-deep)]">{children}</h4>
+    <h4 className="mb-1 text-[13px] font-semibold leading-snug text-[var(--color-green-deep)]">{children}</h4>
   ),
   blockquote: ({ children }) => (
-    <blockquote className="mb-2 border-l-2 border-[var(--color-line)] pl-3 text-sm text-[var(--color-muted)]">
+    <blockquote className="mb-1.5 border-l-2 border-[var(--color-line)] pl-2.5 text-[13px] text-[var(--color-muted)]">
       {children}
     </blockquote>
   ),
-  hr: () => <hr className="my-3 border-[var(--color-border-subtle)]" />,
+  hr: () => <hr className="my-2 border-[var(--color-border-subtle)]" />,
 };
 
 export function ChatMarkdown({ children }: { children: string }) {

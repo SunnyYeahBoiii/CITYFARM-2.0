@@ -105,8 +105,19 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
 
   const handleLike = async (postId: string) => {
     const currentPost = posts.find((post) => post.id === postId);
-    const wasLiked = Boolean(currentPost?.isLiked);
+    if (!currentPost) {
+      return;
+    }
+
+    const wasLiked = Boolean(currentPost.isLiked);
     const optimisticLiked = !wasLiked;
+    const baseLikes = currentPost.likes;
+    const likesForState = (liked: boolean) => {
+      if (liked === wasLiked) {
+        return baseLikes;
+      }
+      return liked ? baseLikes + 1 : Math.max(baseLikes - 1, 0);
+    };
 
     setPosts((current) =>
       current.map((post) =>
@@ -114,28 +125,42 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
           ? {
               ...post,
               isLiked: optimisticLiked,
-              likes: optimisticLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
+              likes: likesForState(optimisticLiked),
             }
           : post,
       ),
     );
 
-    const actualLiked = await toggleReaction(postId);
-    if (actualLiked === optimisticLiked) {
-      return;
+    try {
+      const actualLiked = await toggleReaction(postId);
+      if (actualLiked === optimisticLiked) {
+        return;
+      }
+
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: actualLiked,
+                likes: likesForState(actualLiked),
+              }
+            : post,
+        ),
+      );
+    } catch {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                isLiked: wasLiked,
+                likes: likesForState(wasLiked),
+              }
+            : post,
+        ),
+      );
     }
-
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: actualLiked,
-              likes: actualLiked ? post.likes + 1 : Math.max(post.likes - 1, 0),
-            }
-          : post,
-      ),
-    );
   };
 
   const handleCreatePost = async () => {

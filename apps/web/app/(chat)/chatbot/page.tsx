@@ -1,6 +1,6 @@
-import { ChatbotScreen } from "../../components/chatbot/ChatbotScreen";
-import { getPlantById } from "../../lib/cityfarm-data";
-import { plantToChatContext } from "../../lib/plant-chat-context";
+import { ChatbotScreen } from "@/components/chatbot/ChatbotScreen";
+import { getPlantById } from "@/lib/cityfarm-data";
+import { plantToChatContext } from "@/lib/plant-chat-context";
 
 export default async function ChatbotPage({
   searchParams,
@@ -14,7 +14,7 @@ export default async function ChatbotPage({
   return (
     <ChatbotScreen
       initialContext={initialContext}
-      backHref={plant ? `/garden/${plant.id}` : "/home"}
+      plantId={plant?.id ?? plantId ?? null}
       plantName={plant?.name ?? null}
       plantHealth={plant?.health ?? null}
     />

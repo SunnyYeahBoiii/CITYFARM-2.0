@@ -1,58 +1,7 @@
-import { cookies } from 'next/headers';
-import type { CurrentUser } from './types/auth';
-import { GUEST_USER, UserRole } from './types/auth';
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001';
-
-interface RawProfileResponse {
-  id?: string;
-  email?: string;
-  role?: string;
-  requiresPasswordSetup?: boolean;
-  profile?: {
-    id?: string;
-    displayName?: string;
-    bio?: string | null;
-    city?: string | null;
-    district?: string | null;
-    ward?: string | null;
-    growerVerificationStatus?: string;
-    totalHarvests?: number;
-    totalCareLogs?: number;
-    avatarAsset?: {
-      publicUrl?: string;
-    } | null;
-  } | null;
-}
-
-function mapRawToCurrentUser(data: RawProfileResponse): CurrentUser {
-  const role =
-    data.role && Object.values(UserRole).includes(data.role as UserRole)
-      ? (data.role as UserRole)
-      : UserRole.GUEST;
-
-  return {
-    id: data.id ?? '',
-    email: data.email ?? '',
-    role,
-    requiresPasswordSetup: data.requiresPasswordSetup ?? false,
-    profile: data.profile
-      ? {
-          id: data.profile.id ?? '',
-          displayName: data.profile.displayName ?? '',
-          bio: data.profile.bio ?? null,
-          city: data.profile.city ?? null,
-          district: data.profile.district ?? null,
-          ward: data.profile.ward ?? null,
-          avatarUrl: data.profile.avatarAsset?.publicUrl ?? null,
-          growerVerificationStatus:
-            data.profile.growerVerificationStatus ?? 'NONE',
-          totalHarvests: data.profile.totalHarvests ?? 0,
-          totalCareLogs: data.profile.totalCareLogs ?? 0,
-        }
-      : null,
-  };
-}
+import type { CurrentUser } from "./types/auth";
+import { GUEST_USER } from "./types/auth";
+import { mapRawProfileToCurrentUser, type RawProfileResponse } from "./api/auth-profile";
+import { readSessionCookies, serverApiFetch } from "./api/server-fetch";
 
 
 /**
@@ -75,33 +24,21 @@ function mapRawToCurrentUser(data: RawProfileResponse): CurrentUser {
  * ```
  */
 export async function getUser(): Promise<CurrentUser> {
-  let refreshToken: string | undefined;
-
-  try {
-    const cookieStore = await cookies();
-    refreshToken = cookieStore.get('refresh_token')?.value;
-  } catch {
-    return GUEST_USER;
-  }
+  const { refreshToken } = await readSessionCookies();
 
   if (!refreshToken) {
     return GUEST_USER;
   }
 
   try {
-    const res = await fetch(`${API_URL}/auth/profile`, {
-      headers: {
-        Cookie: `refresh_token=${refreshToken}`,
-      },
-      cache: 'no-store',
-    });
+    const res = await serverApiFetch("/auth/profile");
 
     if (!res.ok) {
       return GUEST_USER;
     }
 
     const data = (await res.json()) as RawProfileResponse;
-    return mapRawToCurrentUser(data);
+    return mapRawProfileToCurrentUser(data);
   } catch {
     return GUEST_USER;
   }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthBrand, AuthDivider, AuthShell } from "@/components/auth/AuthShell";
+import { getGoogleAuthUrl } from "@/lib/api/config";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
 
@@ -66,22 +67,21 @@ export default function RegisterPage() {
       return;
     }
 
-    const authenticated = await register({
+    const registerResult = await register({
       email: email.trim(),
       password: password.trim(),
       displayName: username.trim(),
     });
 
-    if (!authenticated) {
+    if (!registerResult.ok) {
       return;
     }
 
-    router.replace("/home");
+    router.replace("/login?registered=1");
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    window.location.href = `${apiUrl}/auth/google`;
+    window.location.href = getGoogleAuthUrl();
   };
 
   return (

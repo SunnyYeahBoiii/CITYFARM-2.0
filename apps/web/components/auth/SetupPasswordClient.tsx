@@ -1,10 +1,17 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import type { AuthSessionActionResult } from "@/context/AuthContext";
 import { FaEye, FaEyeSlash, FaLock } from "react-icons/fa6";
 import { AuthBrand, AuthShell } from "./AuthShell";
+
+function resolveSetupDestination(
+  result: Extract<AuthSessionActionResult, { ok: true }>,
+): string {
+  return result.nextStep === "setup-password" ? "/setup-password" : "/home";
+}
 
 export function SetupPasswordClient() {
   const router = useRouter();
@@ -17,11 +24,15 @@ export function SetupPasswordClient() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [touched, setTouched] = useState({ password: false, confirmPassword: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isManualSuccess, setIsManualSuccess] = useState(false);
 
   const source = searchParams.get("source") || "social";
   const isAlreadySetup = isAuthReady && !user.requiresPasswordSetup && !!user.id;
-  const showSuccess = isManualSuccess || isAlreadySetup;
+
+  useEffect(() => {
+    if (isAuthReady && !user.id) {
+      router.replace("/login");
+    }
+  }, [isAuthReady, router, user.id]);
 
   const passwordError =
     touched.password && password.trim().length === 0
@@ -43,9 +54,9 @@ export function SetupPasswordClient() {
 
     setIsSubmitting(true);
     try {
-      const success = await setupPassword(password);
-      if (success) {
-        setIsManualSuccess(true);
+      const setupResult = await setupPassword(password);
+      if (setupResult.ok) {
+        router.replace(resolveSetupDestination(setupResult));
       }
     } catch (error) {
       console.error("Failed to setup password:", error);
@@ -64,7 +75,17 @@ export function SetupPasswordClient() {
     );
   }
 
-  if (showSuccess) {
+  if (!user.id) {
+    return (
+      <AuthShell>
+        <div className="flex min-h-[260px] items-center justify-center">
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#37542d] border-t-transparent" />
+        </div>
+      </AuthShell>
+    );
+  }
+
+  if (isAlreadySetup) {
     return (
       <AuthShell>
         <div className="flex flex-col items-center gap-4 py-3 text-center">

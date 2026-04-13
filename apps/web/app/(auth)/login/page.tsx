@@ -1,21 +1,50 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthBrand, AuthDivider, AuthShell } from "@/components/auth/AuthShell";
+import type { AuthSessionActionResult } from "@/context/AuthContext";
+import { getGoogleAuthUrl } from "@/lib/api/config";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
 
+function resolveLoginDestination(
+  result: Extract<AuthSessionActionResult, { ok: true }>,
+): string {
+  return result.nextStep === "setup-password" ? "/setup-password" : "/home";
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginPageFallback />}>
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageFallback() {
+  return (
+    <AuthShell>
+      <div className="flex min-h-[260px] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#37542d] border-t-transparent" />
+      </div>
+    </AuthShell>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [touched, setTouched] = useState({ account: false, password: false });
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  const registrationNotice = searchParams.get("registered") === "1";
 
   const emailError =
     touched.account && email.trim().length === 0
@@ -45,23 +74,27 @@ export default function LoginPage() {
       return;
     }
 
-    const authenticated = await login(email.trim(), password.trim());
-
-    if (!authenticated) {
+    const authResult = await login(email.trim(), password.trim());
+    if (!authResult.ok) {
       return;
     }
 
-    router.replace("/home");
+    router.replace(resolveLoginDestination(authResult));
   };
 
   const handleGoogleLogin = () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
-    window.location.href = `${apiUrl}/auth/google`;
+    window.location.href = getGoogleAuthUrl();
   };
 
   return (
     <AuthShell>
       <AuthBrand title="Log in" subtitle="Enter your account and password to login." />
+
+      {registrationNotice ? (
+        <div className="mb-4 rounded-2xl border border-[#d4e3c5] bg-[#f4faee] px-4 py-3 text-sm text-[#355b31]">
+          Account created successfully. Log in to continue.
+        </div>
+      ) : null}
 
       <div className="flex flex-col gap-3">
         <form className="w-full space-y-4 text-left" onSubmit={handleSubmit} noValidate>

@@ -17,7 +17,7 @@ export function AssistantMessageBody({
   }
 
   return (
-    <div className="text-sm leading-relaxed text-[var(--color-ink)]">
+    <div className="text-[13px] leading-snug text-[var(--color-ink)]">
       <span className="whitespace-pre-wrap">{visible}</span>
       <span
         className="ml-0.5 inline-block h-4 w-px translate-y-0.5 animate-pulse bg-[var(--color-green-deep)]"

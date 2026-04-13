@@ -1,7 +1,5 @@
-import { cookies } from "next/headers";
 import type { CommunityDataResponse, FeedPost, MarketListing } from "./types/community";
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+import { readSessionCookies, serverApiFetch } from "./api/server-fetch";
 
 function normalizeCollection<T>(payload: unknown): T[] {
   if (Array.isArray(payload)) {
@@ -16,13 +14,7 @@ function normalizeCollection<T>(payload: unknown): T[] {
 }
 
 async function serverGet<T>(pathname: string): Promise<T[]> {
-  const cookieStore = await cookies();
-  const refreshToken = cookieStore.get("refresh_token")?.value;
-
-  const response = await fetch(`${API_URL}${pathname}`, {
-    cache: "no-store",
-    headers: refreshToken ? { Cookie: `refresh_token=${refreshToken}` } : undefined,
-  });
+  const response = await serverApiFetch(pathname);
 
   if (!response.ok) {
     return [];
@@ -33,6 +25,11 @@ async function serverGet<T>(pathname: string): Promise<T[]> {
 }
 
 export async function getCommunityData(): Promise<CommunityDataResponse> {
+  const { accessToken } = await readSessionCookies();
+  if (!accessToken) {
+    return { posts: [], listings: [] };
+  }
+
   const [posts, listings] = await Promise.all([
     serverGet<FeedPost>("/community/feed"),
     serverGet<MarketListing>("/community/marketplace"),

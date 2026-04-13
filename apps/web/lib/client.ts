@@ -1,15 +1,31 @@
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig } from "axios";
+import { getApiBaseUrl } from "./api/config";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+export const API_URL = getApiBaseUrl();
 
-if (typeof window !== "undefined") {
-  console.log("[CITYFARM API] baseURL:", API_URL);
+function createJsonClient({
+  baseURL,
+  timeout,
+}: {
+  baseURL?: string;
+  timeout?: number;
+} = {}): AxiosInstance {
+  return axios.create({
+    baseURL,
+    timeout,
+    withCredentials: true,
+    headers: {
+      "Content-Type": "application/json",
+    },
+  });
 }
 
-const api: AxiosInstance = axios.create({
+const api: AxiosInstance = createJsonClient({
   baseURL: API_URL,
-  withCredentials: true,
+});
+
+export const internalApi: AxiosInstance = createJsonClient({
+  timeout: 120_000,
 });
 
 let isRefreshing = false;
