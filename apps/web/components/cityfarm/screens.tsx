@@ -269,6 +269,9 @@ export function GardenScreen() {
           <div className={styles.screenHeaderMeta}>Track care, harvest pace and active kits.</div>
         </div>
         <div className={styles.headerActions}>
+          <Link href="/garden/imagine" className={styles.iconButton}>
+            <CameraIcon />
+          </Link>
           <Link href="/order" className={styles.iconButton}>
             <PlusIcon />
           </Link>
@@ -283,6 +286,9 @@ export function GardenScreen() {
               Reorder seeds, top up soil or start a new balcony configuration without leaving the app.
             </p>
             <div className={styles.section} style={{ marginTop: "0.85rem" }}>
+              <Link href="/garden/imagine" className={styles.buttonPrimary}>
+                Open Imagine Garden
+              </Link>
               <Link href="/order" className={styles.buttonOutline}>
                 Order more supplies
               </Link>
@@ -1344,119 +1350,6 @@ export function CommunityScreen() {
 
             <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
               <button type="button" className={styles.buttonPrimary} onClick={() => void handleCreatePost()}>
-                Publish Post
-              </button>
-              <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
-                Cancel
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-                          </div>
-                          <div className={styles.matchPill}>{listing.price}</div>
-                        </div>
-                        <div className={styles.captionText} style={{ marginTop: "0.55rem" }}>
-                          {listing.description}
-                        </div>
-                        <div className={styles.tagRow} style={{ marginTop: "0.75rem" }}>
-                          <span className={styles.tag}>{listing.seller.name}</span>
-                          <span className={styles.tag}>{listing.seller.district}</span>
-                          <span className={styles.tag}>{listing.plantingLogs} planting logs</span>
-                          {listing.seller.verifiedGrower && <span className={styles.verifiedPill}>Verified Grower</span>}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
-
-      {isCreating && (
-        <div className={styles.composerOverlay} onClick={() => setIsCreating(false)}>
-          <div className={styles.composerSheet} onClick={(event) => event.stopPropagation()}>
-            <div className={styles.sheetHead}>
-              <div>
-                <div className={styles.sectionTitle}>Create Post</div>
-                <div className={styles.sectionSubtitle}>Share a progress update or ask a question.</div>
-              </div>
-              <button type="button" className={styles.iconButton} onClick={() => setIsCreating(false)}>
-                <CloseIcon />
-              </button>
-            </div>
-
-            <div className={styles.orderTabs}>
-              <button
-                type="button"
-                className={postType === "caption" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("caption")}
-              >
-                Caption
-              </button>
-              <button
-                type="button"
-                className={postType === "image" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("image")}
-              >
-                Image
-              </button>
-              <button
-                type="button"
-                className={postType === "plant" ? styles.filterChipActive : styles.filterChip}
-                onClick={() => setPostType("plant")}
-              >
-                Plant Share
-              </button>
-            </div>
-
-            <div className={styles.section}>
-              <textarea
-                className={styles.textarea}
-                placeholder="Write your update..."
-                value={caption}
-                onChange={(event) => setCaption(event.target.value)}
-              />
-            </div>
-
-            {postType === "plant" && (
-              <div className={styles.section}>
-                <div className={styles.sectionSubtitle}>Select a plant to share</div>
-                <div className={styles.gridTwo}>
-                  {getPlants().map((plant) => (
-                    <button
-                      key={plant.id}
-                      type="button"
-                      className={styles.selectorCard}
-                      onClick={() => setSelectedPlantId(plant.id)}
-                      style={{
-                        outline: selectedPlantId === plant.id ? "2px solid #567a3d" : "none",
-                      }}
-                    >
-                      <div className={styles.selectorBody}>
-                        <div className={styles.avatarRow}>
-                          <div className={styles.plantThumb} style={{ width: "3.25rem", height: "3.25rem" }}>
-                            <img src={plant.imageUrl} alt={plant.name} />
-                          </div>
-                          <div>
-                            <div className={styles.plantName}>{plant.name}</div>
-                            <div className={styles.metaText}>Day {plant.daysGrowing}</div>
-                          </div>
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-              <button type="button" className={styles.buttonPrimary} onClick={handleCreatePost}>
                 Publish Post
               </button>
               <button type="button" className={styles.buttonOutline} onClick={() => setIsCreating(false)}>
