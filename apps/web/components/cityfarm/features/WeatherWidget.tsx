@@ -47,6 +47,9 @@ export function WeatherWidget() {
           <div className="mt-0.5 flex items-center gap-2 text-xs text-[var(--color-muted)]">
             <DropletIcon />
             <span>Độ ẩm {humidity}%</span>
+            {weather.data.isFallbackLocation && (
+              <span className="opacity-60">· TP.HCM</span>
+            )}
           </div>
         </div>
       </div>

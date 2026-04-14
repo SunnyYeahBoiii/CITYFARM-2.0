@@ -7,6 +7,7 @@ export interface WeatherData {
   humidity: number;
   condition: string;
   icon: string;
+  isFallbackLocation: boolean;
 }
 
 type WeatherState =
@@ -35,8 +36,44 @@ const WMO_CODES: Record<number, { condition: string; icon: string }> = {
   99: { condition: "Dông lớn có mưa đá", icon: "\u26C8\uFE0F" },
 };
 
+const HCM_CITY_COORDS = { latitude: 10.8231, longitude: 106.6297 };
+
 function getWeatherInfo(code: number) {
   return WMO_CODES[code] ?? { condition: "Không xác định", icon: "\uD83C\uDF10" };
+}
+
+function getGeolocationErrorMessage(code: number): string {
+  if (code === GeolocationPositionError.PERMISSION_DENIED) {
+    return "Không thể lấy vị trí của bạn";
+  }
+  if (code === GeolocationPositionError.TIMEOUT) {
+    return "Hết thời gian lấy vị trí";
+  }
+  return "Không thể xác định vị trí";
+}
+
+async function fetchWeatherForCoords(
+  latitude: number,
+  longitude: number,
+  isFallbackLocation: boolean,
+): Promise<WeatherData> {
+  const res = await fetch(
+    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`,
+  );
+
+  if (!res.ok) throw new Error("Không thể lấy dữ liệu thời tiết");
+
+  const json = await res.json();
+  const current = json.current;
+  const info = getWeatherInfo(current.weather_code);
+
+  return {
+    temperature: Math.round(current.temperature_2m),
+    humidity: current.relative_humidity_2m,
+    condition: info.condition,
+    icon: info.icon,
+    isFallbackLocation,
+  };
 }
 
 let cachedData: WeatherData | null = null;
@@ -51,7 +88,14 @@ export function useWeather() {
     }
 
     if (!navigator.geolocation) {
-      setState({ status: "error", message: "Trình duyệt không hỗ trợ định vị" });
+      fetchWeatherForCoords(HCM_CITY_COORDS.latitude, HCM_CITY_COORDS.longitude, true)
+        .then((data) => {
+          cachedData = data;
+          setState({ status: "success", data });
+        })
+        .catch(() => {
+          setState({ status: "error", message: "Trình duyệt không hỗ trợ định vị" });
+        });
       return;
     }
 
@@ -59,31 +103,25 @@ export function useWeather() {
       async (position) => {
         const { latitude, longitude } = position.coords;
         try {
-          const res = await fetch(
-            `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&current=temperature_2m,relative_humidity_2m,weather_code&timezone=auto`,
-          );
-
-          if (!res.ok) throw new Error("Không thể lấy dữ liệu thời tiết");
-
-          const json = await res.json();
-          const current = json.current;
-          const info = getWeatherInfo(current.weather_code);
-
-          const data: WeatherData = {
-            temperature: Math.round(current.temperature_2m),
-            humidity: current.relative_humidity_2m,
-            condition: info.condition,
-            icon: info.icon,
-          };
-
+          const data = await fetchWeatherForCoords(latitude, longitude, false);
           cachedData = data;
           setState({ status: "success", data });
         } catch {
           setState({ status: "error", message: "Không thể kết nối weather API" });
         }
       },
-      () => {
-        setState({ status: "error", message: "Vui lòng cho phép truy cập vị trí" });
+      async (error) => {
+        try {
+          const data = await fetchWeatherForCoords(
+            HCM_CITY_COORDS.latitude,
+            HCM_CITY_COORDS.longitude,
+            true,
+          );
+          cachedData = data;
+          setState({ status: "success", data });
+        } catch {
+          setState({ status: "error", message: getGeolocationErrorMessage(error.code) });
+        }
       },
       { enableHighAccuracy: false, timeout: 8000 },
     );
