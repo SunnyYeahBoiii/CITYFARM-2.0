@@ -20,6 +20,20 @@ export class AuthService {
     return typeof cookieValue === "string" ? cookieValue : "";
   }
 
+  async extractUserIdFromCookies(req: Request): Promise<string | null> {
+    const accessToken = this.readCookie(req, 'access_token');
+    const refreshToken = this.readCookie(req, 'refresh_token');
+    const token = accessToken || refreshToken;
+    if (!token) return null;
+    try {
+      const secret = accessToken ? this.configService.get('JWT_ACCESS_SECRET') : this.configService.get('JWT_REFRESH_SECRET');
+      const payload = await this.jwtService.verifyAsync(token, { secret });
+      return payload.sub;
+    } catch {
+      return null;
+    }
+  }
+
   async register(registerDto: AuthRegisterDto) {
     const existingUser = await this.userService.findByEmail(registerDto.email);
     if (existingUser) {

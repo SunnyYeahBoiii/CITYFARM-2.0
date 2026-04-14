@@ -51,7 +51,7 @@ export function ShellTopBar({ variant }: { variant: ShellVariant }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <p className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-green-soft)]">
-              Mobile App Shell
+              CITYFARM
             </p>
             <span className="shrink-0 rounded-full bg-[var(--color-screen)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-muted)]">
               {variantLabel}

@@ -204,6 +204,14 @@ export function RecycleIcon() {
   );
 }
 
+export function MessageIcon() {
+  return baseIcon(
+    <>
+      <path d="M7 16H5l-1 5 4-1h9c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2H7c-1.1 0-2 .9-2 2v7c0 1.1.9 2 2 2Z" />
+    </>
+  );
+}
+
 export function CloseIcon() {
   return baseIcon(
     <>

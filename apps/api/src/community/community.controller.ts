@@ -8,6 +8,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
+  Req
 } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,22 +17,26 @@ import { CreateFeedPostDto, PostType } from '../dtos/feed/create-feed-post.dto';
 import { CreateFeedCommentDto } from '../dtos/feed/feed-comment.dto';
 import { CreatePostReactionDto } from '../dtos/feed/post-reaction.dto';
 import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketplace-listing.dto';
+import { AuthService } from 'src/auth/auth.service';
 
 @Controller('community')
 export class CommunityController {
-  constructor(private communityService: CommunityService) {}
+  constructor(
+    private readonly communityService: CommunityService,
+    private readonly authService: AuthService
+  ) {}
 
   // ============ POSTS ============
 
-  @UseGuards(JwtAuthGuard)
   @Get('feed')
   async getFeedPosts(
-    @CurrentUser('id') userId: string,
+    @Req() req: any,
     @Query('postType') postType?: PostType,
     @Query('district') district?: string,
     @Query('page') page: string = '1',
     @Query('limit') limit: string = '10',
   ) {
+    const userId = (await this.authService.extractUserIdFromCookies(req)) ?? '';
     const pageNum = parseInt(page, 10) || 1;
     const limitNum = parseInt(limit, 10) || 10;
 

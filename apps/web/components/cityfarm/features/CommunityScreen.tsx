@@ -14,12 +14,14 @@ import {
   HeartIcon,
   HelpIcon,
   ImageIcon,
+  MessageIcon,
   PinIcon,
   PlusIcon,
   SearchIcon,
   SproutIcon,
 } from "../shared/icons";
 import { Avatar, CityImage } from "../shared/ui";
+import { formatDateTime, formatDateShort } from "../../../lib/utils/date";
 
 type CommunityTab = "feed" | "market";
 type ComposerType = "caption" | "image" | "plant";
@@ -228,7 +230,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
               </div>
             </div>
           </div>
-          <div className={styles.section} style={{ marginTop: "1rem" }}>
+          <div className={styles.section} style={{ marginTop: "0.75rem", marginBottom: "0.5rem" }}>
             <div className={styles.headerActions}>
               {activeTab === "feed" ? (
                 <button type="button" className={styles.iconButton} onClick={() => setIsCreating(true)}>
@@ -295,13 +297,14 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                           </div>
                         </div>
                         <div className={styles.feedMetaText}>
-                          {new Date(post.createdAt).toLocaleDateString(undefined, {
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })}
+                          {formatDateTime(post.createdAt)}
                         </div>
+                      </div>
+                    </div>
+
+                    <div className={styles.postBody} style={{ paddingBottom: post.imageUrl ? 0 : "0.5rem" }}>
+                      <div className={styles.captionText} style={{ marginBottom: "0.5rem" }}>
+                        <div className="leading-relaxed text-[var(--color-heading)] opacity-95">{post.caption}</div>
                       </div>
                     </div>
 
@@ -317,17 +320,38 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                       </Link>
                     ) : null}
 
-                    <div className={styles.postBody}>
+                    <div className={styles.postBody} style={{ paddingTop: 0 }}>
                       <div className={styles.postActions}>
-                        <button type="button" className={styles.ghostButton} onClick={() => void handleLike(post.id)}>
-                          <HeartIcon filled={post.isLiked} />
-                        </button>
-                        <span className={styles.metaText}>{post.likes} likes</span>
-                        <span className={styles.metaText}>{post.comments} comments</span>
+                        <div className={styles.actionItem}>
+                          <button
+                            type="button"
+                            className={styles.ghostButton}
+                            onClick={() => void handleLike(post.id)}
+                            style={{ padding: 0, minHeight: "auto", width: "auto" }}
+                          >
+                            <HeartIcon filled={post.isLiked} />
+                          </button>
+                          <span className={styles.metaText}>{post.likes}</span>
+                        </div>
+                        <div className={styles.actionItem}>
+                          <MessageIcon />
+                          <span className={styles.metaText}>{post.comments}</span>
+                        </div>
                       </div>
-                      <div className={styles.captionText}>
-                        <strong>{post.user.username}</strong> {post.caption}
-                      </div>
+
+                      {post.latestComments && post.latestComments.length > 0 ? (
+                        <div className={styles.commentList}>
+                          {post.latestComments.slice(0, 2).map((comment) => (
+                            <div key={comment.id} className={styles.commentItem}>
+                              <span className={styles.commentUser}>{comment.user.username}</span>
+                              {comment.body}
+                            </div>
+                          ))}
+                          {post.comments > 2 && (
+                            <div className={styles.viewComments}>View all {post.comments} comments</div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
                 );
@@ -352,11 +376,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                           <div>
                             <div className={styles.plantName}>{listing.product}</div>
                             <div className={styles.metaText}>
-                              {listing.quantity} •{" "}
-                              {new Date(listing.createdAt).toLocaleDateString(undefined, {
-                                month: "short",
-                                day: "numeric",
-                              })}
+                              {listing.quantity} • {formatDateShort(listing.createdAt)}
                             </div>
                           </div>
                           <div className={styles.matchPill}>₫{listing.priceAmount.toLocaleString()}</div>
@@ -417,8 +437,6 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                     className={styles.imagePlaceholder}
                     onClick={() => fileInputRef.current?.click()}
                     style={{
-                      minHeight: "200px",
-                      backgroundColor: "#f1f6ec",
                       backgroundImage: selectedImage ? `url(${selectedImage})` : "none",
                       backgroundPosition: "center",
                       backgroundSize: "cover",
@@ -569,8 +587,8 @@ async function reloadCommunityData({
       return;
     }
 
-    setPosts(result.posts);
-    setListings(result.listings);
+    setPosts(result.posts ?? []);
+    setListings(result.listings ?? []);
   } finally {
     if (!activeRef || activeRef.current) {
       setIsCommunityLoading(false);
