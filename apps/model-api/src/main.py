@@ -50,6 +50,7 @@ def chat_with_assistant():
 
         user_message = data["message"]
         ctx = data.get("context", {})
+        history = data.get("history", [])
 
         # Trích xuất RAG Context siêu cấp từ NestJS
         user_info = ctx.get("user", {})
@@ -119,9 +120,25 @@ Quy tắc trả lời:
             temperature=0.7 # Tinh chỉnh độ sáng tạo
         )
 
+        # Xây dựng nội dung multi-turn từ lịch sử hội thoại
+        contents = []
+        for msg in history:
+            role = msg.get("role", "user")
+            # Gemini dùng 'model' cho assistant, 'user' cho user
+            gemini_role = "model" if role == "assistant" else "user"
+            content_text = msg.get("content", "")
+            if content_text:
+                contents.append(
+                    types.Content(role=gemini_role, parts=[types.Part(text=content_text)])
+                )
+        # Thêm tin nhắn hiện tại của người dùng
+        contents.append(
+            types.Content(role="user", parts=[types.Part(text=user_message)])
+        )
+
         response = client.models.generate_content(
             model='gemini-3.1-flash-lite-preview',
-            contents=user_message,
+            contents=contents,
             config=api_config
         )
 
