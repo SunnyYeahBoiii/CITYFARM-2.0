@@ -9,6 +9,7 @@ import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 import { ProductsModule } from './products/products.module';
+import { OrdersModule } from './orders/orders.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ProductsModule } from './products/products.module';
     CommunityModule,
     AssetsModule,
     ProductsModule,
+    OrdersModule,
   ],
   controllers: [AppController],
   providers: [AppService],

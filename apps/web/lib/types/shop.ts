@@ -6,6 +6,7 @@ export interface ShopSeed {
   icon?: string;
   image?: string;
   price: string;
+  description?: string;
 }
 
 export interface DirtOption {
@@ -14,6 +15,7 @@ export interface DirtOption {
   quantity: string;
   image?: string;
   price: string;
+  description?: string;
 }
 
 export interface PotOption {
@@ -23,6 +25,7 @@ export interface PotOption {
   decoration?: string;
   image?: string;
   price: string;
+  description?: string;
 }
 
 export interface Kit {
@@ -32,4 +35,5 @@ export interface Kit {
   image: string;
   components: string[];
   allowedSeeds: string[];
+  description?: string;
 }

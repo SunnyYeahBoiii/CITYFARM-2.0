@@ -10,6 +10,7 @@ import {
   FaRightFromBracket,
   FaShieldHalved,
   FaCircleUser,
+  FaBagShopping,
 } from "react-icons/fa6";
 
 export default function AccountPage() {
@@ -70,6 +71,25 @@ export default function AccountPage() {
             </div>
             <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
               Edit
+            </span>
+          </button>
+
+          <button
+            type="button"
+            className="flex w-full items-center justify-between rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-2.5 text-left shadow-[0_8px_20px_rgba(33,49,30,0.06)] transition-colors hover:bg-[var(--color-screen)]"
+            onClick={() => router.push("/account/history")}
+          >
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 items-center justify-center rounded-[0.85rem] bg-[var(--color-interactive-bg)] text-[var(--color-interactive-ink)]">
+                <FaBagShopping size={16} aria-hidden="true" />
+              </span>
+              <div>
+                <div className="text-sm font-bold text-[var(--color-heading)]">Purchase history</div>
+                <div className="text-xs text-[var(--color-muted)]">Orders, receipts, and digital codes.</div>
+              </div>
+            </div>
+            <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-muted)]">
+              View
             </span>
           </button>
 

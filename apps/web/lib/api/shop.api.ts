@@ -7,8 +7,13 @@ export const shopApi = {
     return response.data;
   },
 
-  placeOrder: async (productId: string, quantity: number = 1) => {
-    const response = await api.post("/shop/orders", { productId, quantity });
+  buyNow: async (productId: string) => {
+    const response = await api.post("/shop/orders/buy-now", { productId });
+    return response.data;
+  },
+  
+  getMyOrders: async () => {
+    const response = await api.get("/shop/orders/my-orders");
     return response.data;
   },
 };

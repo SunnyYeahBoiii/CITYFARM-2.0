@@ -23,6 +23,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
   const [selectedProduct, setSelectedProduct] = useState<ShopItem | null>(null);
   const [generatedCode, setGeneratedCode] = useState("");
   const [isZoomed, setIsZoomed] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
     setLoading(true);
@@ -43,14 +44,22 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
     }).finally(() => setLoading(false));
   }, [productType, initialSeed]);
 
-  const handleOrder = () => {
+  const handleOrder = async () => {
     if (!selectedProduct) {
       return;
     }
 
-    const uniqueId = Math.floor(1000 + Math.random() * 9000);
-    setGeneratedCode(`${productType.toUpperCase()}-${selectedProduct.id}-${uniqueId}`);
-    setStep("success");
+    setIsProcessing(true);
+    try {
+      const result = await shopApi.buyNow(selectedProduct.id);
+      setGeneratedCode(result.activationCode || "");
+      setStep("success");
+    } catch (err) {
+      console.error("Order failed", err);
+      alert("Đặt hàng thất bại. Vui lòng thử lại sau.");
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const handleCopy = async () => {
@@ -243,6 +252,12 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
             </div>
           </div>
 
+          {selectedProduct.description && (
+            <div style={{ marginTop: "1rem", fontSize: "0.85rem", color: "var(--color-muted)", lineHeight: "1.5" }}>
+              {selectedProduct.description}
+            </div>
+          )}
+
           {"components" in selectedProduct ? (
             <div className={styles.tagRow} style={{ marginTop: "1rem" }}>
               {selectedProduct.components.map((component) => (
@@ -254,8 +269,8 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
           ) : null}
 
           <div className={styles.section} style={{ display: "grid", gap: "0.75rem" }}>
-            <button type="button" className={styles.buttonPrimary} onClick={handleOrder}>
-              Confirm Order
+            <button type="button" className={styles.buttonPrimary} onClick={handleOrder} disabled={isProcessing}>
+              {isProcessing ? "Processing..." : "Confirm Order"}
             </button>
             <button type="button" className={styles.buttonOutline} onClick={() => setStep("select")}>
               <ArrowLeftIcon />
@@ -279,24 +294,47 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
       )}
 
       {step === "success" ? (
-        <div className={styles.successStage}>
+        <div className={styles.successStage} style={{ position: "relative" }}>
+          <button 
+            type="button" 
+            className={styles.backButton} 
+            style={{ position: "absolute", top: 0, left: 0 }}
+            onClick={() => setStep("select")}
+          >
+            <ArrowLeftIcon />
+          </button>
+          
           <div className={styles.successIcon}>
             <CheckIcon />
           </div>
           <div className={styles.screenHeaderTitle}>Order Placed!</div>
-          <div className={styles.sectionSubtitle} style={{ maxWidth: "18rem", textAlign: "center" }}>
-            Your order is ready. Use the code below to activate your digital garden or keep it for pickup.
-          </div>
-          <div className={styles.codeCard}>
-            <div className={styles.summaryLabel} style={{ color: "rgba(255,255,255,0.56)" }}>
-              Order Code
+          {generatedCode ? (
+            <>
+              <div className={styles.sectionSubtitle} style={{ maxWidth: "18rem", textAlign: "center" }}>
+                Your order is ready. Use the code below to activate your digital garden or keep it for pickup.
+              </div>
+              <div className={styles.codeCard}>
+                <div className={styles.summaryLabel} style={{ color: "rgba(255,255,255,0.56)" }}>
+                  Order Code
+                </div>
+                <div className={styles.codeValue}>{generatedCode}</div>
+              </div>
+              <div className={styles.section} style={{ display: "grid", gap: "0.75rem", width: "100%" }}>
+                <button type="button" className={styles.buttonOutline} onClick={handleCopy}>
+                  Copy Code
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className={styles.sectionSubtitle} style={{ maxWidth: "18rem", textAlign: "center", marginBottom: "2rem" }}>
+              Your order is ready. You can pick up your physical products at CityFarm center with your Order ID.
             </div>
-            <div className={styles.codeValue}>{generatedCode}</div>
-          </div>
+          )}
+
           <div className={styles.section} style={{ display: "grid", gap: "0.75rem", width: "100%" }}>
-            <button type="button" className={styles.buttonOutline} onClick={handleCopy}>
-              Copy Code
-            </button>
+            <Link href="/account/history" className={styles.buttonOutline}>
+              View Order History
+            </Link>
             <Link href="/garden" className={styles.buttonPrimary}>
               Go to My Garden
             </Link>

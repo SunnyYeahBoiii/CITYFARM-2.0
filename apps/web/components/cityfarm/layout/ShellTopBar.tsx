@@ -25,9 +25,13 @@ export function ShellTopBar({ variant }: { variant: ShellVariant }) {
       <ArrowLeftIcon />
     </Link>
   ) : (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,#567a3d,#2d4a24)] text-[11px] font-black tracking-[0.16em] text-white">
+    <Link 
+      href="/account"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,#567a3d,#2d4a24)] text-[11px] font-black tracking-[0.16em] text-white transition-transform active:scale-95"
+      aria-label="Account Settings"
+    >
       CF
-    </div>
+    </Link>
   );
 
   if (isChatbot) {
