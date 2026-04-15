@@ -9,11 +9,7 @@ import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
-  imports: [
-    UserModule,
-    PassportModule,
-    JwtModule.register({}),
-  ],
+  imports: [UserModule, PassportModule, JwtModule.register({})],
   providers: [AuthService, JwtStrategy, JwtRefreshStrategy, GoogleStrategy],
   controllers: [AuthController],
 })

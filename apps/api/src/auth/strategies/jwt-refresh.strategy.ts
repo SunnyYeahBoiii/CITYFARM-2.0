@@ -3,14 +3,18 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { Request } from 'express';
+import { readRefreshToken } from '../auth-token.utils';
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
   constructor(private configService: ConfigService) {
     super({
       jwtFromRequest: ExtractJwt.fromExtractors([
         (request: Request) => {
-          return request?.cookies?.refresh_token;
+          return readRefreshToken(request);
         },
       ]),
       ignoreExpiration: false,
@@ -20,7 +24,7 @@ export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh'
   }
 
   async validate(request: Request, payload: any) {
-    const refreshToken = request.cookies?.refresh_token;
+    const refreshToken = readRefreshToken(request);
     if (!refreshToken) {
       throw new UnauthorizedException('Refresh token is malformed');
     }

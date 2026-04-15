@@ -1,0 +1,207 @@
+import type { AdminOrder } from "./types";
+
+const now = Date.now();
+
+function minutesAgo(minutes: number) {
+  return new Date(now - minutes * 60 * 1000).toISOString();
+}
+
+export const ordersMock: AdminOrder[] = [
+  {
+    id: "ord_581204",
+    code: "KIT-TINY-581204",
+    createdAt: minutesAgo(72),
+    buyer: { name: "Le Minh Anh", phone: "0912 345 678" },
+    delivery: {
+      city: "Ho Chi Minh City",
+      district: "District 7",
+      address: "25 Nguyen Huu Tho, Tan Phong",
+      note: "Giao trong gio hanh chinh, goi truoc 10 phut",
+    },
+    paymentMethod: "CASH_ON_DELIVERY",
+    status: "PENDING_CONFIRMATION",
+    currency: "VND",
+    subtotalAmount: 1250000,
+    discountAmount: 0,
+    totalAmount: 1250000,
+    customerNote: "Neu het mint seeds thi doi basil.",
+    internalNote: "Dia chi ok, can xac nhan time pickup tu kho.",
+    lines: [
+      { sku: "KIT-TINY", name: "Starter Kit Tiny", quantity: 1, unitPriceAmount: 990000, totalPriceAmount: 990000 },
+      { sku: "SEED-MINT", name: "Mint Seeds", quantity: 1, unitPriceAmount: 260000, totalPriceAmount: 260000 },
+    ],
+    flags: [
+      {
+        id: "sla",
+        label: "SLA overdue",
+        tone: "warning",
+        description: "Pending confirmation > 45 min",
+      },
+      { id: "note", label: "Has note", tone: "info" },
+    ],
+    timeline: [
+      {
+        id: "t1",
+        at: minutesAgo(72),
+        title: "Order created",
+        description: "Order was placed from mobile shop flow.",
+        tone: "neutral",
+      },
+      {
+        id: "t2",
+        at: minutesAgo(53),
+        title: "SLA threshold reached",
+        description: "Pending confirmation exceeded 45 minutes.",
+        tone: "warning",
+      },
+    ],
+  },
+  {
+    id: "ord_581188",
+    code: "SEED-LETTUCE-581188",
+    createdAt: minutesAgo(38),
+    buyer: { name: "Tran Gia Huy", phone: "0903 881 992" },
+    delivery: {
+      city: "Ho Chi Minh City",
+      district: "Thu Duc",
+      address: "88 Le Van Viet, Hiep Phu",
+      note: "Pickup tai diem hen 18:30",
+    },
+    paymentMethod: "CASH_ON_PICKUP",
+    status: "CONFIRMED",
+    currency: "VND",
+    subtotalAmount: 220000,
+    discountAmount: 0,
+    totalAmount: 220000,
+    lines: [{ sku: "SEED-LETTUCE", name: "Lettuce Seeds (pack)", quantity: 2, unitPriceAmount: 110000, totalPriceAmount: 220000 }],
+    flags: [{ id: "pickup", label: "Pickup", tone: "success" }],
+    timeline: [
+      {
+        id: "t1",
+        at: minutesAgo(38),
+        title: "Order created",
+        description: "Customer selected pickup for the evening slot.",
+        tone: "neutral",
+      },
+      {
+        id: "t2",
+        at: minutesAgo(28),
+        title: "Confirmed",
+        description: "Order confirmed by ops.",
+        tone: "success",
+      },
+    ],
+  },
+  {
+    id: "ord_581143",
+    code: "POT-RECYCLE-581143",
+    createdAt: minutesAgo(112),
+    buyer: { name: "Pham Nhu Quynh", phone: "0988 120 556" },
+    delivery: {
+      city: "Ho Chi Minh City",
+      district: "Binh Thanh",
+      address: "12 Dien Bien Phu, Ward 25",
+    },
+    paymentMethod: "UNPAID",
+    status: "READY_FOR_PICKUP",
+    currency: "VND",
+    subtotalAmount: 340000,
+    discountAmount: 0,
+    totalAmount: 340000,
+    internalNote: "Customer asked to split pickup into 2 trips.",
+    lines: [{ sku: "POT-RECYCLE", name: "Recycled Pots", quantity: 4, unitPriceAmount: 85000, totalPriceAmount: 340000 }],
+    flags: [
+      { id: "unpaid", label: "Unpaid", tone: "warning", description: "Payment pending at pickup" },
+      { id: "fragile", label: "Handle with care", tone: "info" },
+    ],
+    timeline: [
+      {
+        id: "t1",
+        at: minutesAgo(112),
+        title: "Order created",
+        description: "Order created from shop flow.",
+        tone: "neutral",
+      },
+      {
+        id: "t2",
+        at: minutesAgo(96),
+        title: "Confirmed",
+        description: "Ops confirmed inventory and pickup window.",
+        tone: "success",
+      },
+      {
+        id: "t3",
+        at: minutesAgo(74),
+        title: "Ready for pickup",
+        description: "Items prepared and waiting at pickup point.",
+        tone: "info",
+      },
+    ],
+  },
+  {
+    id: "ord_581077",
+    code: "SOIL-URBAN-581077",
+    createdAt: minutesAgo(14),
+    buyer: { name: "Nguyen Thanh", phone: "0937 551 330" },
+    delivery: {
+      city: "Ho Chi Minh City",
+      district: "Go Vap",
+      address: "Block C, 21 Quang Trung",
+      note: "Cuoc goi truoc khi giao",
+    },
+    paymentMethod: "CASH_ON_DELIVERY",
+    status: "PENDING_CONFIRMATION",
+    currency: "VND",
+    subtotalAmount: 180000,
+    discountAmount: 0,
+    totalAmount: 180000,
+    lines: [{ sku: "SOIL-URBAN", name: "Urban Soil Mix", quantity: 1, unitPriceAmount: 180000, totalPriceAmount: 180000 }],
+    flags: [{ id: "fresh", label: "New", tone: "neutral" }],
+    timeline: [
+      {
+        id: "t1",
+        at: minutesAgo(14),
+        title: "Order created",
+        description: "New order placed. Waiting for confirmation.",
+        tone: "neutral",
+      },
+    ],
+  },
+  {
+    id: "ord_580921",
+    code: "KIT-BALCONY-580921",
+    createdAt: minutesAgo(480),
+    buyer: { name: "Vo Hoang", phone: "0909 202 445" },
+    delivery: {
+      city: "Ho Chi Minh City",
+      district: "Thu Duc",
+      address: "1 Vo Van Ngan, Linh Chieu",
+    },
+    paymentMethod: "CASH_ON_PICKUP",
+    status: "CANCELLED",
+    currency: "VND",
+    subtotalAmount: 1490000,
+    discountAmount: 0,
+    totalAmount: 1490000,
+    customerNote: "Doi y, se dat lai sau.",
+    lines: [{ sku: "KIT-BALCONY", name: "Balcony Kit", quantity: 1, unitPriceAmount: 1490000, totalPriceAmount: 1490000 }],
+    flags: [{ id: "cancelled", label: "Cancelled", tone: "danger" }],
+    timeline: [
+      {
+        id: "t1",
+        at: minutesAgo(480),
+        title: "Order created",
+        description: "Order created earlier today.",
+        tone: "neutral",
+      },
+      {
+        id: "t2",
+        at: minutesAgo(438),
+        title: "Cancelled",
+        description: "Customer cancelled before confirmation.",
+        tone: "danger",
+      },
+    ],
+  },
+];
+

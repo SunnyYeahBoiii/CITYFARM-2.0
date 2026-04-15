@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+:root {
+  --color-bg: #f4efe4;
+  --color-surface: rgba(255, 255, 255, 0.78);
+  --color-card: #fbfcf8;
+  --color-screen: #f8faf7;
+  --color-ink: #172718;
+  --color-heading: #1f2916;
+  --color-muted: #5c6b5f;
+  --color-line: rgba(38, 63, 40, 0.1);
+  --color-border-subtle: rgba(31, 41, 22, 0.08);
+  --color-green-deep: #355b31;
+  --color-green-soft: #79965e;
+  --color-soil: #cd924a;
+  --color-danger: #a3452d;
+  --color-info: #40657c;
+  --color-success: #2f6a44;
+  --color-interactive-bg: #eef4ea;
+  --color-interactive-hover: #dde8d3;
+  --color-interactive-ink: #425535;
+  --shadow-soft: 0 24px 60px rgba(27, 44, 31, 0.08);
+  --shadow-panel: 0 18px 42px rgba(33, 49, 30, 0.09);
+}
+
+@theme inline {
+  --color-background: var(--color-bg);
+  --color-foreground: var(--color-ink);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+@layer base {
+  html,
+  body {
+    @apply max-w-full overflow-x-hidden;
+  }
+
+  body {
+    @apply min-h-screen [font-family:var(--font-geist-sans),sans-serif] text-[var(--color-ink)] [background:radial-gradient(circle_at_top_left,rgba(121,150,94,0.16),transparent_22%),radial-gradient(circle_at_86%_12%,rgba(205,146,74,0.16),transparent_18%),linear-gradient(180deg,#f7f3ea_0%,#f4efe4_48%,#efe8d7_100%)] [text-rendering:optimizeLegibility];
+  }
+
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  *::selection {
+    @apply bg-[rgba(53,91,49,0.82)] text-[#f9f7f0];
+  }
+
+  a {
+    @apply text-inherit no-underline;
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    @apply [font:inherit];
+  }
+
+  img,
+  svg {
+    @apply block;
+  }
+}

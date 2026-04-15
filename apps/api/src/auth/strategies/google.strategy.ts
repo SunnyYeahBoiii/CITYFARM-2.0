@@ -26,11 +26,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
   ): Promise<any> {
     const { id, name, emails, photos } = profile;
     const email = emails[0].value;
-    const displayName = `${name?.givenName || ''} ${name?.familyName || ''}`.trim();
+    const displayName =
+      `${name?.givenName || ''} ${name?.familyName || ''}`.trim();
     const avatarUrl = photos?.[0]?.value;
 
     if (!email) {
-      throw new UnauthorizedException('Google account must have an email address. Please try again with a different account.');
+      throw new UnauthorizedException(
+        'Google account must have an email address. Please try again with a different account.',
+      );
     }
 
     const user = await this.prismaService.$transaction(async (tx) => {
@@ -57,14 +60,16 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google') {
         },
       });
 
-      const avatarAssetInput = avatarUrl ? {
-        create: {
-          kind: 'PROFILE_AVATAR' as const,
-          storageKey: `google-avatar-${id}-${Date.now()}`,
-          publicUrl: avatarUrl,
-          ownerId: newUser.id,
-        }
-      } : undefined;
+      const avatarAssetInput = avatarUrl
+        ? {
+            create: {
+              kind: 'PROFILE_AVATAR' as const,
+              storageKey: `google-avatar-${id}-${Date.now()}`,
+              publicUrl: avatarUrl,
+              ownerId: newUser.id,
+            },
+          }
+        : undefined;
 
       await tx.userProfile.create({
         data: {

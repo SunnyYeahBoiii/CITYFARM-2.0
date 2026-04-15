@@ -9,6 +9,8 @@ import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
 import { OrderModule } from './order/order.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
+import { AdminContentModule } from './admin/content/admin-content.module';
+import { AdminOperationsModule } from './admin/operations/admin-operations.module';
 
 @Module({
   imports: [
@@ -21,11 +23,12 @@ import { LoggingMiddleware } from './common/middleware/logging/logging.middlewar
     CommunityModule,
     AssetsModule,
     OrderModule,
+    AdminContentModule,
+    AdminOperationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggingMiddleware).forRoutes('*');

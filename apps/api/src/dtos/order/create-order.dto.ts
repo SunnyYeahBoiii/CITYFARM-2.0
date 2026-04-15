@@ -1,4 +1,11 @@
-import { IsNotEmpty, IsString, IsOptional, IsInt, Min, Matches } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsOptional,
+  IsInt,
+  Min,
+  Matches,
+} from 'class-validator';
 
 export enum ProductTypeDto {
   KIT = 'KIT',
@@ -26,7 +33,9 @@ export class CreateOrderDto {
 
   @IsNotEmpty({ message: 'Phone number is required' })
   @IsString()
-  @Matches(/^(0|\+84)[0-9]{9,10}$/, { message: 'Invalid Vietnamese phone number format' })
+  @Matches(/^(0|\+84)[0-9]{9,10}$/, {
+    message: 'Invalid Vietnamese phone number format',
+  })
   recipientPhone: string;
 
   @IsNotEmpty({ message: 'Delivery address is required' })
