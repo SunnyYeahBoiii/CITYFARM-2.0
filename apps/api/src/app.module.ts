@@ -8,6 +8,7 @@ import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { LoggingMiddleware } from './common/middleware/logging/logging.middlewar
     AuthModule,
     CommunityModule,
     AssetsModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

@@ -2,80 +2,46 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { dirtOptions, kits, potOptions, seeds, type Kit } from "../../../lib/cityfarm";
+import { shopApi } from "../../../lib/api/shop.api";
+import type { Kit, ShopSeed, DirtOption, PotOption, ProductTypeQuery } from "../../../lib/types/shop";
 import styles from "../cityfarm.module.css";
 import { ArrowLeftIcon, BagIcon, CheckIcon, DropletIcon, RecycleIcon, SproutIcon } from "../shared/icons";
 import { CityImage, OrderTab } from "../shared/ui";
 
-type ProductType = "kit" | "seed" | "dirt" | "pot";
 type OrderStep = "select" | "confirm" | "success";
-type ShopItem = Kit | (typeof seeds)[number] | (typeof dirtOptions)[number] | (typeof potOptions)[number];
+type ShopItem = Kit | ShopSeed | DirtOption | PotOption;
 
-function getSelectedProduct({
-  productType,
-  selectedKit,
-  selectedSeed,
-  selectedDirt,
-  selectedPot,
-}: {
-  productType: ProductType;
-  selectedKit: Kit | null;
-  selectedSeed: (typeof seeds)[number] | null;
-  selectedDirt: (typeof dirtOptions)[number] | null;
-  selectedPot: (typeof potOptions)[number] | null;
-}) {
-  if (productType === "kit") {
-    return selectedKit;
-  }
-
-  if (productType === "seed") {
-    return selectedSeed;
-  }
-
-  if (productType === "dirt") {
-    return selectedDirt;
-  }
-
-  return selectedPot;
-}
-
-function hasImagePreview(product: ShopItem): product is Kit {
-  return "image" in product;
+function hasImagePreview(product: ShopItem): boolean {
+  return !!product.image;
 }
 
 export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
-  const [productType, setProductType] = useState<ProductType>("kit");
+  const [productType, setProductType] = useState<ProductTypeQuery>("kit");
   const [step, setStep] = useState<OrderStep>("select");
-  const [selectedKit, setSelectedKit] = useState<Kit | null>(null);
-  const [selectedSeed, setSelectedSeed] = useState<(typeof seeds)[number] | null>(null);
-  const [selectedDirt, setSelectedDirt] = useState<(typeof dirtOptions)[number] | null>(null);
-  const [selectedPot, setSelectedPot] = useState<(typeof potOptions)[number] | null>(null);
+  const [products, setProducts] = useState<ShopItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedProduct, setSelectedProduct] = useState<ShopItem | null>(null);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [isZoomed, setIsZoomed] = useState(false);
 
   useEffect(() => {
-    if (!initialSeed) {
-      return;
-    }
-
-    const matchedSeed =
-      seeds.find((seed) => seed.id === initialSeed.toUpperCase()) ??
-      seeds.find((seed) => seed.name.toLowerCase().includes(initialSeed.toLowerCase())) ??
-      null;
-
-    if (matchedSeed) {
-      setSelectedSeed(matchedSeed);
-      setProductType("seed");
-      setStep("confirm");
-    }
-  }, [initialSeed]);
-
-  const selectedProduct = getSelectedProduct({
-    productType,
-    selectedKit,
-    selectedSeed,
-    selectedDirt,
-    selectedPot,
-  });
+    setLoading(true);
+    shopApi.getProducts(productType).then((data) => {
+      setProducts(data);
+      
+      // Auto-select initialSeed if specified in URL explicitly (e.g. redirected from scan)
+      if (initialSeed && productType === "seed" && data.length > 0) {
+         const matchedSeed = data.find((seed: ShopSeed) => 
+            seed.id === initialSeed.toUpperCase() || 
+            seed.name.toLowerCase().includes(initialSeed.toLowerCase())
+         );
+         if (matchedSeed) {
+            setSelectedProduct(matchedSeed);
+            setStep("confirm");
+         }
+      }
+    }).finally(() => setLoading(false));
+  }, [productType, initialSeed]);
 
   const handleOrder = () => {
     if (!selectedProduct) {
@@ -106,20 +72,22 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
           <div className={styles.orderTabs}>
             <OrderTab label="Kits" icon={<BagIcon />} active={productType === "kit"} onClick={() => setProductType("kit")} />
             <OrderTab label="Seeds" icon={<SproutIcon />} active={productType === "seed"} onClick={() => setProductType("seed")} />
-            <OrderTab label="Soil" icon={<DropletIcon />} active={productType === "dirt"} onClick={() => setProductType("dirt")} />
+            <OrderTab label="Soil" icon={<DropletIcon />} active={productType === "soil"} onClick={() => setProductType("soil")} />
             <OrderTab label="Pots" icon={<RecycleIcon />} active={productType === "pot"} onClick={() => setProductType("pot")} />
           </div>
 
           <div className={styles.section}>
-            {productType === "kit" ? (
+            {loading ? (
+               <div style={{ textAlign: "center", padding: "2rem", opacity: 0.5 }}>Loading...</div>
+            ) : productType === "kit" ? (
               <div className={styles.listStack}>
-                {kits.map((kit) => (
+                {(products as Kit[]).map((kit) => (
                   <button
                     key={kit.id}
                     type="button"
                     className={styles.plantCard}
                     onClick={() => {
-                      setSelectedKit(kit);
+                      setSelectedProduct(kit);
                       setStep("confirm");
                     }}
                   >
@@ -129,94 +97,112 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                       </div>
                       <div className={styles.plantBody}>
                         <div className={styles.plantTopRow}>
-                          <div>
+                          <div style={{ textAlign: "left", flex: 1 }}>
                             <div className={styles.plantName}>{kit.name}</div>
-                            <div className={styles.metaText}>{kit.components.slice(0, 3).join(" • ")}</div>
+                            {kit.components && kit.components.length > 0 && (
+                              <ul style={{ paddingLeft: "1.25rem", marginTop: "0.25rem", listStyleType: "disc", color: "var(--color-muted)" }} className={styles.metaText}>
+                                {kit.components.map(c => <li key={c} style={{ marginBottom: "0.15rem" }}>{c}</li>)}
+                              </ul>
+                            )}
                           </div>
-                          <div className={styles.matchPill}>{kit.price}</div>
-                        </div>
-                        <div className={styles.sectionAction} style={{ marginTop: "0.7rem", textAlign: "left" }}>
-                          Select
+                          <div className={styles.matchPill} style={{ alignSelf: "flex-start" }}>{kit.price}</div>
                         </div>
                       </div>
                     </div>
                   </button>
                 ))}
               </div>
-            ) : null}
-
-            {productType === "seed" ? (
-              <div className={styles.gridTwo}>
-                {seeds.map((seed) => (
+            ) : productType === "seed" ? (
+              <div className={styles.listStack}>
+                {(products as ShopSeed[]).map((seed) => (
                   <button
                     key={seed.id}
                     type="button"
-                    className={styles.selectorCard}
+                    className={styles.card}
+                    style={{ textAlign: "left" }}
                     onClick={() => {
-                      setSelectedSeed(seed);
+                      setSelectedProduct(seed);
                       setStep("confirm");
                     }}
                   >
-                    <div className={styles.selectorBody} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "2.5rem" }}>{seed.icon}</div>
-                      <div className={styles.plantName} style={{ marginTop: "0.6rem" }}>
-                        {seed.name}
+                    <div className={styles.plantTopRow}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        {seed.image ? (
+                          <div className={styles.summaryThumb} style={{ width: "4rem", height: "4rem", flexShrink: 0 }}>
+                            <CityImage src={seed.image} alt={seed.name} sizes="64px" className="h-full w-full object-cover rounded-md" />
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "2rem", width: "4rem", textAlign: "center" }}>{seed.icon}</div>
+                        )}
+                        <div>
+                          <div className={styles.plantName}>{seed.name}</div>
+                        </div>
                       </div>
-                      <div className={styles.matchPill} style={{ margin: "0.75rem auto 0", width: "fit-content" }}>
-                        {seed.price}
-                      </div>
+                      <div className={styles.matchPill}>{seed.price}</div>
                     </div>
                   </button>
                 ))}
               </div>
-            ) : null}
-
-            {productType === "dirt" ? (
+            ) : productType === "soil" ? (
               <div className={styles.listStack}>
-                {dirtOptions.map((dirt) => (
+                {(products as DirtOption[]).map((dirt) => (
                   <button
                     key={dirt.id}
                     type="button"
                     className={styles.card}
                     style={{ textAlign: "left" }}
                     onClick={() => {
-                      setSelectedDirt(dirt);
+                      setSelectedProduct(dirt);
                       setStep("confirm");
                     }}
                   >
                     <div className={styles.plantTopRow}>
-                      <div>
-                        <div className={styles.plantName}>{dirt.name}</div>
-                        <div className={styles.metaText}>{dirt.quantity}</div>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        {dirt.image ? (
+                          <div className={styles.summaryThumb} style={{ width: "4rem", height: "4rem", flexShrink: 0 }}>
+                            <CityImage src={dirt.image} alt={dirt.name} sizes="64px" className="h-full w-full object-cover rounded-md" />
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "2rem", width: "4rem", textAlign: "center" }}>🪴</div>
+                        )}
+                        <div>
+                          <div className={styles.plantName}>{dirt.name}</div>
+                          <div className={styles.metaText}>{dirt.quantity}</div>
+                        </div>
                       </div>
                       <div className={styles.matchPill}>{dirt.price}</div>
                     </div>
                   </button>
                 ))}
               </div>
-            ) : null}
-
-            {productType === "pot" ? (
-              <div className={styles.gridTwo}>
-                {potOptions.map((pot) => (
+            ) : productType === "pot" ? (
+              <div className={styles.listStack}>
+                {(products as PotOption[]).map((pot) => (
                   <button
                     key={pot.id}
                     type="button"
-                    className={styles.selectorCard}
+                    className={styles.card}
+                    style={{ textAlign: "left" }}
                     onClick={() => {
-                      setSelectedPot(pot);
+                      setSelectedProduct(pot);
                       setStep("confirm");
                     }}
                   >
-                    <div className={styles.selectorBody} style={{ textAlign: "center" }}>
-                      <div style={{ fontSize: "2.2rem" }}>{pot.decoration}</div>
-                      <div className={styles.plantName} style={{ marginTop: "0.6rem" }}>
-                        {pot.name}
+                    <div className={styles.plantTopRow}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                        {pot.image ? (
+                          <div className={styles.summaryThumb} style={{ width: "4rem", height: "4rem", flexShrink: 0 }}>
+                            <CityImage src={pot.image} alt={pot.name} sizes="64px" className="h-full w-full object-cover rounded-md" />
+                          </div>
+                        ) : (
+                          <div style={{ fontSize: "2rem", width: "4rem", textAlign: "center" }}>{pot.decoration}</div>
+                        )}
+                        <div>
+                          <div className={styles.plantName}>{pot.name}</div>
+                          <div className={styles.metaText}>{pot.size}</div>
+                        </div>
                       </div>
-                      <div className={styles.metaText}>{pot.size}</div>
-                      <div className={styles.matchPill} style={{ margin: "0.75rem auto 0", width: "fit-content" }}>
-                        {pot.price}
-                      </div>
+                      <div className={styles.matchPill}>{pot.price}</div>
                     </div>
                   </button>
                 ))}
@@ -230,13 +216,25 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
         <div className={styles.summaryCard}>
           <div className={styles.summaryLabel}>Order Summary</div>
           <div className={styles.summaryRow}>
-            {hasImagePreview(selectedProduct) ? (
-              <div className={styles.summaryThumb}>
-                <CityImage src={selectedProduct.image} alt={selectedProduct.name} sizes="72px" className="h-full w-full" fit="contain" />
+            {hasImagePreview(selectedProduct) && selectedProduct.image ? (
+              <div 
+                className={styles.summaryThumb} 
+                style={{ position: 'relative', cursor: 'zoom-in', width: '5rem', height: '5rem', overflow: 'hidden' }}
+                onClick={() => setIsZoomed(true)}
+                title="Phóng to ảnh"
+              >
+                <div style={{
+                  position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, 
+                  background: 'rgba(0,0,0,0.15)', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: 0,
+                  transition: 'opacity 0.2s'
+                }} className="hover:opacity-100">
+                   <div style={{ color: 'white', background: 'rgba(0,0,0,0.5)', padding: '2px 6px', borderRadius: 4, fontSize: '10px' }}>Zoom</div>
+                </div>
+                <CityImage src={selectedProduct.image} alt={selectedProduct.name} sizes="80px" className="h-full w-full" fit="cover" />
               </div>
             ) : (
               <div className={styles.profileBadge} style={{ width: "4rem", height: "4rem", borderRadius: "1rem" }}>
-                {"icon" in selectedProduct ? selectedProduct.icon : "🌱"}
+                {"icon" in selectedProduct ? selectedProduct.icon : "decoration" in selectedProduct ? selectedProduct.decoration : "🌱"}
               </div>
             )}
             <div>
@@ -266,6 +264,19 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
           </div>
         </div>
       ) : null}
+
+      {isZoomed && selectedProduct && hasImagePreview(selectedProduct) && selectedProduct.image && (
+        <div 
+          style={{ position: 'fixed', inset: 0, zIndex: 9999, background: 'rgba(0,0,0,0.85)', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+          onClick={() => setIsZoomed(false)}
+        >
+          <img 
+            src={selectedProduct.image} 
+            alt="Zoom" 
+            style={{ width: '85vw', maxWidth: '500px', objectFit: 'contain', borderRadius: 12, cursor: 'zoom-out', boxShadow: '0 20px 40px rgba(0,0,0,0.5)' }} 
+          />
+        </div>
+      )}
 
       {step === "success" ? (
         <div className={styles.successStage}>
