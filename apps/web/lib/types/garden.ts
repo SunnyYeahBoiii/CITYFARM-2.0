@@ -35,6 +35,13 @@ export interface JournalEntryItem {
   } | null;
 }
 
+export interface GardenStats {
+  totalPlants: number;
+  healthyPlants: number;
+  needsAttention: number;
+  careRate: number;
+}
+
 export interface GardenPlantSummary {
   id: string;
   nickname: string | null;
@@ -83,4 +90,17 @@ export interface GardenPlantDetail extends GardenPlantSummary {
   };
   careTasks: CareTaskItem[];
   journalEntries: JournalEntryItem[];
+}
+
+export interface LogCarePayload {
+  taskId: string;
+}
+
+export interface LogJournalPayload {
+  note?: string;
+  healthStatus?: PlantHealthStatus;
+  growthStage?: PlantGrowthStage;
+  leafColorNote?: string;
+  issueSummary?: string;
+  imageAssetId?: string;
 }

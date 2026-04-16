@@ -62,11 +62,11 @@ export function MetricBox({
   accent?: "green" | "default";
 }) {
   return (
-    <div className="rounded-3xl border border-[color:rgba(31,41,22,0.08)] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(33,49,30,0.06)]">
-      <div className={cn("text-xl font-extrabold", accent === "green" ? "text-[var(--color-green-deep)]" : "text-[var(--color-heading)]")}>
+    <div className="rounded-3xl border border-[rgba(31,41,22,0.08)] bg-white px-4 py-3 shadow-[0_10px_28px_rgba(33,49,30,0.06)]">
+      <div className={cn("text-xl font-extrabold", accent === "green" ? "text-(--color-green-deep)" : "text-(--color-heading)")}>
         {value}
       </div>
-      <div className="mt-1 text-xs font-medium text-[var(--color-muted)]">{label}</div>
+      <div className="mt-1 text-xs font-medium text-(--color-muted)">{label}</div>
     </div>
   );
 }
@@ -81,12 +81,12 @@ export function AnalysisMetric({
   icon: ReactNode;
 }) {
   return (
-    <div className="rounded-[1.35rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-4 shadow-[0_10px_28px_rgba(33,49,30,0.06)]">
-      <div className="flex items-center gap-2 text-[var(--color-muted)]">
-        <span className="text-[var(--color-green-deep)]">{icon}</span>
+    <div className="rounded-[1.35rem] border border-[rgba(31,41,22,0.08)] bg-white p-4 shadow-[0_10px_28px_rgba(33,49,30,0.06)]">
+      <div className="flex items-center gap-2 text-(--color-muted)">
+        <span className="text-(--color-green-deep)">{icon}</span>
         <span className="text-xs font-semibold uppercase tracking-[0.08em]">{label}</span>
       </div>
-      <div className="mt-3 text-sm font-bold text-[var(--color-heading)]">{value}</div>
+      <div className="mt-3 text-sm font-bold text-(--color-heading)">{value}</div>
     </div>
   );
 }
@@ -101,7 +101,7 @@ export function Avatar({ name }: { name: string }) {
     .toUpperCase();
 
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[var(--color-interactive-bg)] font-bold text-[var(--color-green-deep)]">
+    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-(--color-interactive-bg) font-bold text-(--color-green-deep)">
       {initials}
     </div>
   );
@@ -125,8 +125,8 @@ export function OrderTab({
       className={cn(
         "inline-flex items-center justify-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold transition-colors",
         active
-          ? "bg-[var(--color-green-deep)] text-white shadow-[0_12px_28px_rgba(53,91,49,0.24)]"
-          : "bg-white text-[var(--color-interactive-ink)] ring-1 ring-[color:rgba(31,41,22,0.08)]",
+          ? "bg-(--color-green-deep) text-white shadow-[0_12px_28px_rgba(53,91,49,0.24)]"
+          : "bg-white text-(--color-interactive-ink) ring-1 ring-[rgba(31,41,22,0.08)]",
       )}
     >
       {icon}

@@ -399,8 +399,17 @@
 .visualizationStage {
   @apply relative overflow-hidden [background:linear-gradient(145deg,#eef5e9,#fbfcfa)];
 }
+.journalImageContainer {
+  @apply relative;
+}
 .journalImage {
-  @apply [aspect-ratio:16_/_10];
+  @apply [aspect-ratio:16_/_10] [border-radius:1.1rem_1.1rem_0_0] overflow-hidden;
+}
+.journalDeleteButton {
+  @apply absolute [top:0.75rem] [left:0.75rem] flex items-center justify-center [width:2rem] [height:2rem] rounded-full [background:rgba(0,0,0,0.4)] [color:white] [backdrop-filter:blur(4px)] [transition:all_0.2s_ease] z-[2];
+}
+.journalDeleteButton:hover {
+  @apply [background:rgba(220,38,38,0.8)];
 }
 .postImage,
 .shareImage {
@@ -411,13 +420,39 @@
 .shareImage img {
   @apply w-full h-full object-cover;
 }
-.journalBody,
+.journalBody {
+  @apply [padding:1rem_1.25rem_1.25rem];
+}
+.journalAiHeader {
+  @apply flex items-center justify-between [margin-bottom:0.75rem];
+}
+.journalAiTitle {
+  @apply flex items-center [gap:0.5rem] [font-size:0.95rem] font-bold [color:#1f2916];
+}
 .careBody,
 .postBody,
 .listingBody,
 .recommendationBody,
 .selectorBody {
   @apply [padding:1rem];
+}
+.journalDataCard {
+  @apply [padding:1rem] rounded-2xl [border:1px_solid_rgba(31,41,22,0.1)] [background:#ffffff];
+}
+.journalDataRow {
+  @apply flex items-center justify-between [margin-bottom:0.6rem];
+}
+.journalDivider {
+  @apply [height:1px] [background:rgba(31,41,22,0.06)] [margin:0.6rem_0];
+}
+.journalLabel {
+  @apply text-xs font-bold [color:#8a9687];
+}
+.journalValue {
+  @apply text-sm font-bold [color:#1f2916];
+}
+.journalValueSmall {
+  @apply [margin-top:0.35rem] text-sm [color:#24301c] [line-height:1.5];
 }
 .postActions {
   @apply flex items-center [gap:1rem] [margin-top:0.75rem] [margin-bottom:0] [color:#5e695a];

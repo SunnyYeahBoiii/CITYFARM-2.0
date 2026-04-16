@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { gardenApi } from "@/lib/api/garden.api";
-import { GardenPlantSummary } from "@/lib/types/garden";
+import { GardenPlantSummary, GardenStats } from "@/lib/types/garden";
 import { daysSince } from "@/lib/cityfarm/utils";
 import { PlusIcon } from "@/components/cityfarm/shared/icons";
 import { CityImage, HealthBadge } from "@/components/cityfarm/shared/ui";
@@ -11,13 +11,18 @@ import { ActivateCodeModal } from "./ActivateCodeModal";
 
 export function GardenScreen() {
   const [plants, setPlants] = useState<GardenPlantSummary[]>([]);
+  const [stats, setStats] = useState<GardenStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const fetchGarden = async () => {
     try {
       setIsLoading(true);
-      const data = await gardenApi.getMyGarden();
-      setPlants(data);
+      const [plantsData, statsData] = await Promise.all([
+        gardenApi.getMyGarden(),
+        gardenApi.getGardenStats(),
+      ]);
+      setPlants(plantsData);
+      setStats(statsData);
     } catch (error) {
       console.error("Failed to fetch garden:", error);
     } finally {
@@ -29,11 +34,11 @@ export function GardenScreen() {
     fetchGarden();
   }, []);
 
-  const stats = {
-    totalPlants: plants.length,
-    healthyPlants: plants.filter((p) => p.healthStatus === "HEALTHY").length,
-    needsAttention: plants.filter((p) => p.healthStatus === "WARNING" || p.healthStatus === "CRITICAL").length,
-    avgCareRate: plants.length > 0 ? 87 : 0, // Mocked for now until detailed stats are required
+  const displayStats = {
+    totalPlants: stats?.totalPlants ?? 0,
+    healthyPlants: stats?.healthyPlants ?? 0,
+    needsAttention: stats?.needsAttention ?? 0,
+    careRate: stats?.careRate ?? 0,
   };
 
   if (isLoading) {
@@ -86,16 +91,16 @@ export function GardenScreen() {
       {/* Stats Section */}
       <section className="mt-4 grid grid-cols-3 gap-2.5">
         <div className="rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-emerald-50 px-2.5 py-3 text-center">
-          <div className="text-lg font-extrabold text-(--color-heading)">{stats.totalPlants}</div>
+          <div className="text-lg font-extrabold text-(--color-heading)">{displayStats.totalPlants}</div>
           <div className="mt-0.5 text-[11px] font-medium leading-4 text-(--color-muted)">Total Plants</div>
         </div>
         <div className="rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-sky-50 px-2.5 py-3 text-center">
-          <div className="text-lg font-extrabold text-(--color-heading)">{stats.healthyPlants}</div>
+          <div className="text-lg font-extrabold text-(--color-heading)">{displayStats.healthyPlants}</div>
           <div className="mt-0.5 text-[11px] font-medium leading-4 text-(--color-muted)">Healthy</div>
         </div>
         <div className="rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-amber-50 px-2.5 py-3 text-center">
-          <div className="text-lg font-extrabold text-(--color-heading)">{stats.avgCareRate}%</div>
-          <div className="mt-0.5 text-[11px] font-medium leading-4 text-(--color-muted)">Care Rate (Mock)</div>
+          <div className="text-lg font-extrabold text-(--color-heading)">{displayStats.careRate}%</div>
+          <div className="mt-0.5 text-[11px] font-medium leading-4 text-(--color-muted)">Care Rate</div>
         </div>
       </section>
 
@@ -106,8 +111,8 @@ export function GardenScreen() {
           <p className="text-xs text-(--color-muted)">
             {plants.length === 0 
               ? "You haven't activated any plants yet." 
-              : stats.needsAttention > 0
-                ? `${stats.needsAttention} plant needs attention this week`
+              : displayStats.needsAttention > 0
+                ? `${displayStats.needsAttention} plant needs attention this week`
                 : "Everything looks stable"}
           </p>
         </div>
