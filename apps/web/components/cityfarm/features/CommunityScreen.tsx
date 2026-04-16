@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getPlantById, getPlants } from "../../../lib/cityfarm";
-import { uploadAsset } from "../../../lib/api/assets.api";
-import { createPost, loadCommunityData, toggleReaction } from "../../../lib/api/community.api";
-import { PostType, type FeedPost, type MarketListing } from "../../../lib/types/community";
+import { getPlantById, getPlants } from "@/lib/cityfarm";
+import { uploadAsset } from "@/lib/api/assets.api";
+import { createPost, loadCommunityData, toggleReaction } from "@/lib/api/community.api";
+import { PostType, type FeedPost, type MarketListing } from "@/lib/types/community";
 import styles from "../cityfarm.module.css";
 import {
   ArrowLeftIcon,
@@ -304,7 +304,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
 
                     <div className={styles.postBody} style={{ paddingBottom: post.imageUrl ? 0 : "0.5rem" }}>
                       <div className={styles.captionText} style={{ marginBottom: "0.5rem" }}>
-                        <div className="leading-relaxed text-[var(--color-heading)] opacity-95">{post.caption}</div>
+                        <div className="leading-relaxed text-(--color-heading) opacity-95">{post.caption}</div>
                       </div>
                     </div>
 

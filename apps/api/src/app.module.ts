@@ -10,6 +10,7 @@ import { AssetsModule } from './assets/assets.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
+import { GardenModule } from './garden/garden.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { OrdersModule } from './orders/orders.module';
     AssetsModule,
     ProductsModule,
     OrdersModule,
+    GardenModule,
   ],
   controllers: [AppController],
   providers: [AppService],
