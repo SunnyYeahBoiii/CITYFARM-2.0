@@ -29,7 +29,7 @@ export const gardenApi = {
     return response.data;
   },
 
-  logCare: async (plantId: string, payload: LogCarePayload): Promise<{ success: boolean }> => {
+  logCare: async (plantId: string, payload: LogCarePayload): Promise<{ success: boolean; harvested?: boolean }> => {
     const response = await api.post(`/garden/${plantId}/care`, payload);
     return response.data;
   },

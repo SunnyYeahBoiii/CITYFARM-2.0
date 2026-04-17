@@ -54,3 +54,8 @@ export async function getMarketplace(params?: {
   const { data } = await api.get<{ data?: MarketListing[] } | MarketListing[]>("/community/marketplace", { params });
   return Array.isArray(data) ? data : data.data ?? [];
 }
+
+export async function createMarketplaceListing(payload: any): Promise<MarketListing> {
+  const { data } = await api.post<MarketListing>("/community/marketplace", payload);
+  return data;
+}

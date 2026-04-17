@@ -31,6 +31,7 @@ export interface JournalEntryItem {
   issueSummary: string | null;
   recommendationSummary: string | null;
   imageAsset: {
+    id: string;
     publicUrl: string;
   } | null;
 }
@@ -90,6 +91,7 @@ export interface GardenPlantDetail extends GardenPlantSummary {
   };
   careTasks: CareTaskItem[];
   journalEntries: JournalEntryItem[];
+  listings?: { id: string; status: string }[];
 }
 
 export interface LogCarePayload {

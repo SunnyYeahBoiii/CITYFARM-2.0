@@ -11,7 +11,7 @@ import type {
   LogJournalPayload,
   PlantHealthStatus,
 } from "@/lib/types/garden";
-import { buildTimelineFromApi, daysSince } from "@/lib/cityfarm/utils";
+import { buildTimelineFromApi, daysSince, getHarvestDays } from "@/lib/cityfarm/utils";
 import styles from "../cityfarm.module.css";
 import {
   ArrowLeftIcon,
@@ -47,7 +47,7 @@ function CareTaskRow({
 }: {
   task: CareTaskItem;
   plantId: string;
-  onCompleted: () => void;
+  onCompleted: (harvested?: boolean) => void;
 }) {
   const [isLoading, setIsLoading] = useState(false);
   const isPendingType = task.status === "PENDING" || task.status === "OVERDUE";
@@ -58,8 +58,8 @@ function CareTaskRow({
     if (!canComplete || isLoading) return;
     setIsLoading(true);
     try {
-      await gardenApi.logCare(plantId, { taskId: task.id });
-      onCompleted();
+      const resp = await gardenApi.logCare(plantId, { taskId: task.id });
+      onCompleted(resp.harvested);
     } catch (err: any) {
       alert(err.response?.data?.message || "Failed to complete task");
     } finally {
@@ -199,6 +199,93 @@ function JournalEntryRow({
         </div>
       </div>
     </div>
+  )
+}
+
+function HarvestSuccessModal({ 
+  plantName,
+  plantId,
+  onClose 
+}: { 
+  plantName: string; 
+  plantId: string;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/40 p-6 backdrop-blur-sm">
+      <div className="w-full max-w-sm animate-in fade-in zoom-in duration-300 rounded-[2rem] bg-white p-6 shadow-[0_20px_50px_rgba(0,0,0,0.2)] text-center">
+        <div className="mb-4 flex justify-center text-5xl">🎉</div>
+        <h2 className="text-xl font-extrabold text-[#1f2916]">
+          Amazing Harvest!
+        </h2>
+        <p className="mt-3 text-sm leading-relaxed text-[#5c6358]">
+          You've successfully harvested your <b>{plantName}</b>. Your care rate and stats have been updated!
+        </p>
+        
+        <div className="mt-8 flex flex-col gap-3">
+          <Link 
+            href={`/marketplace/create?plantId=${encodeURIComponent(plantId)}`}
+            className="flex h-12 items-center justify-center rounded-full bg-[#355b31] text-sm font-extrabold text-white shadow-[0_8px_20px_rgba(53,91,49,0.3)]"
+          >
+            Sell Surplus on Marketplace
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex h-12 items-center justify-center rounded-full border border-[rgba(31,41,22,0.1)] bg-[#f8faf7] text-sm font-extrabold text-[#5c6358]"
+          >
+            Back to Garden
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+function MarketplaceActionCard({ plant }: { plant: GardenPlantDetail }) {
+  const activeListing = plant.listings?.find(l => 
+    ["DRAFT", "ACTIVE", "RESERVED", "SOLD"].includes(l.status)
+  );
+
+  const isSold = activeListing?.status === "SOLD";
+
+  return (
+    <div className="mx-6 mt-8 mb-8 overflow-hidden rounded-[2.5rem] bg-[#355b31] p-8 shadow-[0_25px_50px_rgba(53,75,44,0.35)] text-white border border-white/10">
+      <div className="flex items-center gap-6">
+        <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-white/20 text-3xl">
+          🛍️
+        </div>
+        <div className="flex-1">
+          <div className="text-sm font-medium opacity-90">
+            {activeListing ? (isSold ? "Successfully Sold!" : "Listed on Marketplace") : "Harvest Complete!"}
+          </div>
+          <div className="text-lg font-extrabold leading-tight">
+            {activeListing 
+              ? (isSold ? "This harvest is gone!" : "Your surplus is now public.") 
+              : "Ready to share your surplus?"}
+          </div>
+        </div>
+      </div>
+      
+      <div className="mt-6">
+        {activeListing ? (
+          <Link 
+            href={`/marketplace/listing/${activeListing.id}`}
+            className="flex h-11 items-center justify-center rounded-2xl bg-white text-sm font-extrabold text-[#355b31]"
+          >
+            {isSold ? "View Sales Record" : "View Your Listing"}
+          </Link>
+        ) : (
+          <Link 
+            href={`/marketplace/create?plantId=${encodeURIComponent(plant.id)}`}
+            className="flex h-11 items-center justify-center rounded-2xl bg-white text-sm font-extrabold text-[#355b31]"
+          >
+            List Surplus for Sale
+          </Link>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -209,6 +296,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
   const [plant, setPlant] = useState<GardenPlantDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
+  const [showHarvestModal, setShowHarvestModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const fetchDetail = useCallback(async () => {
@@ -277,7 +365,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
 
   const timeline = buildTimelineFromApi(plant);
   const growingDays = daysSince(plant.plantedAt);
-  const harvestDays = plant.plantSpecies.harvestDaysMin ?? 60;
+  const harvestDays = getHarvestDays(plant);
   const progress = Math.min(100, Math.floor((growingDays / harvestDays) * 100));
   
   const pendingTasks = plant.careTasks.filter((t) => t.status === "PENDING" || t.status === "OVERDUE");
@@ -322,6 +410,11 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
         <MetricBox label="Planted" value={formatDateShort(plant.plantedAt)} />
         <MetricBox label="Harvest In" value={`${Math.max(0, harvestDays - growingDays)}d`} />
       </div>
+
+      {/* Marketplace Action if Harvested */}
+      {plant.status === "HARVESTED" && (
+        <MarketplaceActionCard plant={plant} />
+      )}
 
       {/* Progress bar */}
       <div className={styles.detailProgress}>
@@ -400,7 +493,10 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
                     key={task.id}
                     task={task}
                     plantId={plant.id}
-                    onCompleted={fetchDetail}
+                    onCompleted={(harvested) => {
+                      if (harvested) setShowHarvestModal(true);
+                      fetchDetail();
+                    }}
                   />
                 ))}
 
@@ -415,7 +511,10 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
                     key={task.id}
                     task={task}
                     plantId={plant.id}
-                    onCompleted={fetchDetail}
+                    onCompleted={(harvested) => {
+                      if (harvested) setShowHarvestModal(true);
+                      fetchDetail();
+                    }}
                   />
                 ))}
 
@@ -463,31 +562,44 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
       </div>
 
       {/* Sticky Bottom Actions */}
-      <div className={styles.stickyFooter} style={{ position: "sticky", bottom: 0, padding: "1rem", background: "#ffffff", borderTop: "1px solid rgba(31, 41, 22, 0.08)", zIndex: 20 }}>
-        <label 
-          htmlFor={fileInputId} 
-          className={`${styles.buttonPrimary} ${isProcessingPhoto ? 'opacity-70 pointer-events-none' : ''}`}
-          style={{ width: "100%", cursor: "pointer" }}
-        >
-          {isProcessingPhoto ? (
-            <span className="flex items-center gap-2">
-              <SparkleIcon /> Analyzing Plant...
-            </span>
-          ) : (
-            <>
-              <CameraIcon /> Capture Daily Photo
-            </>
-          )}
-        </label>
-        <input 
-          id={fileInputId} 
-          type="file" 
-          accept="image/*" 
-          hidden 
-          onChange={handleAddPhoto} 
-          disabled={isProcessingPhoto}
+      {plant.status !== "HARVESTED" && (
+        <div className={styles.stickyFooter} style={{ position: "sticky", bottom: 0, padding: "1rem", background: "#ffffff", borderTop: "1px solid rgba(31, 41, 22, 0.08)", zIndex: 20 }}>
+          <label 
+            htmlFor={fileInputId} 
+            className={`${styles.buttonPrimary} ${isProcessingPhoto ? 'opacity-70 pointer-events-none' : ''}`}
+            style={{ width: "100%", cursor: "pointer" }}
+          >
+            {isProcessingPhoto ? (
+              <span className="flex items-center gap-2">
+                <SparkleIcon /> Analyzing Plant...
+              </span>
+            ) : (
+              <>
+                <CameraIcon /> Capture Daily Photo
+              </>
+            )}
+          </label>
+          <input 
+            id={fileInputId} 
+            type="file" 
+            accept="image/*" 
+            hidden 
+            onChange={handleAddPhoto} 
+            disabled={isProcessingPhoto}
+          />
+        </div>
+      )}
+
+      {showHarvestModal && (
+        <HarvestSuccessModal 
+          plantId={plant.id}
+          plantName={plant.nickname || plant.plantSpecies.commonName}
+          onClose={() => {
+            setShowHarvestModal(false);
+            window.location.href = "/garden";
+          }}
         />
-      </div>
+      )}
     </div>
   );
 }

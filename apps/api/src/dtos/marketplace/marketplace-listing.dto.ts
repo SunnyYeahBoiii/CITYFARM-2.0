@@ -6,6 +6,7 @@ export class MarketplaceListingDto {
   gardenPlantId: string;
   product: string;
   quantity: string;
+  unit: string;
   priceAmount: number;
   description?: string;
   imageAssetId?: string;

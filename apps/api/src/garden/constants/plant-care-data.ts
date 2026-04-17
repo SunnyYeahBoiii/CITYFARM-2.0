@@ -8,9 +8,16 @@ export interface DefaultCareSchedule {
   preferredHour: number;
 }
 
+export interface GrowthThresholds {
+  sprouting: number;
+  vegetative: number;
+  flowering?: number;
+  fruiting?: number;
+  harvestReady: number;
+}
+
 
 export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
-  // ────────── Vegetables ──────────
   'cherry-tomato': [
     {
       taskType: CareTaskType.WATERING,
