@@ -32,10 +32,16 @@ export interface OrderResponse {
   currency: string;
   status: string;
   createdAt: string;
+  activationCode?: string | null;
   items: OrderItemResponse[];
 }
 
 export async function createOrder(payload: CreateOrderPayload): Promise<OrderResponse> {
   const { data } = await api.post<OrderResponse>("/orders", payload);
+  return data;
+}
+
+export async function getOrdersHistory(): Promise<OrderResponse[]> {
+  const { data } = await api.post<OrderResponse[]>("/orders/history");
   return data;
 }

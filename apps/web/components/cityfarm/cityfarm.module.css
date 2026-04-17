@@ -238,7 +238,7 @@
   @apply [width:5rem] [height:5rem] overflow-hidden shrink-0 rounded-2xl inline-flex items-center justify-center [background:linear-gradient(145deg,#eef5e9,#f8fbf5)];
 }
 .plantThumb img {
-  @apply w-full h-full object-contain;
+  @apply w-full h-full object-cover;
 }
 .plantBody {
   @apply min-w-0 flex-1;

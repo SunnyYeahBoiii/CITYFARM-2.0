@@ -11,7 +11,7 @@ import { ArrowLeftIcon, BagIcon, CheckIcon, DropletIcon, RecycleIcon, SproutIcon
 import { CityImage, OrderTab } from "../shared/ui";
 
 type ProductType = "kit" | "seed" | "dirt" | "pot";
-type OrderStep = "select" | "shipping" | "confirm" | "success";
+type OrderStep = "select" | "detail" | "shipping" | "confirm" | "success";
 type ShopItem = Kit | ShopSeed | DirtOption | PotOption;
 
 const PHONE_REGEX = /^(0|\+84)[0-9]{9,10}$/;
@@ -57,6 +57,8 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
   const [isLoading, setIsLoading] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<ShopItem | null>(null);
   const [generatedCode, setGeneratedCode] = useState("");
+  const [activationCode, setActivationCode] = useState<string | null>(null);
+  const [isZoomed, setIsZoomed] = useState(false);
   const [shipping, setShipping] = useState<ShippingForm>(EMPTY_SHIPPING);
   const [errors, setErrors] = useState<ValidationErrors>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -122,6 +124,11 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
     setStep("shipping");
   };
 
+  const handleSelectProduct = (product: ShopItem) => {
+    setSelectedProduct(product);
+    setStep("detail");
+  };
+
   const handleProceedToConfirm = () => {
     if (validateShipping()) {
       setStep("confirm");
@@ -146,6 +153,7 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
       });
 
       setGeneratedCode(result.orderCode);
+      setActivationCode(result.activationCode ?? null);
       setStep("success");
     } catch (err: unknown) {
       const message =
@@ -159,12 +167,11 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
   };
 
   const handleCopy = async () => {
-    if (!generatedCode) {
-      return;
-    }
+    const textToCopy = activationCode || generatedCode;
+    if (!textToCopy) return;
 
     try {
-      await navigator.clipboard.writeText(generatedCode);
+      await navigator.clipboard.writeText(textToCopy);
     } catch {
       // Ignore clipboard failures in non-secure contexts.
     }
@@ -208,25 +215,26 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                           key={kitItem.id}
                           type="button"
                           className={styles.plantCard}
-                          onClick={() => {
-                            setSelectedProduct(kitItem);
-                            setStep("shipping");
-                          }}
+                          onClick={() => handleSelectProduct(kitItem)}
                         >
                           <div className={styles.plantCardInner}>
                             <div className={styles.summaryThumb}>
                               <CityImage src={kitItem.image} alt={kitItem.name} sizes="72px" className="h-full w-full" fit="contain" />
                             </div>
-                            <div className={styles.plantBody}>
+                            <div className={styles.plantBody} style={{ textAlign: "left" }}>
                               <div className={styles.plantTopRow}>
                                 <div>
                                   <div className={styles.plantName}>{kitItem.name}</div>
-                                  <div className={styles.metaText}>{kitItem.components?.slice(0, 3).join(" • ")}</div>
+                                  <div className="mt-1 space-y-0.5" style={{ textAlign: "left" }}>
+                                    {kitItem.components?.slice(0, 3).map((comp, idx) => (
+                                      <div key={idx} className={styles.metaText} style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem" }}>
+                                        <span style={{ width: "4px", height: "4px", borderRadius: "50%", background: "currentColor", opacity: 0.4, marginTop: "6px", flexShrink: 0 }} />
+                                        <span style={{ flex: 1 }}>{comp}</span>
+                                      </div>
+                                    ))}
+                                  </div>
                                 </div>
                                 <div className={styles.matchPill}>{kitItem.price}</div>
-                              </div>
-                              <div className={styles.sectionAction} style={{ marginTop: "0.7rem", textAlign: "left" }}>
-                                Select
                               </div>
                             </div>
                           </div>
@@ -236,26 +244,34 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                   </div>
                 )}
                 {productType === "seed" && (
-                  <div className={styles.gridTwo}>
+                  <div className={styles.listStack}>
                     {products.map((seed) => {
                       const seedItem = seed as ShopSeed;
                       return (
                         <button
                           key={seedItem.id}
                           type="button"
-                          className={styles.selectorCard}
-                          onClick={() => {
-                            setSelectedProduct(seedItem);
-                            setStep("shipping");
-                          }}
+                          className={styles.plantCard}
+                          onClick={() => handleSelectProduct(seedItem)}
                         >
-                          <div className={styles.selectorBody} style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: "2.5rem" }}>{seedItem.icon || "🌱"}</div>
-                            <div className={styles.plantName} style={{ marginTop: "0.6rem" }}>
-                              {seedItem.name}
+                          <div className={styles.plantCardInner}>
+                            <div className={styles.plantThumb} style={{ background: "#f1f6ec" }}>
+                              {seedItem.image ? (
+                                <CityImage src={seedItem.image} alt={seedItem.name} sizes="72px" className="h-full w-full" fit="cover" />
+                              ) : (
+                                <div style={{ fontSize: "2rem" }}>{seedItem.icon || "🌱"}</div>
+                              )}
                             </div>
-                            <div className={styles.matchPill} style={{ margin: "0.75rem auto 0", width: "fit-content" }}>
-                              {seedItem.price}
+                            <div className={styles.plantBody} style={{ textAlign: "left" }}>
+                              <div className={styles.plantTopRow}>
+                                <div>
+                                  <div className={styles.plantName}>{seedItem.name}</div>
+                                  <div className={styles.metaText} style={{ marginTop: "0.25rem" }}>
+                                    {seedItem.description || "Hạt giống chất lượng cao cho vườn phố"}
+                                  </div>
+                                </div>
+                                <div className={styles.matchPill}>{seedItem.price}</div>
+                              </div>
                             </div>
                           </div>
                         </button>
@@ -271,19 +287,28 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                         <button
                           key={dirtItem.id}
                           type="button"
-                          className={styles.card}
-                          style={{ textAlign: "left" }}
-                          onClick={() => {
-                            setSelectedProduct(dirtItem);
-                            setStep("shipping");
-                          }}
+                          className={styles.plantCard}
+                          onClick={() => handleSelectProduct(dirtItem)}
                         >
-                          <div className={styles.plantTopRow}>
-                            <div>
-                              <div className={styles.plantName}>{dirtItem.name}</div>
-                              <div className={styles.metaText}>{dirtItem.quantity}</div>
+                          <div className={styles.plantCardInner}>
+                            <div className={styles.plantThumb} style={{ background: "#f8f6f0" }}>
+                              {dirtItem.image ? (
+                                <CityImage src={dirtItem.image} alt={dirtItem.name} sizes="72px" className="h-full w-full" fit="cover" />
+                              ) : (
+                                <div style={{ fontSize: "1.8rem" }}>🪨</div>
+                              )}
                             </div>
-                            <div className={styles.matchPill}>{dirtItem.price}</div>
+                            <div className={styles.plantBody} style={{ textAlign: "left" }}>
+                              <div className={styles.plantTopRow}>
+                                <div>
+                                  <div className={styles.plantName}>{dirtItem.name}</div>
+                                  <div className={styles.metaText} style={{ marginTop: "0.25rem" }}>
+                                    {dirtItem.quantity}
+                                  </div>
+                                </div>
+                                <div className={styles.matchPill}>{dirtItem.price}</div>
+                              </div>
+                            </div>
                           </div>
                         </button>
                       );
@@ -291,27 +316,34 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
                   </div>
                 )}
                 {productType === "pot" && (
-                  <div className={styles.gridTwo}>
+                  <div className={styles.listStack}>
                     {products.map((pot) => {
                       const potItem = pot as PotOption;
                       return (
                         <button
                           key={potItem.id}
                           type="button"
-                          className={styles.selectorCard}
-                          onClick={() => {
-                            setSelectedProduct(potItem);
-                            setStep("shipping");
-                          }}
+                          className={styles.plantCard}
+                          onClick={() => handleSelectProduct(potItem)}
                         >
-                          <div className={styles.selectorBody} style={{ textAlign: "center" }}>
-                            <div style={{ fontSize: "2.2rem" }}>{potItem.decoration || "⭐"}</div>
-                            <div className={styles.plantName} style={{ marginTop: "0.6rem" }}>
-                              {potItem.name}
+                          <div className={styles.plantCardInner}>
+                            <div className={styles.plantThumb} style={{ background: "#f0f2f8" }}>
+                              {potItem.image ? (
+                                <CityImage src={potItem.image} alt={potItem.name} sizes="72px" className="h-full w-full" fit="cover" />
+                              ) : (
+                                <div style={{ fontSize: "1.8rem" }}>{potItem.decoration || "🪴"}</div>
+                              )}
                             </div>
-                            <div className={styles.metaText}>{potItem.size}</div>
-                            <div className={styles.matchPill} style={{ margin: "0.75rem auto 0", width: "fit-content" }}>
-                              {potItem.price}
+                            <div className={styles.plantBody} style={{ textAlign: "left" }}>
+                              <div className={styles.plantTopRow}>
+                                <div>
+                                  <div className={styles.plantName}>{potItem.name}</div>
+                                  <div className={styles.metaText} style={{ marginTop: "0.25rem" }}>
+                                    {potItem.size}
+                                  </div>
+                                </div>
+                                <div className={styles.matchPill}>{potItem.price}</div>
+                              </div>
                             </div>
                           </div>
                         </button>
@@ -323,6 +355,104 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
             )}
           </div>
         </>
+      ) : null}
+
+      {step === "detail" && selectedProduct ? (
+        <div className={styles.detailScreen}>
+          <div className={styles.detailHero}>
+            {hasImagePreview(selectedProduct) && selectedProduct.image ? (
+              <div className="h-full w-full cursor-zoom-in" onClick={() => setIsZoomed(true)}>
+                <CityImage
+                  src={selectedProduct.image}
+                  alt={selectedProduct.name}
+                  sizes="100vw"
+                  className="h-full w-full"
+                  fit="cover"
+                />
+              </div>
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-(--color-primary-subtle)/30 text-6xl">
+                {"icon" in selectedProduct ? (selectedProduct as ShopSeed).icon : "🪴"}
+              </div>
+            )}
+            <div className={styles.detailOverlay} />
+            <div className={styles.detailTopControls}>
+              <button type="button" className={styles.glassButton} onClick={() => setStep("select")}>
+                <ArrowLeftIcon />
+              </button>
+            </div>
+            <div className={styles.detailHeroContent}>
+              <div className="flex items-center justify-between gap-4">
+                <h1 className={styles.detailHeroTitle}>{selectedProduct.name}</h1>
+                <div 
+                  className={styles.matchPill} 
+                  style={{ 
+                    background: "var(--color-primary)", 
+                    color: "white", 
+                    border: "none",
+                    padding: "0.5rem 1rem",
+                    fontSize: "1rem",
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.15)",
+                    height: "auto"
+                  }}
+                >
+                  {selectedProduct.price}
+                </div>
+              </div>
+              <div className={styles.detailHeroMeta}>
+                {productType === "kit" ? "Bộ dụng cụ trồng cây trọn gói" : "Hạt giống & Phụ kiện"}
+              </div>
+            </div>
+          </div>
+
+          <div className={styles.detailContent}>
+            <div className={styles.section}>
+              <div className={styles.sectionTitle}>Mô tả sản phẩm</div>
+              <p className={styles.sectionSubtitle} style={{ marginTop: "0.75rem", lineHeight: "1.7", fontSize: "0.95rem" }}>
+                {selectedProduct.description || "Sản phẩm tuyển chọn giúp bạn kiến tạo không gian xanh ngay tại căn hộ của mình. Đảm bảo chất lượng và dễ dàng chăm sóc."}
+              </p>
+            </div>
+
+            {productType === "kit" && (selectedProduct as Kit).components && (
+              <div className={styles.section} style={{ marginTop: "1.5rem" }}>
+                <div className={styles.sectionTitle}>Thành phần bộ Kit</div>
+                <div className="mt-3 grid grid-cols-1 gap-2">
+                  {(selectedProduct as Kit).components.map((comp, idx) => (
+                    <div key={idx} className={styles.actionItem} style={{ padding: "0.75rem", background: "#f8faf7", borderRadius: "0.75rem", border: "1px solid rgba(0,0,0,0.04)" }}>
+                      <div className="h-2 w-2 rounded-full bg-(--color-primary)" />
+                      <span className="text-sm font-medium">{comp}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-10 pb-10">
+              <button type="button" className={styles.buttonPrimary} style={{ width: "100%", height: "3.5rem" }} onClick={handleProceedToShipping}>
+                Tiếp tục đặt hàng
+              </button>
+              <button type="button" className={styles.ghostButton} style={{ width: "100%", marginTop: "0.5rem" }} onClick={() => setStep("select")}>
+                Quay lại cửa hàng
+              </button>
+            </div>
+          </div>
+
+          {isZoomed && hasImagePreview(selectedProduct) && (
+            <div
+              className="fixed inset-0 z-100 flex items-center justify-center bg-black/90 px-4"
+              onClick={() => setIsZoomed(false)}
+            >
+              <img
+                src={selectedProduct.image}
+                alt={selectedProduct.name}
+                className="max-h-[85vh] w-full max-w-[600px] rounded-2xl object-contain shadow-2xl"
+              />
+              <div className="absolute top-6 right-6 text-white text-sm font-bold bg-white/10 px-4 py-2 rounded-full backdrop-blur-md">
+                Chạm để đóng
+              </div>
+            </div>
+          )}
+        </div>
       ) : null}
 
       {step === "shipping" ? (
@@ -409,12 +539,16 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
           <div className={styles.summaryLabel}>Order Summary</div>
           <div className={styles.summaryRow}>
             {hasImagePreview(selectedProduct) ? (
-              <div className={styles.summaryThumb}>
+              <div
+                className={styles.summaryThumb}
+                style={{ cursor: "zoom-in", position: "relative" }}
+                onClick={() => setIsZoomed(true)}
+              >
                 <CityImage src={selectedProduct.image} alt={selectedProduct.name} sizes="72px" className="h-full w-full" fit="contain" />
               </div>
             ) : (
               <div className={styles.profileBadge} style={{ width: "4rem", height: "4rem", borderRadius: "1rem" }}>
-                {"icon" in selectedProduct ? selectedProduct.icon : "🌱"}
+                {"icon" in selectedProduct ? (selectedProduct as ShopSeed).icon : "🌱"}
               </div>
             )}
             <div>
@@ -493,6 +627,19 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
               Chỉnh sửa thông tin
             </button>
           </div>
+
+          {isZoomed && hasImagePreview(selectedProduct) && (
+            <div
+              className="fixed inset-0 z-100 flex items-center justify-center bg-black/80 px-4"
+              onClick={() => setIsZoomed(false)}
+            >
+              <img
+                src={selectedProduct.image}
+                alt={selectedProduct.name}
+                className="max-h-[80vh] w-full max-w-[500px] rounded-2xl object-contain shadow-2xl"
+              />
+            </div>
+          )}
         </div>
       ) : null}
 
@@ -501,22 +648,41 @@ export function OrderScreen({ initialSeed }: { initialSeed?: string | null }) {
           <div className={styles.successIcon}>
             <CheckIcon />
           </div>
-          <div className={styles.screenHeaderTitle}>Order Placed!</div>
-          <div className={styles.sectionSubtitle} style={{ maxWidth: "18rem", textAlign: "center" }}>
-            Your order is ready. Use the code below to activate your digital garden or keep it for pickup.
+          <div className={styles.screenHeaderTitle}>Đặt hàng thành công!</div>
+          <div className={styles.sectionSubtitle} style={{ maxWidth: "20rem", textAlign: "center" }}>
+            Đơn hàng của bạn đã được ghi nhận. {activationCode ? "Sử dụng mã dưới đây để kích hoạt khu vườn của bạn." : "Bạn có thể theo dõi tiến độ đơn hàng trong phần lịch sử."}
           </div>
-          <div className={styles.codeCard}>
-            <div className={styles.summaryLabel} style={{ color: "rgba(255,255,255,0.56)" }}>
-              Order Code
+
+          {activationCode && (
+            <div className={styles.codeCard}>
+              <div className={styles.summaryLabel} style={{ color: "rgba(255,255,255,0.56)" }}>
+                Mã kích hoạt (Activation Code)
+              </div>
+              <div className={styles.codeValue}>{activationCode}</div>
+              <div className={styles.metaText} style={{ color: "rgba(255,255,255,0.4)", marginTop: "0.5rem" }}>
+                Order: {generatedCode}
+              </div>
             </div>
-            <div className={styles.codeValue}>{generatedCode}</div>
-          </div>
-          <div className={styles.section} style={{ display: "grid", gap: "0.75rem", width: "100%" }}>
+          )}
+
+          {!activationCode && (
+            <div className={styles.codeCard}>
+              <div className={styles.summaryLabel} style={{ color: "rgba(255,255,255,0.56)" }}>
+                Mã đơn hàng
+              </div>
+              <div className={styles.codeValue}>{generatedCode}</div>
+            </div>
+          )}
+
+          <div className={styles.section} style={{ display: "grid", gap: "0.75rem", width: "100%", maxWidth: "17rem" }}>
             <button type="button" className={styles.buttonOutline} onClick={handleCopy}>
-              Copy Code
+              Copy {activationCode ? "Mã kích hoạt" : "Mã đơn hàng"}
             </button>
+            <Link href="/account/history" className={styles.buttonOutline}>
+              Xem lịch sử đơn hàng
+            </Link>
             <Link href="/garden" className={styles.buttonPrimary}>
-              Go to My Garden
+              Đến khu vườn của tôi
             </Link>
           </div>
         </div>
