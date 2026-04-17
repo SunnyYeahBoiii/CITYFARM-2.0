@@ -8,6 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AppService } from './app.service';
+import { UseInterceptors, UploadedFile } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 type ChatBody = {
   message?: string;
@@ -55,5 +59,23 @@ export class AppController {
       },
     );
     return response;
+  }
+
+  @Get('api/plants/catalog')
+  async getPlantCatalog() {
+    return this.appService.getPlantCatalog();
+  }
+
+  @Post('api/scan/analyze')
+  @UseGuards(JwtAuthGuard) // Bật dòng này lên nếu bạn muốn bắt buộc phải đăng nhập mới được scan
+  @UseInterceptors(FileInterceptor('file'))
+  async analyzeSpace(
+    @UploadedFile() file: Express.Multer.File,
+    @Body('plantCatalogText') plantCatalogText?: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Thiếu file ảnh để phân tích');
+    }
+    return this.appService.analyzeSpace(file, plantCatalogText);
   }
 }

@@ -7,9 +7,9 @@ import { PrismaModule } from './prisma/prisma.module';
 import { UserModule } from './user/user.module';
 import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
+import { OrderModule } from './order/order.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 import { ProductsModule } from './products/products.module';
-import { OrdersModule } from './orders/orders.module';
 import { GardenModule } from './garden/garden.module';
 
 @Module({
@@ -22,8 +22,8 @@ import { GardenModule } from './garden/garden.module';
     AuthModule,
     CommunityModule,
     AssetsModule,
+    OrderModule,
     ProductsModule,
-    OrdersModule,
     GardenModule,
   ],
   controllers: [AppController],

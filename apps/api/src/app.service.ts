@@ -106,6 +106,27 @@ export class AppService {
     }
   }
 
+  /** Tìm hoặc tạo mới một Conversation AI_ASSISTANT cho cặp (userId, plantId). */
+  private async findOrCreateAIConversation(userId: string, plantId: string) {
+    const existing = await this.prisma.conversation.findFirst({
+      where: {
+        type: 'AI_ASSISTANT',
+        participants: { some: { userId } },
+        assistantContext: { path: ['plantId'], equals: plantId },
+      },
+    });
+
+    if (existing) return existing;
+
+    return this.prisma.conversation.create({
+      data: {
+        type: 'AI_ASSISTANT',
+        assistantContext: { plantId },
+        participants: { create: { userId } },
+      },
+    });
+  }
+
   // Hàm chính xử lý nghiệp vụ Chat RAG
   async processChatRequest(userId: string, plantId: string, message: string) {
     // 1. Dùng Prisma lấy toàn bộ RAG Context từ Database
@@ -130,7 +151,23 @@ export class AppService {
       throw new NotFoundException('Không tìm thấy cây này trong vườn của bạn!');
     }
 
-    // 2. Đóng gói Payload RAG siêu cấp
+    // 2. Tìm hoặc tạo conversation, sau đó tải lịch sử hội thoại gần nhất
+    const conversation = await this.findOrCreateAIConversation(userId, plantId);
+
+    const previousMessages = await this.prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+      take: 20, // Lấy 20 tin nhắn gần nhất (10 lượt hội thoại)
+    });
+
+    const chatHistory = previousMessages
+      .filter((m) => m.body)
+      .map((m) => ({
+        role: m.senderType === 'USER' ? 'user' : 'assistant',
+        content: m.body as string,
+      }));
+
+    // 3. Đóng gói Payload RAG siêu cấp
     const ragContext = {
       user: {
         displayName: plantData.user.profile?.displayName || 'Người dùng',
@@ -146,7 +183,7 @@ export class AppService {
           sunlight: plantData.plantSpecies.careProfile?.sunlightSummary,
           watering: plantData.plantSpecies.careProfile?.wateringSummary,
           pests: plantData.plantSpecies.careProfile?.commonPests,
-        }
+        },
       },
       currentPlant: {
         nickname: plantData.nickname,
@@ -158,21 +195,105 @@ export class AppService {
         notes: plantData.notes,
       },
       history: {
-        recentTasks: plantData.careTasks.map(t => `${t.taskType} - ${t.completedAt?.toISOString().split('T')[0]}`),
-        recentJournals: plantData.journalEntries.map(j => `Sức khỏe: ${j.healthStatus} - Ghi chú: ${j.issueSummary || 'Bình thường'}`)
-      }
+        recentTasks: plantData.careTasks.map(
+          (t) => `${t.taskType} - ${t.completedAt?.toISOString().split('T')[0]}`,
+        ),
+        recentJournals: plantData.journalEntries.map(
+          (j) => `Sức khỏe: ${j.healthStatus} - Ghi chú: ${j.issueSummary || 'Bình thường'}`,
+        ),
+      },
     };
 
-    const pythonPayload = {
-      message: message,
-      context: ragContext
-    };
-
-    // 3. Gửi sang Python và nhận kết quả
+    // 4. Gửi sang Python (kèm lịch sử hội thoại) và nhận kết quả
+    const pythonPayload = { message, context: ragContext, history: chatHistory };
     const aiResponse = await this.getAIAdvice(pythonPayload);
 
-    // TODO sau này: Code lưu lịch sử chat vào bảng Conversation/Message
+    // 5. Lưu tin nhắn người dùng và phản hồi AI vào DB
+    try {
+      await this.prisma.message.create({
+        data: {
+          conversationId: conversation.id,
+          senderUserId: userId,
+          senderType: 'USER',
+          messageType: 'TEXT',
+          body: message,
+        },
+      });
 
-    return aiResponse;
+      if (aiResponse.success && typeof aiResponse.reply === 'string') {
+        await this.prisma.message.create({
+          data: {
+            conversationId: conversation.id,
+            senderType: 'ASSISTANT',
+            messageType: 'TEXT',
+            body: aiResponse.reply,
+          },
+        });
+      }
+    } catch (err: unknown) {
+      // Không để lỗi lưu lịch sử phá vỡ luồng chat
+      console.error('[Chat History] Lỗi khi lưu tin nhắn:', err);
+    }
+
+    return { ...aiResponse, conversationId: conversation.id };
+  }
+
+  async getPlantCatalog() {
+    const plants = await this.prisma.plantSpecies.findMany({
+      where: {
+        isHcmcSuitable: true,
+      },
+      select: {
+        id: true,
+        commonName: true,
+        scientificName: true,
+        category: true,
+        difficulty: true,
+        lightRequirement: true,
+        minLightScore: true,
+        maxLightScore: true,
+        recommendedMinAreaSqm: true,
+        temperatureMinC: true,
+        temperatureMaxC: true,
+        harvestDaysMin: true,
+        harvestDaysMax: true,
+      },
+    });
+    return plants;
+  }
+
+  async analyzeSpace(file: Express.Multer.File, plantCatalogText?: string) {
+    // Nếu Frontend/Postman không gửi plantCatalogText, NestJS tự động lấy từ DB
+    let catalog = plantCatalogText;
+    if (!catalog) {
+      const plants = await this.getPlantCatalog();
+      catalog = plants.map((p: any) => 
+        `[ID: ${p.id}] Tên: ${p.commonName} (${p.scientificName}) | Độ khó: ${p.difficulty} | Nắng: ${p.lightRequirement} | Diện tích min: ${p.recommendedMinAreaSqm}m2`
+      ).join("\n");
+    }
+
+    // Chuyển ảnh thành chuỗi Base64 để gửi qua mạng LAN Docker
+    const imageBase64 = file.buffer.toString('base64');
+    const modelBase = (process.env.MODEL_API_URL ?? "http://model-api:3002").replace(/\/$/, "");
+
+    try {
+      const response = await fetch(`${modelBase}/api/analyze-space`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_base64: imageBase64,
+          plantCatalogText: catalog
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Python API Error: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("Lỗi kết nối tới Python Model API:", error);
+      throw new Error("Không thể phân tích không gian lúc này.");
+    }
   }
 }
