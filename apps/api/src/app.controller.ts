@@ -65,7 +65,7 @@ export class AppController {
   }
 
   @Post('api/scan/analyze')
-  // @UseGuards(JwtAuthGuard) // Bật dòng này lên nếu bạn muốn bắt buộc phải đăng nhập mới được scan
+  @UseGuards(JwtAuthGuard) // Bật dòng này lên nếu bạn muốn bắt buộc phải đăng nhập mới được scan
   @UseInterceptors(FileInterceptor('file'))
   async analyzeSpace(
     @UploadedFile() file: Express.Multer.File,
