@@ -237,4 +237,63 @@ export class AppService {
 
     return { ...aiResponse, conversationId: conversation.id };
   }
+
+  async getPlantCatalog() {
+    const plants = await this.prisma.plantSpecies.findMany({
+      where: {
+        isHcmcSuitable: true,
+      },
+      select: {
+        id: true,
+        commonName: true,
+        scientificName: true,
+        category: true,
+        difficulty: true,
+        lightRequirement: true,
+        minLightScore: true,
+        maxLightScore: true,
+        recommendedMinAreaSqm: true,
+        temperatureMinC: true,
+        temperatureMaxC: true,
+        harvestDaysMin: true,
+        harvestDaysMax: true,
+      },
+    });
+    return plants;
+  }
+
+  async analyzeSpace(file: Express.Multer.File, plantCatalogText?: string) {
+    // Nếu Frontend/Postman không gửi plantCatalogText, NestJS tự động lấy từ DB
+    let catalog = plantCatalogText;
+    if (!catalog) {
+      const plants = await this.getPlantCatalog();
+      catalog = plants.map((p: any) => 
+        `[ID: ${p.id}] Tên: ${p.commonName} (${p.scientificName}) | Độ khó: ${p.difficulty} | Nắng: ${p.lightRequirement} | Diện tích min: ${p.recommendedMinAreaSqm}m2`
+      ).join("\n");
+    }
+
+    // Chuyển ảnh thành chuỗi Base64 để gửi qua mạng LAN Docker
+    const imageBase64 = file.buffer.toString('base64');
+    const modelBase = (process.env.MODEL_API_URL ?? "http://model-api:3002").replace(/\/$/, "");
+
+    try {
+      const response = await fetch(`${modelBase}/api/analyze-space`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          image_base64: imageBase64,
+          plantCatalogText: catalog
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Python API Error: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error("Lỗi kết nối tới Python Model API:", error);
+      throw new Error("Không thể phân tích không gian lúc này.");
+    }
+  }
 }
