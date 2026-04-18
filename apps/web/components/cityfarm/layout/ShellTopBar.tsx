@@ -25,9 +25,13 @@ export function ShellTopBar({ variant }: { variant: ShellVariant }) {
       <ArrowLeftIcon />
     </Link>
   ) : (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,#567a3d,#2d4a24)] text-[11px] font-black tracking-[0.16em] text-white">
+    <Link 
+      href="/account"
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[0.9rem] bg-[linear-gradient(135deg,#567a3d,#2d4a24)] text-[11px] font-black tracking-[0.16em] text-white transition-transform active:scale-95"
+      aria-label="Account Settings"
+    >
       CF
-    </div>
+    </Link>
   );
 
   if (isChatbot) {
@@ -51,7 +55,7 @@ export function ShellTopBar({ variant }: { variant: ShellVariant }) {
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-3">
             <p className="truncate text-[9px] font-semibold uppercase tracking-[0.14em] text-[var(--color-green-soft)]">
-              Mobile App Shell
+              CITYFARM
             </p>
             <span className="shrink-0 rounded-full bg-[var(--color-screen)] px-2 py-0.5 text-[10px] font-semibold text-[var(--color-muted)]">
               {variantLabel}

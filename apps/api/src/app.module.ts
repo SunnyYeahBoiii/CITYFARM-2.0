@@ -9,6 +9,8 @@ import { CommunityModule } from './community/community.module';
 import { AssetsModule } from './assets/assets.module';
 import { OrderModule } from './order/order.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
+import { ProductsModule } from './products/products.module';
+import { GardenModule } from './garden/garden.module';
 
 @Module({
   imports: [
@@ -21,6 +23,8 @@ import { LoggingMiddleware } from './common/middleware/logging/logging.middlewar
     CommunityModule,
     AssetsModule,
     OrderModule,
+    ProductsModule,
+    GardenModule,
   ],
   controllers: [AppController],
   providers: [AppService],

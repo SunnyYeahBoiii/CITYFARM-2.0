@@ -1,4 +1,5 @@
-import type { DirtOption, Kit, PotOption, ShopSeed } from "./types";
+import type { DirtOption, Kit, PotOption, ShopSeed } from "../types/shop";
+export type { DirtOption, Kit, PotOption, ShopSeed };
 
 export const seeds: ShopSeed[] = [
   { id: "TOMATO", name: "Cherry Tomato", icon: "🍅", price: "15.000₫" },

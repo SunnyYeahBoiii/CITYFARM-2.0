@@ -10,6 +10,8 @@ import type { Request } from 'express';
 import { AppService } from './app.service';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 
 type ChatBody = {
   message?: string;

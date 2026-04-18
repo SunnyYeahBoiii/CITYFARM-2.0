@@ -108,37 +108,6 @@ export interface ScanAnalysis {
   capacity: string;
 }
 
-export interface ShopSeed {
-  id: string;
-  name: string;
-  icon: string;
-  price: string;
-}
-
-export interface DirtOption {
-  id: string;
-  name: string;
-  quantity: string;
-  price: string;
-}
-
-export interface PotOption {
-  id: string;
-  name: string;
-  size: string;
-  decoration: string;
-  price: string;
-}
-
-export interface Kit {
-  id: string;
-  name: string;
-  price: string;
-  image: string;
-  components: string[];
-  allowedSeeds: string[];
-}
-
 export interface HomeStat {
   label: string;
   value: string;

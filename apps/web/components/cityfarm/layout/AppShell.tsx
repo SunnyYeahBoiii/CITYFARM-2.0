@@ -13,11 +13,11 @@ function MobileFrame({
   showBottomDock?: boolean;
 }) {
   return (
-    <div className="min-h-[100dvh] bg-[radial-gradient(circle_at_top_left,rgba(111,150,84,0.14),transparent_24%),radial-gradient(circle_at_88%_16%,rgba(228,168,98,0.16),transparent_18%),linear-gradient(180deg,#eff3eb_0%,#e4ebde_100%)] px-4">
-      <div className="mx-auto flex h-[100dvh] w-full max-w-[420px] flex-col overflow-hidden bg-white shadow-[var(--shadow-device)]">
+    <div className="min-h-dvh bg-[radial-gradient(circle_at_top_left,rgba(111,150,84,0.14),transparent_24%),radial-gradient(circle_at_88%_16%,rgba(228,168,98,0.16),transparent_18%),linear-gradient(180deg,#eff3eb_0%,#e4ebde_100%)] px-4">
+      <div className="mx-auto flex h-dvh w-full max-w-[420px] flex-col overflow-hidden bg-white shadow-(--shadow-device)">
         <ShellTopBar variant={variant} />
         <main
-          className={`min-h-0 flex-1 bg-[var(--color-screen)] ${
+          className={`min-h-0 flex-1 bg-(--color-screen) ${
             showBottomDock ? "overflow-y-auto" : "overflow-hidden"
           }`}
         >

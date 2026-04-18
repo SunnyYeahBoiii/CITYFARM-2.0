@@ -1,17 +1,26 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateOrderDto, ProductTypeDto } from '../dtos/order/create-order.dto';
+import { CreateOrderDto } from '../dtos/order/create-order.dto';
+import { randomBytes } from 'crypto';
 
 @Injectable()
 export class OrderService {
   constructor(private prisma: PrismaService) {}
+
+  private generateOrderCode(): string {
+    return `ORD-${Date.now().toString(36).toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+  }
+
+  private generateActivationCode(): string {
+    return `CITY-${randomBytes(2).toString('hex').toUpperCase()}-${randomBytes(2).toString('hex').toUpperCase()}`;
+  }
 
   async createOrder(userId: string, dto: CreateOrderDto) {
     const product = await this.prisma.product.findFirst({
       where: {
         type: dto.productType as 'KIT' | 'SEED' | 'SOIL' | 'POT',
         isActive: true,
-        sku: dto.productId,
+        id: dto.productId,
       },
     });
 
@@ -23,7 +32,7 @@ export class OrderService {
 
     const quantity = dto.quantity ?? 1;
     const totalAmount = product.priceAmount * quantity;
-    const orderCode = `${dto.productType}-${dto.productId}-${Date.now().toString().slice(-6)}`;
+    const orderCode = this.generateOrderCode();
 
     return this.prisma.$transaction(async (tx) => {
       const order = await tx.order.create({
@@ -50,20 +59,24 @@ export class OrderService {
           },
         },
         include: {
-          items: {
-            include: {
-              product: {
-                select: {
-                  id: true,
-                  name: true,
-                  type: true,
-                  priceAmount: true,
-                },
-              },
-            },
-          },
+          items: true,
         },
       });
+
+      const orderItem = order.items[0];
+      let activationCode: string | null = null;
+
+      // Generate activation code for Kits and Seeds (Legacy feature)
+      if (product.type === 'KIT' || product.type === 'SEED') {
+        const codeRecord = await tx.kitActivationCode.create({
+          data: {
+            code: this.generateActivationCode(),
+            orderItemId: orderItem.id,
+            productId: product.id,
+          },
+        });
+        activationCode = codeRecord.code;
+      }
 
       return {
         id: order.id,
@@ -72,12 +85,61 @@ export class OrderService {
         currency: order.currency,
         status: order.status,
         createdAt: order.createdAt,
-        items: order.items.map((item) => ({
-          product: item.product,
-          quantity: item.quantity,
-          unitPrice: item.unitPriceAmount,
-          totalPrice: item.totalPriceAmount,
-        })),
+        activationCode,
+        items: [
+          {
+            product: {
+              id: product.id,
+              name: product.name,
+              type: product.type,
+              priceAmount: product.priceAmount,
+            },
+            quantity,
+            unitPrice: product.priceAmount,
+            totalPrice: totalAmount,
+          },
+        ],
+      };
+    });
+  }
+
+  async getMyOrders(userId: string) {
+    const orders = await this.prisma.order.findMany({
+      where: { buyerId: userId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: {
+          include: {
+            product: {
+              select: {
+                id: true,
+                sku: true,
+                slug: true,
+                name: true,
+                type: true,
+                priceAmount: true,
+                metadata: true,
+              },
+            },
+            activationCodes: {
+              select: {
+                code: true,
+                redeemedAt: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    return orders.map((order) => {
+      // Find the first activation code in any item (usually orders are single-item for now)
+      const activationCode = order.items.find((i) => i.activationCodes.length > 0)
+        ?.activationCodes[0]?.code;
+
+      return {
+        ...order,
+        activationCode,
       };
     });
   }
