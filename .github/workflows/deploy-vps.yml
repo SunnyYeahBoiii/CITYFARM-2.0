@@ -1,0 +1,180 @@
+name: Deploy To VPS
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  REGISTRY: ghcr.io
+  WEB_IMAGE_NAME: cityfarm-2-0-web
+  ADMIN_IMAGE_NAME: cityfarm-2-0-admin
+  API_IMAGE_NAME: cityfarm-2-0-api
+  MODEL_API_IMAGE_NAME: cityfarm-2-0-model-api
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/deploy/apps/cityfarm' }}
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Type check
+        run: pnpm check-types
+
+  build-and-push:
+    needs: quality
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image_name: cityfarm-2-0-web
+            dockerfile: docker/web.Dockerfile
+          - image_name: cityfarm-2-0-admin
+            dockerfile: docker/admin.Dockerfile
+          - image_name: cityfarm-2-0-api
+            dockerfile: docker/api.Dockerfile
+          - image_name: cityfarm-2-0-model-api
+            dockerfile: docker/model-api.Dockerfile
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        id: owner
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.image_name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          platforms: linux/amd64,linux/arm64
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_API_URL || matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_API_URL || '' }}
+            NEXT_PUBLIC_APP_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_APP_URL || '' }}
+            NEXT_PUBLIC_WEB_URL=${{ matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_WEB_URL || '' }}
+          tags: |
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ matrix.image_name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ matrix.image_name }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: build-and-push
+    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase owner
+        id: owner
+        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -p "${{ secrets.VPS_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Render deploy env
+        run: |
+          cat <<EOF > deploy.env
+          WEB_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
+          ADMIN_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
+          API_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+          MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
+          APP_DOMAIN=${{ vars.APP_DOMAIN || 'app.example.com' }}
+          ADMIN_DOMAIN=${{ vars.ADMIN_DOMAIN || 'admin.example.com' }}
+          API_DOMAIN=${{ vars.API_DOMAIN || 'api.example.com' }}
+          LETSENCRYPT_EMAIL=${{ secrets.LETSENCRYPT_EMAIL }}
+          NGINX_CLIENT_MAX_BODY_SIZE=${{ vars.NGINX_CLIENT_MAX_BODY_SIZE || '25m' }}
+          WEB_UPSTREAM_HOST=${{ vars.WEB_UPSTREAM_HOST || '127.0.0.1' }}
+          ADMIN_UPSTREAM_HOST=${{ vars.ADMIN_UPSTREAM_HOST || '127.0.0.1' }}
+          API_UPSTREAM_HOST=${{ vars.API_UPSTREAM_HOST || '127.0.0.1' }}
+          WEB_BIND_IP=${{ vars.WEB_BIND_IP || '127.0.0.1' }}
+          WEB_HOST_PORT=${{ vars.WEB_HOST_PORT || '3000' }}
+          ADMIN_BIND_IP=${{ vars.ADMIN_BIND_IP || '127.0.0.1' }}
+          ADMIN_HOST_PORT=${{ vars.ADMIN_HOST_PORT || '3003' }}
+          API_BIND_IP=${{ vars.API_BIND_IP || '127.0.0.1' }}
+          API_HOST_PORT=${{ vars.API_HOST_PORT || '3001' }}
+          MODEL_BIND_IP=${{ vars.MODEL_BIND_IP || '127.0.0.1' }}
+          MODEL_HOST_PORT=${{ vars.MODEL_HOST_PORT || '3002' }}
+          WEB_NEXT_PUBLIC_API_URL=${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
+          WEB_NEXT_PUBLIC_APP_URL=${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
+          ADMIN_NEXT_PUBLIC_API_URL=${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
+          ADMIN_NEXT_PUBLIC_WEB_URL=${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
+          API_DATABASE_URL=${{ secrets.API_DATABASE_URL }}
+          API_DIRECT_URL=${{ secrets.API_DIRECT_URL }}
+          API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+          API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+          API_SUPABASE_BUCKET_NAME=${{ secrets.API_SUPABASE_BUCKET_NAME }}
+          API_SUPABASE_PUBLISHABLE_KEY=${{ secrets.API_SUPABASE_PUBLISHABLE_KEY }}
+          API_SUPABASE_SECRET_KEY=${{ secrets.API_SUPABASE_SECRET_KEY }}
+          API_JWT_REFRESH_SECRET=${{ secrets.API_JWT_REFRESH_SECRET }}
+          API_JWT_ACCESS_SECRET=${{ secrets.API_JWT_ACCESS_SECRET }}
+          API_GOOGLE_CLIENT_ID=${{ secrets.API_GOOGLE_CLIENT_ID }}
+          API_GOOGLE_CLIENT_SECRET=${{ secrets.API_GOOGLE_CLIENT_SECRET }}
+          API_GOOGLE_CALLBACK_URL=${{ secrets.API_GOOGLE_CALLBACK_URL }}
+          API_FRONTEND_URL=${{ secrets.API_FRONTEND_URL }}
+          API_WEB_ORIGINS=${{ secrets.API_WEB_ORIGINS }}
+          MODEL_GEMINI_API_KEY=${{ secrets.MODEL_GEMINI_API_KEY }}
+          EOF
+
+      - name: Upload deploy bundle
+        run: |
+          ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p '${{ env.DEPLOY_PATH }}'"
+          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/docker-compose.vps.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/docker-compose.vps.yml"
+          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/deploy.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/deploy.sh"
+          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/bootstrap-ubuntu-vps.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/bootstrap-ubuntu-vps.sh"
+          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/setup-nginx.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/setup-nginx.sh"
+          scp -P "${{ secrets.VPS_PORT }}" infra/nginx/cityfarm.http.conf.template "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/cityfarm.http.conf.template"
+          scp -P "${{ secrets.VPS_PORT }}" infra/nginx/cityfarm.https.conf.template "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/cityfarm.https.conf.template"
+          scp -P "${{ secrets.VPS_PORT }}" deploy.env "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/.env"
+
+      - name: Deploy on VPS
+        run: |
+          ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "chmod +x '${{ env.DEPLOY_PATH }}/deploy.sh' && \
+            GHCR_USERNAME='${{ secrets.GHCR_USERNAME }}' \
+            GHCR_TOKEN='${{ secrets.GHCR_TOKEN }}' \
+            DEPLOY_PATH='${{ env.DEPLOY_PATH }}' \
+            '${{ env.DEPLOY_PATH }}/deploy.sh'"

@@ -1,0 +1,65 @@
+services:
+  web:
+    image: ${WEB_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${WEB_NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_APP_URL: ${WEB_NEXT_PUBLIC_APP_URL}
+      NEST_API_URL: http://api:3001
+    ports:
+      - "${WEB_BIND_IP:-127.0.0.1}:${WEB_HOST_PORT:-3000}:3000"
+
+  admin:
+    image: ${ADMIN_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - api
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+      NEXT_PUBLIC_API_URL: ${ADMIN_NEXT_PUBLIC_API_URL}
+      NEXT_PUBLIC_WEB_URL: ${ADMIN_NEXT_PUBLIC_WEB_URL}
+    ports:
+      - "${ADMIN_BIND_IP:-127.0.0.1}:${ADMIN_HOST_PORT:-3003}:3000"
+
+  api:
+    image: ${API_IMAGE}
+    restart: unless-stopped
+    depends_on:
+      - model-api
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      MODEL_API_URL: http://model-api:3002
+      DATABASE_URL: ${API_DATABASE_URL}
+      DIRECT_URL: ${API_DIRECT_URL}
+      SUPABASE_URL: ${API_SUPABASE_URL}
+      SUPABASE_SERVICE_ROLE_KEY: ${API_SUPABASE_SERVICE_ROLE_KEY}
+      SUPABASE_BUCKET_NAME: ${API_SUPABASE_BUCKET_NAME}
+      SUPABASE_PUBLISHABLE_KEY: ${API_SUPABASE_PUBLISHABLE_KEY:-}
+      SUPABASE_SECRET_KEY: ${API_SUPABASE_SECRET_KEY:-}
+      JWT_REFRESH_SECRET: ${API_JWT_REFRESH_SECRET}
+      JWT_ACCESS_SECRET: ${API_JWT_ACCESS_SECRET}
+      GOOGLE_CLIENT_ID: ${API_GOOGLE_CLIENT_ID}
+      GOOGLE_CLIENT_SECRET: ${API_GOOGLE_CLIENT_SECRET}
+      GOOGLE_CALLBACK_URL: ${API_GOOGLE_CALLBACK_URL}
+      FRONTEND_URL: ${API_FRONTEND_URL}
+      WEB_ORIGINS: ${API_WEB_ORIGINS}
+    ports:
+      - "${API_BIND_IP:-127.0.0.1}:${API_HOST_PORT:-3001}:3001"
+
+  model-api:
+    image: ${MODEL_API_IMAGE}
+    restart: unless-stopped
+    environment:
+      PORT: 3002
+      FLASK_DEBUG: "false"
+      GEMINI_API_KEY: ${MODEL_GEMINI_API_KEY}
+    ports:
+      - "${MODEL_BIND_IP:-127.0.0.1}:${MODEL_HOST_PORT:-3002}:3002"
