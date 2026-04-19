@@ -26,7 +26,7 @@ services:
       NEXT_PUBLIC_API_URL: ${ADMIN_NEXT_PUBLIC_API_URL}
       NEXT_PUBLIC_WEB_URL: ${ADMIN_NEXT_PUBLIC_WEB_URL}
     ports:
-      - "${ADMIN_BIND_IP:-127.0.0.1}:${ADMIN_HOST_PORT:-3003}:3000"
+      - "${ADMIN_BIND_IP:-127.0.0.1}:${ADMIN_HOST_PORT:-3002}:3000"
 
   api:
     image: ${API_IMAGE}
@@ -36,7 +36,7 @@ services:
     environment:
       NODE_ENV: production
       PORT: 3001
-      MODEL_API_URL: http://model-api:3002
+      MODEL_API_URL: http://model-api:3003
       DATABASE_URL: ${API_DATABASE_URL}
       DIRECT_URL: ${API_DIRECT_URL}
       SUPABASE_URL: ${API_SUPABASE_URL}
@@ -58,8 +58,8 @@ services:
     image: ${MODEL_API_IMAGE}
     restart: unless-stopped
     environment:
-      PORT: 3002
+      PORT: 3003
       FLASK_DEBUG: "false"
       GEMINI_API_KEY: ${MODEL_GEMINI_API_KEY}
     ports:
-      - "${MODEL_BIND_IP:-127.0.0.1}:${MODEL_HOST_PORT:-3002}:3002"
+      - "${MODEL_BIND_IP:-127.0.0.1}:${MODEL_HOST_PORT:-3003}:3003"

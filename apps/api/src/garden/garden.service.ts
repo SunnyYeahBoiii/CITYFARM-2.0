@@ -1,10 +1,10 @@
 import {
   Injectable,
   BadRequestException,
-  ForbiddenException,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { Prisma } from 'generated/prisma/client';
 import {
   CareTaskStatus,
   CareTaskType,
@@ -17,6 +17,8 @@ import {
 } from './constants/plant-care-data';
 import { LogCareDto } from 'src/dtos/garden/log-care.dto';
 import { LogJournalDto } from 'src/dtos/garden/log-journal.dto';
+import { ModelApiService } from '../ai/model-api.service';
+import { SupabaseStorageService } from '../assets/supabase-storage.service';
 
 
 export interface GardenStats {
@@ -30,7 +32,11 @@ export interface GardenStats {
 export class GardenService {
   private _statsCache = new Map<string, { stats: GardenStats; expiresAt: number }>();
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly modelApiService: ModelApiService,
+    private readonly storageService: SupabaseStorageService,
+  ) {}
 
   private _invalidateStatsCache(userId: string) {
     this._statsCache.delete(userId);
@@ -380,6 +386,15 @@ export class GardenService {
   async logJournal(userId: string, plantId: string, dto: LogJournalDto) {
     const plant = await this.prisma.gardenPlant.findFirst({
       where: { id: plantId, userId },
+      include: {
+        plantSpecies: {
+          select: {
+            commonName: true,
+            scientificName: true,
+            category: true,
+          },
+        },
+      },
     });
 
     if (!plant) {
@@ -387,32 +402,55 @@ export class GardenService {
     }
 
     const now = new Date();
+    const asset = dto.imageAssetId
+      ? await this.prisma.mediaAsset.findFirst({
+          where: {
+            id: dto.imageAssetId,
+            ownerId: userId,
+            kind: 'GARDEN_JOURNAL',
+          },
+        })
+      : null;
+
+    if (dto.imageAssetId && !asset) {
+      throw new BadRequestException('Journal image asset is invalid or not owned by this user.');
+    }
+
+    const aiData = asset
+      ? await this._analyzeJournalImage(asset.storageKey, {
+          plantName: plant.nickname || plant.plantSpecies.commonName,
+          scientificName: plant.plantSpecies.scientificName,
+          plantType: plant.plantSpecies.category,
+          growthStage: plant.growthStage,
+          userNote: dto.note,
+        })
+      : null;
 
     return this.prisma.$transaction(async (tx) => {
-      let aiData = {};
-      if (dto.imageAssetId) {
-        aiData = this._getMockAiAnalysis();
-      }
-
       const entry = await tx.plantJournalEntry.create({
         data: {
           gardenPlantId: plantId,
           capturedAt: now,
           note: dto.note,
-          healthStatus: dto.healthStatus || (aiData as any).healthStatus,
-          leafColorNote: (aiData as any).leafColorNote,
-          issueSummary: (aiData as any).issueSummary,
-          recommendationSummary: (aiData as any).recommendationSummary,
-          aiAnalysis: aiData,
+          healthStatus:
+            dto.healthStatus || aiData?.healthStatus || undefined,
+          leafColorNote:
+            dto.leafColorNote || aiData?.leafColorNote || undefined,
+          issueSummary:
+            dto.issueSummary || aiData?.issueSummary || undefined,
+          recommendationSummary: aiData?.recommendationSummary || undefined,
+          aiAnalysis: aiData?.raw
+            ? (JSON.parse(JSON.stringify(aiData.raw)) as Prisma.InputJsonValue)
+            : undefined,
           imageAssetId: dto.imageAssetId,
         },
         include: {
-          imageAsset: { select: { publicUrl: true } },
+          imageAsset: { select: { id: true, publicUrl: true } },
         },
       });
 
       const plantUpdate: Record<string, any> = { lastJournaledAt: now };
-      const finalHealth = dto.healthStatus || (aiData as any).healthStatus;
+      const finalHealth = dto.healthStatus || aiData?.healthStatus;
       if (finalHealth) plantUpdate.healthStatus = finalHealth;
       if (dto.growthStage) plantUpdate.growthStage = dto.growthStage;
 
@@ -428,15 +466,141 @@ export class GardenService {
   async deleteJournal(userId: string, plantId: string, journalId: string) {
     const entry = await this.prisma.plantJournalEntry.findFirst({
       where: { id: journalId, gardenPlantId: plantId, gardenPlant: { userId } },
+      include: {
+        imageAsset: {
+          select: {
+            id: true,
+            storageKey: true,
+          },
+        },
+      },
     });
 
     if (!entry) {
       throw new NotFoundException('Journal entry not found');
     }
 
-    await this.prisma.plantJournalEntry.delete({ where: { id: journalId } });
+    await this.prisma.$transaction(async (tx) => {
+      await tx.plantJournalEntry.delete({ where: { id: journalId } });
+
+      const latestRemaining = await tx.plantJournalEntry.findFirst({
+        where: { gardenPlantId: plantId },
+        orderBy: { capturedAt: 'desc' },
+        select: {
+          capturedAt: true,
+          healthStatus: true,
+        },
+      });
+
+      await tx.gardenPlant.update({
+        where: { id: plantId },
+        data: {
+          lastJournaledAt: latestRemaining?.capturedAt ?? null,
+          healthStatus: latestRemaining?.healthStatus ?? PlantHealthStatus.UNKNOWN,
+        },
+      });
+    });
+
+    if (entry.imageAssetId) {
+      const remainingReferences = await this.prisma.plantJournalEntry.count({
+        where: { imageAssetId: entry.imageAssetId },
+      });
+
+      if (remainingReferences === 0 && entry.imageAsset?.storageKey) {
+        await this.storageService.deleteFile(entry.imageAsset.storageKey);
+        await this.prisma.mediaAsset.delete({
+          where: { id: entry.imageAssetId },
+        }).catch((error) => {
+          console.error('Failed to delete orphaned journal media asset:', error);
+        });
+      }
+    }
 
     return { success: true };
+  }
+
+  private async _analyzeJournalImage(
+    storageKey: string,
+    context: {
+      plantName?: string | null;
+      scientificName?: string | null;
+      plantType?: string | null;
+      growthStage?: string | null;
+      userNote?: string | null;
+    },
+  ) {
+    const fileBuffer = await this.storageService.downloadFile(storageKey);
+    const imageBase64 = fileBuffer.toString('base64');
+    const response = (await this.modelApiService.analyzePlantHealth({
+      imageBase64,
+      context,
+    })) as {
+      healthStatus?: unknown;
+      diagnosisSummary?: unknown;
+      recommendationSummary?: unknown;
+      analysis?: Record<string, unknown>;
+      confidenceScore?: unknown;
+      success?: unknown;
+    };
+
+    const rawHealthStatus =
+      typeof response.healthStatus === 'string'
+        ? response.healthStatus.toUpperCase()
+        : 'UNKNOWN';
+    const healthStatus = (
+      ['UNKNOWN', 'HEALTHY', 'WARNING', 'CRITICAL'].includes(rawHealthStatus)
+        ? rawHealthStatus
+        : 'UNKNOWN'
+    ) as PlantHealthStatus;
+
+    const analysis = response.analysis ?? {};
+    const leafColorCandidates = [
+      analysis.leafColorNote,
+      analysis.leafColor,
+      analysis.colorObservation,
+      analysis.symptoms,
+    ];
+    const leafColorNote = leafColorCandidates.find(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+
+    const issueSummaryCandidates = [
+      response.diagnosisSummary,
+      analysis.issueSummary,
+      analysis.likelyIssues,
+      analysis.summary,
+    ];
+    const issueSummary = issueSummaryCandidates.find(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+
+    const recommendationCandidates = [
+      response.recommendationSummary,
+      analysis.recommendationSummary,
+      analysis.immediateActions,
+      analysis.followUpCare,
+    ];
+    const recommendationSummary = recommendationCandidates.find(
+      (value) => typeof value === 'string' && value.trim().length > 0,
+    );
+
+    return {
+      healthStatus,
+      leafColorNote:
+        typeof leafColorNote === 'string' ? leafColorNote : undefined,
+      issueSummary:
+        typeof issueSummary === 'string' ? issueSummary : undefined,
+      recommendationSummary:
+        typeof recommendationSummary === 'string'
+          ? recommendationSummary
+          : undefined,
+      raw: {
+        success: response.success ?? true,
+        confidenceScore: response.confidenceScore ?? null,
+        context,
+        ...response,
+      },
+    };
   }
 
 
@@ -480,31 +644,4 @@ export class GardenService {
     }
   }
 
-  private _getMockAiAnalysis() {
-    const healthStatuses = [PlantHealthStatus.HEALTHY, PlantHealthStatus.WARNING];
-    const health = healthStatuses[Math.floor(Math.random() * healthStatuses.length)];
-
-    const observations = {
-      [PlantHealthStatus.HEALTHY]: [
-        { leaf: 'Green and vibrant', issue: 'None detected', rec: 'Continue current watering schedule.' },
-        { leaf: 'Normal growth', issue: 'None', rec: 'Keep monitoring soil moisture.' },
-      ],
-      [PlantHealthStatus.WARNING]: [
-        { leaf: 'Slight yellowing on edges', issue: 'Potential overwatering', rec: 'Reduce watering frequency for 3 days.' },
-        { leaf: 'Pest marks detected', issue: 'Possible spider mites', rec: 'Apply neem oil spray in the evening.' },
-      ],
-    };
-
-    const obsList = observations[health as keyof typeof observations] || observations[PlantHealthStatus.HEALTHY];
-    const picked = obsList[Math.floor(Math.random() * obsList.length)];
-
-    return {
-      healthStatus: health,
-      leafColorNote: picked.leaf,
-      issueSummary: picked.issue,
-      recommendationSummary: picked.rec,
-      analyzedAt: new Date().toISOString(),
-      confidenceScore: 0.92,
-    };
-  }
 }

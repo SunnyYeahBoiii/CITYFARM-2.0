@@ -5,19 +5,82 @@ import base64
 import os
 import json
 import io
+from pathlib import Path
 import cv2
 import numpy as np
 import PIL.Image
+from werkzeug.exceptions import HTTPException
 
 app = Flask("Model API")
+
+def load_local_env():
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if not key:
+            continue
+
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+
+        os.environ.setdefault(key, value)
+
+
+load_local_env()
+
+
+def json_error(message, status_code=500, details=None):
+    payload = {
+        "success": False,
+        "error": str(message).strip() or "Model API internal error.",
+    }
+
+    if details is not None:
+        details_text = str(details).strip()
+        if details_text:
+            payload["details"] = details_text
+
+    return jsonify(payload), status_code
+
+
+def parse_json_body():
+    data = request.get_json(silent=True)
+
+    if data is None:
+        return {}
+
+    if not isinstance(data, dict):
+        raise ValueError("Payload JSON phải là object.")
+
+    return data
+
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    if isinstance(error, HTTPException):
+        return json_error(error.description or error.name, error.code or 500)
+
+    print(f"[UNHANDLED ERROR] {type(error).__name__}: {error}")
+    return json_error("Model API internal error.", 500, error)
 
 # 1. Khởi tạo Gemini Client
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if api_key:
-    print(f"[DEBUG-SYSTEM] Đã nhận được API Key từ Docker, bắt đầu bằng: {api_key[:5]}***")
+    print(f"[DEBUG-SYSTEM] Đã nhận được GEMINI_API_KEY, bắt đầu bằng: {api_key[:5]}***")
 else:
-    print("[DEBUG-SYSTEM] CẢNH BÁO ĐỎ: Không tìm thấy GEMINI_API_KEY. Vui lòng kiểm tra lại file .env và cấu hình env_file trong docker-compose.yml!")
+    print("[DEBUG-SYSTEM] CẢNH BÁO ĐỎ: Không tìm thấy GEMINI_API_KEY. Vui lòng kiểm tra lại biến môi trường hoặc file apps/model-api/.env!")
 
 try:
     if api_key:
@@ -42,17 +105,14 @@ def health_check():
 @app.route("/api/chat", methods=["POST"])
 def chat_with_assistant():
     if not client:
-        return jsonify({
-            "success": False, 
-            "error": "Gemini Client chưa được cấu hình. Kiểm tra lại GEMINI_API_KEY."
-        }), 500
+        return json_error("Gemini Client chưa được cấu hình. Kiểm tra lại GEMINI_API_KEY.")
 
     try:
         # Nhận dữ liệu JSON từ NestJS (BFF) truyền sang
-        data = request.get_json()
+        data = parse_json_body()
         
         if not data or "message" not in data:
-            return jsonify({"success": False, "error": "Missing 'message' in payload"}), 400
+            return json_error("Missing 'message' in payload", 400)
 
         user_message = data["message"]
         ctx = data.get("context", {})
@@ -156,11 +216,7 @@ Quy tắc trả lời:
 
     except Exception as e:
         print(f"[ERROR] Gemini API Error: {str(e)}")
-        return jsonify({
-            "success": False, 
-            "error": "Lỗi nội bộ server khi xử lý AI", 
-            "details": str(e)
-        }), 500
+        return json_error("Lỗi nội bộ server khi xử lý AI", 500, e)
 
 
 # ------------------- GHEP ANH--------------------
@@ -257,19 +313,283 @@ def cv2_to_base64(img_cv2, ext=".jpg"):
     return f"data:image/{ext.replace('.', '')};base64,{base64_str}"
 
 
+def parse_optional_json(value):
+    """Parse JSON string/object if possible; otherwise keep the original value."""
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def load_pil_image_from_payload(image_base64=None, image_file=None):
+    """Load an uploaded or base64-encoded image into PIL."""
+    if image_file:
+        file_bytes = image_file.read()
+        image_file.seek(0)
+        return PIL.Image.open(io.BytesIO(file_bytes)).convert("RGB")
+
+    if not image_base64:
+        raise ValueError("Thiếu dữ liệu ảnh để phân tích.")
+
+    clean_b64 = image_base64.split("base64,")[1] if "base64," in image_base64 else image_base64
+    img_bytes = base64.b64decode(clean_b64)
+    return PIL.Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+
+def extract_plant_health_request():
+    """Support both JSON base64 payloads and multipart form uploads."""
+    payload = request.get_json(silent=True) if request.is_json else None
+    payload = payload or {}
+
+    if request.files:
+        image_file = request.files.get("image") or request.files.get("file") or request.files.get("photo")
+        form_data = request.form.to_dict(flat=True)
+        raw_context = (
+            form_data.pop("plantContext", None)
+            or form_data.pop("plant_context", None)
+            or form_data.pop("context", None)
+        )
+        parsed_context = parse_optional_json(raw_context)
+
+        if parsed_context is None:
+            parsed_context = form_data or {}
+
+        return {
+            "image_base64": None,
+            "image_file": image_file,
+            "plant_context": parsed_context if isinstance(parsed_context, dict) else {"notes": str(parsed_context)},
+        }
+
+    raw_context = payload.get("plantContext")
+    if raw_context is None:
+        raw_context = payload.get("plant_context")
+    if raw_context is None:
+        raw_context = payload.get("context")
+
+    parsed_context = parse_optional_json(raw_context)
+    if parsed_context is None:
+        parsed_context = {}
+
+    if not isinstance(parsed_context, dict):
+        parsed_context = {"notes": str(parsed_context)}
+
+    return {
+        "image_base64": payload.get("image_base64") or payload.get("imageBase64") or payload.get("image"),
+        "image_file": None,
+        "plant_context": parsed_context,
+    }
+
+
+def parse_json_response_text(raw_text):
+    cleaned = (raw_text or "").replace("```json", "").replace("```", "").strip()
+    if not cleaned:
+        raise ValueError("AI không trả về dữ liệu.")
+    return json.loads(cleaned)
+
+
+def normalize_confidence_score(value):
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+    if score > 1.0 and score <= 100.0:
+        score = score / 100.0
+
+    return max(0.0, min(score, 1.0))
+
+
+def normalize_string_list(value, limit=5):
+    if not isinstance(value, list):
+        return []
+
+    result = []
+    for item in value:
+        if isinstance(item, dict):
+            text = item.get("name") or item.get("issue") or item.get("symptom") or item.get("action")
+        else:
+            text = item
+
+        if text is None:
+            continue
+
+        text = str(text).strip()
+        if text:
+            result.append(text)
+
+        if len(result) >= limit:
+            break
+
+    return result
+
+
+def normalize_health_status(value):
+    normalized = str(value or "").strip().upper()
+    alias_map = {
+        "GOOD": "HEALTHY",
+        "NORMAL": "HEALTHY",
+        "OK": "HEALTHY",
+        "STRESSED": "WARNING",
+        "MONITOR": "WARNING",
+        "SEVERE": "CRITICAL",
+        "URGENT": "CRITICAL",
+    }
+    normalized = alias_map.get(normalized, normalized)
+    return normalized if normalized in {"UNKNOWN", "HEALTHY", "WARNING", "CRITICAL"} else "UNKNOWN"
+
+
+def normalize_urgency(value):
+    normalized = str(value or "").strip().upper()
+    alias_map = {
+        "NONE": "LOW",
+        "NORMAL": "LOW",
+        "MODERATE": "MEDIUM",
+        "SEVERE": "HIGH",
+        "URGENT": "HIGH",
+    }
+    normalized = alias_map.get(normalized, normalized)
+    return normalized if normalized in {"LOW", "MEDIUM", "HIGH"} else "MEDIUM"
+
+
+def normalize_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y"}
+    return bool(value)
+
+
+def normalize_plant_health_analysis(result_json, plant_context):
+    diagnosis_summary = (
+        result_json.get("diagnosisSummary")
+        or result_json.get("summary")
+        or "Chưa đủ dữ liệu để kết luận rõ ràng."
+    )
+    recommendation_summary = (
+        result_json.get("recommendationSummary")
+        or result_json.get("recommendation")
+        or "Theo dõi thêm trong 24-48 giờ và chụp lại ảnh rõ hơn nếu tình trạng không cải thiện."
+    )
+
+    analysis = {
+        "healthStatus": normalize_health_status(result_json.get("healthStatus")),
+        "confidenceScore": normalize_confidence_score(result_json.get("confidenceScore")),
+        "diagnosisSummary": str(diagnosis_summary).strip(),
+        "recommendationSummary": str(recommendation_summary).strip(),
+        "observedSymptoms": normalize_string_list(result_json.get("observedSymptoms")),
+        "likelyIssues": normalize_string_list(result_json.get("likelyIssues")),
+        "immediateActions": normalize_string_list(result_json.get("immediateActions")),
+        "followUpCare": normalize_string_list(result_json.get("followUpCare")),
+        "urgency": normalize_urgency(result_json.get("urgency")),
+        "inspectionNotes": str(result_json.get("inspectionNotes") or "").strip(),
+        "requiresHumanReview": normalize_bool(result_json.get("requiresHumanReview", False)),
+        "plantContextUsed": plant_context,
+    }
+
+    return analysis
+
+
+@app.route("/api/analyze-plant-health", methods=["POST"])
+@app.route("/api/analyze-plant", methods=["POST"])
+def analyze_plant_health():
+    if not client:
+        return json_error("Gemini Client chưa sẵn sàng")
+
+    try:
+        req_data = extract_plant_health_request()
+        if not req_data.get("image_base64") and not req_data.get("image_file"):
+            return json_error("Thiếu ảnh cây để phân tích", 400)
+
+        plant_context = req_data.get("plant_context") or {}
+        img_pil = load_pil_image_from_payload(
+            image_base64=req_data.get("image_base64"),
+            image_file=req_data.get("image_file"),
+        )
+
+        context_block = (
+            json.dumps(plant_context, ensure_ascii=False, indent=2)
+            if plant_context else "Không có ngữ cảnh bổ sung từ hệ thống hoặc người dùng."
+        )
+
+        prompt = f"""Bạn là chuyên gia chẩn đoán sức khỏe cây trồng cho CITYFARM. Hãy quan sát ảnh cây và kết hợp với ngữ cảnh để đánh giá tình trạng thực tế của cây.
+
+[NGỮ CẢNH BỔ SUNG]
+{context_block}
+
+[YÊU CẦU PHÂN TÍCH]
+1. Đánh giá tình trạng sức khỏe tổng thể và bắt buộc chọn CHÍNH XÁC 1 giá trị healthStatus trong [UNKNOWN, HEALTHY, WARNING, CRITICAL].
+2. Chỉ nêu những dấu hiệu nhìn thấy được hoặc suy luận hợp lý từ ảnh và ngữ cảnh. Nếu ảnh không đủ rõ, nói rõ điều đó và giảm confidenceScore.
+3. Tìm các vấn đề có khả năng cao nhất như úng nước, thiếu nước, cháy lá, thiếu dinh dưỡng, sâu bệnh, nấm bệnh, sốc nhiệt hoặc cây vẫn khỏe mạnh.
+4. Đưa ra hành động ưu tiên ngắn gọn, an toàn, thực tế cho người trồng tại nhà. Không đề xuất dùng hóa chất nguy hiểm.
+5. Nếu ảnh mờ hoặc thiếu thông tin để chẩn đoán chắc chắn, bật requiresHumanReview = true.
+
+[TRẢ VỀ JSON THUẦN TÚY]
+Không bọc markdown. Trả về đúng schema sau:
+{{
+  "healthStatus": "UNKNOWN|HEALTHY|WARNING|CRITICAL",
+  "confidenceScore": 0.0,
+  "diagnosisSummary": "Tóm tắt ngắn gọn bằng tiếng Việt",
+  "recommendationSummary": "Khuyến nghị ngắn gọn bằng tiếng Việt",
+  "observedSymptoms": ["triệu chứng 1", "triệu chứng 2"],
+  "likelyIssues": ["vấn đề khả năng cao 1", "vấn đề khả năng cao 2"],
+  "immediateActions": ["việc cần làm ngay 1", "việc cần làm ngay 2"],
+  "followUpCare": ["theo dõi tiếp theo 1", "theo dõi tiếp theo 2"],
+  "urgency": "LOW|MEDIUM|HIGH",
+  "inspectionNotes": "ghi chú về chất lượng ảnh hoặc yếu tố chưa chắc chắn",
+  "requiresHumanReview": false
+}}"""
+
+        print("Đang gọi Gemini API để phân tích sức khỏe cây...")
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json"
+        )
+
+        response = client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=[img_pil, prompt],
+            config=config
+        )
+
+        result_json = parse_json_response_text(response.text)
+        analysis = normalize_plant_health_analysis(result_json, plant_context)
+
+        return jsonify({
+            "success": True,
+            "healthStatus": analysis["healthStatus"],
+            "confidenceScore": analysis["confidenceScore"],
+            "diagnosisSummary": analysis["diagnosisSummary"],
+            "recommendationSummary": analysis["recommendationSummary"],
+            "analysis": analysis,
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] Plant Health Analysis API Error: {str(e)}")
+        return json_error(str(e), 500)
+
+
 @app.route("/api/analyze-space", methods=["POST"])
 def analyze_space():
     if not client:
-        return jsonify({"success": False, "error": "Gemini Client chưa sẵn sàng"}), 500
-
-    data = request.get_json()
-    image_base64 = data.get("image_base64")
-    plant_catalog = data.get("plantCatalogText")
-
-    if not image_base64 or not plant_catalog:
-        return jsonify({"success": False, "error": "Thiếu dữ liệu ảnh hoặc danh mục cây"}), 400
+        return json_error("Gemini Client chưa sẵn sàng")
 
     try:
+        data = parse_json_body()
+        image_base64 = data.get("image_base64")
+        plant_catalog = data.get("plantCatalogText")
+
+        if not image_base64 or not plant_catalog:
+            return json_error("Thiếu dữ liệu ảnh hoặc danh mục cây", 400)
+
         # 1. Chuyển đổi ảnh Base64 -> PIL Image (cho Gemini) và OpenCV (để ghép)
         if "base64," in image_base64:
             clean_b64 = image_base64.split("base64,")[1]
@@ -386,12 +706,13 @@ def analyze_space():
 
     except Exception as e:
         print(f"[ERROR] Space Analysis API Error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return json_error(str(e), 500)
 
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3002))
+    port = int(os.environ.get("PORT", 3003))
     debug_mode = os.environ.get("FLASK_DEBUG", "").lower() == "true"
     print(f"[SYSTEM] Starting Python Flask Server on port {port}...")
+    print(f"[SYSTEM] AI configured: {ai_configured}")
     app.run(host="0.0.0.0", port=port, debug=debug_mode)

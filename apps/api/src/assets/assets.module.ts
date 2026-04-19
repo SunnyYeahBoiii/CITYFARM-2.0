@@ -6,6 +6,6 @@ import { SupabaseStorageService } from './supabase-storage.service';
 @Module({
   controllers: [AssetsController],
   providers: [AssetsService, SupabaseStorageService],
-  exports: [AssetsService],
+  exports: [AssetsService, SupabaseStorageService],
 })
 export class AssetsModule {}

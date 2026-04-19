@@ -1,5 +1,8 @@
 import { HomeScreen } from "../../../components/cityfarm/features/HomeScreen";
+import { getHomeData } from "../../../lib/home-server";
 
-export default function HomePage() {
-  return <HomeScreen />;
+export default async function HomePage() {
+  const homeData = await getHomeData();
+
+  return <HomeScreen data={homeData} />;
 }

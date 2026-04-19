@@ -1,5 +1,5 @@
 const DEFAULT_API_BASE_URL = "http://localhost:3001";
-const DEFAULT_NEST_API_BASE_URL = "http://127.0.0.1:3001";
+const DEFAULT_NEST_API_BASE_URL = DEFAULT_API_BASE_URL;
 
 function normalizeBaseUrl(rawValue: string | undefined): string {
   const baseUrl = rawValue?.trim() || DEFAULT_API_BASE_URL;

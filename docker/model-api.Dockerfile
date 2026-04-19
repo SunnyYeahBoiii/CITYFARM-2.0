@@ -15,6 +15,6 @@ RUN poetry install --only main
 
 COPY apps/model-api ./
 
-EXPOSE 3002
+EXPOSE 3003
 
 CMD ["python", "./src/main.py"]

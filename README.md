@@ -109,8 +109,9 @@ pnpm dev
 
 This starts (via Turborepo):
 * **Web** — [http://localhost:3000](http://localhost:3000)
-* **API** — NestJS in watch mode (see `apps/api` for port)
-* **Model API** — Flask app (see `apps/model-api` for port)
+* **API** — [http://localhost:3001](http://localhost:3001)
+* **Admin** — [http://localhost:3002](http://localhost:3002)
+* **Model API** — [http://localhost:3003](http://localhost:3003)
 
 To run a single app:
 

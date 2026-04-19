@@ -622,13 +622,16 @@
   @apply [margin-top:0.28rem] [font-size:0.92rem] font-extrabold;
 }
 .visualizationStage {
-  @apply [aspect-ratio:16_/_10] [border-radius:1.5rem] [background:linear-gradient(180deg,rgba(29,42,30,0.08),rgba(29,42,30,0.48)),linear-gradient(145deg,#eef5e9,#f6f1e7_60%,#d6dfd0)];
+  @apply flex items-center justify-center overflow-auto [max-height:min(72dvh,42rem)] [padding:0.75rem] [border-radius:1.5rem] [background:linear-gradient(180deg,rgba(29,42,30,0.08),rgba(29,42,30,0.16)),linear-gradient(145deg,#eef5e9,#f6f1e7_60%,#d6dfd0)];
+}
+.visualizationImage {
+  @apply block h-auto w-full rounded-[1rem] object-contain;
 }
 .visualizationPlant {
   @apply absolute [right:12%] [bottom:10%] [width:34%] [max-height:72%] object-contain;
 }
 .visualizationCaption {
-  @apply absolute [left:1rem] [right:1rem] [bottom:1rem] [padding:0.75rem_0.85rem] rounded-2xl [background:rgba(255,255,255,0.72)] [backdrop-filter:blur(12px)] [color:#304326];
+  @apply [padding:0.75rem_0.85rem] rounded-2xl [background:rgba(255,255,255,0.72)] [backdrop-filter:blur(12px)] [color:#304326];
 }
 .orderPage {
   @apply [padding:1rem_1rem_7rem] [background:#f8faf7];
