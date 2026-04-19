@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getPlants, homeStats, reminders } from "../../../lib/cityfarm";
+import { getPlants, homeStats, reminders } from "@/lib/cityfarm";
 import { WeatherWidget } from "./WeatherWidget";
 import { BagIcon, CameraIcon, CheckIcon, DropletIcon, SunIcon } from "../shared/icons";
 import { CityImage, HealthBadge, cn } from "../shared/ui";
@@ -36,7 +36,7 @@ export function HomeScreen() {
           <div className="mt-4 flex flex-wrap gap-2.5">
             <Link
               href="/scan"
-              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-[var(--color-green-deep)] shadow-[0_10px_22px_rgba(0,0,0,0.12)]"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-bold text-(--color-green-deep) shadow-[0_10px_22px_rgba(0,0,0,0.12)]"
             >
               <CameraIcon />
               Scan Your Space
@@ -56,8 +56,8 @@ export function HomeScreen() {
         <section className="mt-4">
           <div className="mb-2.5 flex items-end justify-between gap-3">
             <div>
-              <h3 className="text-[15px] font-extrabold text-[var(--color-heading)]">Today&apos;s Care Tasks</h3>
-              <p className="text-xs text-[var(--color-muted)]">Keep your streak stable before sunset.</p>
+              <h3 className="text-[15px] font-extrabold text-(--color-heading)">Today&apos;s Care Tasks</h3>
+              <p className="text-xs text-(--color-muted)">Keep your streak stable before sunset.</p>
             </div>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
               {reminders.length} pending
@@ -67,18 +67,18 @@ export function HomeScreen() {
             {reminders.map((reminder) => (
               <div
                 key={reminder.id}
-                className="flex items-center justify-between gap-3 rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)]"
+                className="flex items-center justify-between gap-3 rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)]"
               >
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--color-interactive-bg)] text-[var(--color-green-deep)]">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-full bg-(--color-interactive-bg) text-(--color-green-deep)">
                     {getReminderIcon(reminder.icon)}
                   </div>
                   <div>
-                    <div className="text-sm font-bold text-[var(--color-heading)]">{reminder.plant}</div>
-                    <div className="text-xs text-[var(--color-muted)]">{reminder.action}</div>
+                    <div className="text-sm font-bold text-(--color-heading)">{reminder.plant}</div>
+                    <div className="text-xs text-(--color-muted)">{reminder.action}</div>
                   </div>
                 </div>
-                <span className="rounded-full bg-[var(--color-screen)] px-3 py-1 text-xs font-semibold text-[var(--color-interactive-ink)]">
+                <span className="rounded-full bg-(--color-screen) px-3 py-1 text-xs font-semibold text-(--color-interactive-ink)">
                   {reminder.time}
                 </span>
               </div>
@@ -89,10 +89,10 @@ export function HomeScreen() {
         <section className="mt-4">
           <div className="mb-2.5 flex items-end justify-between gap-3">
             <div>
-              <h3 className="text-[15px] font-extrabold text-[var(--color-heading)]">My Garden</h3>
-              <p className="text-xs text-[var(--color-muted)]">Tap a plant to open the full care view.</p>
+              <h3 className="text-[15px] font-extrabold text-(--color-heading)">My Garden</h3>
+              <p className="text-xs text-(--color-muted)">Tap a plant to open the full care view.</p>
             </div>
-            <Link href="/garden" className="text-xs font-bold uppercase tracking-[0.08em] text-[var(--color-green-deep)]">
+            <Link href="/garden" className="text-xs font-bold uppercase tracking-[0.08em] text-(--color-green-deep)">
               View All
             </Link>
           </div>
@@ -101,7 +101,7 @@ export function HomeScreen() {
               <Link
                 key={plant.id}
                 href={`/garden/${plant.id}`}
-                className="rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)]"
+                className="rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)]"
               >
                 <div className="flex gap-3">
                   <CityImage
@@ -115,22 +115,22 @@ export function HomeScreen() {
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-3">
                       <div>
-                        <div className="text-[15px] font-extrabold text-[var(--color-heading)]">{plant.name}</div>
-                        <div className="text-xs text-[var(--color-muted)]">
+                        <div className="text-[15px] font-extrabold text-(--color-heading)">{plant.name}</div>
+                        <div className="text-xs text-(--color-muted)">
                           Day {plant.daysGrowing} of {plant.harvestDays}
                         </div>
                       </div>
                       <HealthBadge health={plant.health} />
                     </div>
-                    <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-[var(--color-screen)]">
+                    <div className="mt-2.5 h-2 overflow-hidden rounded-full bg-(--color-screen)">
                       <div
                         className="h-full rounded-full bg-[linear-gradient(90deg,#567a3d,#89a963)]"
                         style={{ width: `${plant.progress}%` }}
                       />
                     </div>
                     <div className="mt-2.5 flex items-center justify-between gap-3 text-xs">
-                      <span className="text-[var(--color-muted)]">{plant.nextWatering}</span>
-                      <span className="font-bold uppercase tracking-[0.08em] text-[var(--color-green-deep)]">Open</span>
+                      <span className="text-(--color-muted)">{plant.nextWatering}</span>
+                      <span className="font-bold uppercase tracking-[0.08em] text-(--color-green-deep)">Open</span>
                     </div>
                   </div>
                 </div>
@@ -144,7 +144,7 @@ export function HomeScreen() {
             <div
               key={stat.label}
               className={cn(
-                "rounded-[1rem] border border-[color:rgba(31,41,22,0.08)] px-2.5 py-3 text-center",
+                "rounded-[1rem] border border-[rgba(31,41,22,0.08)] px-2.5 py-3 text-center",
                 stat.tone === "green"
                   ? "bg-emerald-50"
                   : stat.tone === "blue"
@@ -152,20 +152,20 @@ export function HomeScreen() {
                     : "bg-amber-50",
               )}
             >
-              <div className="text-lg font-extrabold text-[var(--color-heading)]">{stat.value}</div>
-              <div className="mt-0.5 text-[11px] font-medium leading-4 text-[var(--color-muted)]">{stat.label}</div>
+              <div className="text-lg font-extrabold text-(--color-heading)">{stat.value}</div>
+              <div className="mt-0.5 text-[11px] font-medium leading-4 text-(--color-muted)">{stat.label}</div>
             </div>
           ))}
         </section>
 
-        <section className="mt-4 rounded-[1.25rem] border border-[color:rgba(31,41,22,0.08)] bg-[linear-gradient(135deg,#e8e3d9,#d6e4d0)] p-4 shadow-[0_8px_20px_rgba(33,49,30,0.06)]">
-          <h3 className="text-[15px] font-extrabold text-[var(--color-heading)]">Local Green Market</h3>
-          <p className="mt-1.5 text-xs leading-5 text-[var(--color-muted)]">
+        <section className="mt-4 rounded-[1.25rem] border border-[rgba(31,41,22,0.08)] bg-[linear-gradient(135deg,#e8e3d9,#d6e4d0)] p-4 shadow-[0_8px_20px_rgba(33,49,30,0.06)]">
+          <h3 className="text-[15px] font-extrabold text-(--color-heading)">Local Green Market</h3>
+          <p className="mt-1.5 text-xs leading-5 text-(--color-muted)">
             Fresh produce from verified growers in your district, backed by planting logs.
           </p>
           <Link
             href="/community"
-            className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border border-[color:rgba(69,97,54,0.18)] bg-white px-4 py-2.5 text-sm font-bold text-[var(--color-green-deep)]"
+            className="mt-3 inline-flex min-h-10 items-center justify-center rounded-full border border-[rgba(69,97,54,0.18)] bg-white px-4 py-2.5 text-sm font-bold text-(--color-green-deep)"
           >
             Browse Community
           </Link>

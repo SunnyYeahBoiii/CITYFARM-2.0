@@ -16,4 +16,10 @@ export class OrderController {
   ) {
     return this.orderService.createOrder(userId, dto);
   }
+
+  @UseGuards(JwtAuthGuard)
+  @Post('history')
+  async getHistory(@CurrentUser('id') userId: string) {
+    return this.orderService.getMyOrders(userId);
+  }
 }

@@ -10,8 +10,11 @@ export class CreateMarketplaceListingDto {
   @IsString()
   quantity: string;
 
+  @IsString()
+  unit: string;
+
   @IsNumber()
-  priceAmount: number; // in VND
+  priceAmount: number;
 
   @IsOptional()
   @IsString()
@@ -23,5 +26,5 @@ export class CreateMarketplaceListingDto {
 
   @IsOptional()
   @IsString()
-  expiresAt?: string; // ISO datetime
+  expiresAt?: string;
 }

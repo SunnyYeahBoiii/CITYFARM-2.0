@@ -11,6 +11,8 @@ import { OrderModule } from './order/order.module';
 import { LoggingMiddleware } from './common/middleware/logging/logging.middleware';
 import { AdminContentModule } from './admin/content/admin-content.module';
 import { AdminOperationsModule } from './admin/operations/admin-operations.module';
+import { ProductsModule } from './products/products.module';
+import { GardenModule } from './garden/garden.module';
 
 @Module({
   imports: [
@@ -25,6 +27,8 @@ import { AdminOperationsModule } from './admin/operations/admin-operations.modul
     OrderModule,
     AdminContentModule,
     AdminOperationsModule,
+    ProductsModule,
+    GardenModule,
   ],
   controllers: [AppController],
   providers: [AppService],

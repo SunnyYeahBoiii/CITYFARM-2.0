@@ -36,8 +36,8 @@ export default async function RootLayout({
   const user = await getUser();
 
   return (
-    <html lang="vi">
-      <body suppressHydrationWarning className={`${geistSans.variable} ${geistMono.variable}`}>
+    <html suppressHydrationWarning lang="vi">
+      <body className={`${geistSans.variable} ${geistMono.variable}`}>
         <Providers initialUser={user}>{children}</Providers>
       </body>
     </html>

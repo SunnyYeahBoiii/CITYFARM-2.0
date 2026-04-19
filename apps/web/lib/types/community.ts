@@ -30,6 +30,7 @@ export interface FeedPost {
   likes: number;
   comments: number;
   isLiked?: boolean;
+  latestComments?: FeedComment[];
 }
 
 export interface FeedComment {
@@ -68,6 +69,6 @@ export interface CreateFeedPostPayload {
 }
 
 export interface CommunityDataResponse {
-  posts: FeedPost[];
-  listings: MarketListing[];
+  posts?: FeedPost[];
+  listings?: MarketListing[];
 }
