@@ -42,8 +42,9 @@ DATABASE_URL="postgresql://user:password@db.example.com:5432/cityfarm?schema=pub
 DIRECT_URL="postgresql://user:password@db.example.com:6543/cityfarm?schema=public"
 
 # API configuration
-PORT=3000
+PORT=3001
 NODE_ENV=development
+MODEL_API_URL="http://127.0.0.1:3003"
 ```
 
 - `DATABASE_URL`: Connection via PgBouncer (for application use)

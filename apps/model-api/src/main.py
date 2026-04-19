@@ -5,19 +5,82 @@ import base64
 import os
 import json
 import io
+from pathlib import Path
 import cv2
 import numpy as np
 import PIL.Image
+from werkzeug.exceptions import HTTPException
 
 app = Flask("Model API")
+
+def load_local_env():
+    env_path = Path(__file__).resolve().parent.parent / ".env"
+
+    if not env_path.exists():
+        return
+
+    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+
+        if not key:
+            continue
+
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+            value = value[1:-1]
+
+        os.environ.setdefault(key, value)
+
+
+load_local_env()
+
+
+def json_error(message, status_code=500, details=None):
+    payload = {
+        "success": False,
+        "error": str(message).strip() or "Model API internal error.",
+    }
+
+    if details is not None:
+        details_text = str(details).strip()
+        if details_text:
+            payload["details"] = details_text
+
+    return jsonify(payload), status_code
+
+
+def parse_json_body():
+    data = request.get_json(silent=True)
+
+    if data is None:
+        return {}
+
+    if not isinstance(data, dict):
+        raise ValueError("Payload JSON phải là object.")
+
+    return data
+
+
+@app.errorhandler(Exception)
+def handle_exception(error):
+    if isinstance(error, HTTPException):
+        return json_error(error.description or error.name, error.code or 500)
+
+    print(f"[UNHANDLED ERROR] {type(error).__name__}: {error}")
+    return json_error("Model API internal error.", 500, error)
 
 # 1. Khởi tạo Gemini Client
 api_key = os.environ.get("GEMINI_API_KEY")
 
 if api_key:
-    print(f"[DEBUG-SYSTEM] Đã nhận được API Key từ Docker, bắt đầu bằng: {api_key[:5]}***")
+    print(f"[DEBUG-SYSTEM] Đã nhận được GEMINI_API_KEY, bắt đầu bằng: {api_key[:5]}***")
 else:
-    print("[DEBUG-SYSTEM] CẢNH BÁO ĐỎ: Không tìm thấy GEMINI_API_KEY. Vui lòng kiểm tra lại file .env và cấu hình env_file trong docker-compose.yml!")
+    print("[DEBUG-SYSTEM] CẢNH BÁO ĐỎ: Không tìm thấy GEMINI_API_KEY. Vui lòng kiểm tra lại biến môi trường hoặc file apps/model-api/.env!")
 
 try:
     if api_key:
@@ -42,17 +105,14 @@ def health_check():
 @app.route("/api/chat", methods=["POST"])
 def chat_with_assistant():
     if not client:
-        return jsonify({
-            "success": False, 
-            "error": "Gemini Client chưa được cấu hình. Kiểm tra lại GEMINI_API_KEY."
-        }), 500
+        return json_error("Gemini Client chưa được cấu hình. Kiểm tra lại GEMINI_API_KEY.")
 
     try:
         # Nhận dữ liệu JSON từ NestJS (BFF) truyền sang
-        data = request.get_json()
+        data = parse_json_body()
         
         if not data or "message" not in data:
-            return jsonify({"success": False, "error": "Missing 'message' in payload"}), 400
+            return json_error("Missing 'message' in payload", 400)
 
         user_message = data["message"]
         ctx = data.get("context", {})
@@ -156,11 +216,7 @@ Quy tắc trả lời:
 
     except Exception as e:
         print(f"[ERROR] Gemini API Error: {str(e)}")
-        return jsonify({
-            "success": False, 
-            "error": "Lỗi nội bộ server khi xử lý AI", 
-            "details": str(e)
-        }), 500
+        return json_error("Lỗi nội bộ server khi xử lý AI", 500, e)
 
 
 # ------------------- GHEP ANH--------------------
@@ -446,12 +502,12 @@ def normalize_plant_health_analysis(result_json, plant_context):
 @app.route("/api/analyze-plant", methods=["POST"])
 def analyze_plant_health():
     if not client:
-        return jsonify({"success": False, "error": "Gemini Client chưa sẵn sàng"}), 500
+        return json_error("Gemini Client chưa sẵn sàng")
 
     try:
         req_data = extract_plant_health_request()
         if not req_data.get("image_base64") and not req_data.get("image_file"):
-            return jsonify({"success": False, "error": "Thiếu ảnh cây để phân tích"}), 400
+            return json_error("Thiếu ảnh cây để phân tích", 400)
 
         plant_context = req_data.get("plant_context") or {}
         img_pil = load_pil_image_from_payload(
@@ -518,22 +574,22 @@ Không bọc markdown. Trả về đúng schema sau:
 
     except Exception as e:
         print(f"[ERROR] Plant Health Analysis API Error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return json_error(str(e), 500)
 
 
 @app.route("/api/analyze-space", methods=["POST"])
 def analyze_space():
     if not client:
-        return jsonify({"success": False, "error": "Gemini Client chưa sẵn sàng"}), 500
-
-    data = request.get_json()
-    image_base64 = data.get("image_base64")
-    plant_catalog = data.get("plantCatalogText")
-
-    if not image_base64 or not plant_catalog:
-        return jsonify({"success": False, "error": "Thiếu dữ liệu ảnh hoặc danh mục cây"}), 400
+        return json_error("Gemini Client chưa sẵn sàng")
 
     try:
+        data = parse_json_body()
+        image_base64 = data.get("image_base64")
+        plant_catalog = data.get("plantCatalogText")
+
+        if not image_base64 or not plant_catalog:
+            return json_error("Thiếu dữ liệu ảnh hoặc danh mục cây", 400)
+
         # 1. Chuyển đổi ảnh Base64 -> PIL Image (cho Gemini) và OpenCV (để ghép)
         if "base64," in image_base64:
             clean_b64 = image_base64.split("base64,")[1]
@@ -650,12 +706,13 @@ def analyze_space():
 
     except Exception as e:
         print(f"[ERROR] Space Analysis API Error: {str(e)}")
-        return jsonify({"success": False, "error": str(e)}), 500
+        return json_error(str(e), 500)
 
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3002))
+    port = int(os.environ.get("PORT", 3003))
     debug_mode = os.environ.get("FLASK_DEBUG", "").lower() == "true"
     print(f"[SYSTEM] Starting Python Flask Server on port {port}...")
+    print(f"[SYSTEM] AI configured: {ai_configured}")
     app.run(host="0.0.0.0", port=port, debug=debug_mode)

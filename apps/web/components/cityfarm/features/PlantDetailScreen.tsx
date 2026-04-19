@@ -9,7 +9,9 @@ import type {
   CareTaskItem,
   GardenPlantDetail,
   JournalEntryItem,
+  PlantHealthStatus,
 } from "@/lib/types/garden";
+import type { PlantHealth } from "@/lib/cityfarm/types";
 import { buildTimelineFromApi, daysSince, getHarvestDays } from "@/lib/cityfarm/utils";
 import styles from "../cityfarm.module.css";
 import {
@@ -36,6 +38,34 @@ function isDueOrOverdue(dateStr: string) {
   return dStart <= nStart;
 }
 
+function getErrorMessage(error: unknown, fallback: string) {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const response = (error as { response?: { data?: { message?: unknown } } }).response;
+    if (typeof response?.data?.message === "string" && response.data.message.trim()) {
+      return response.data.message;
+    }
+  }
+
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+
+  return fallback;
+}
+
+function toPlantHealth(status: PlantHealthStatus | null | undefined): PlantHealth {
+  switch (status) {
+    case "HEALTHY":
+      return "healthy";
+    case "CRITICAL":
+      return "critical";
+    case "WARNING":
+    case "UNKNOWN":
+    default:
+      return "warning";
+  }
+}
+
 
 function CareTaskRow({
   task,
@@ -57,8 +87,8 @@ function CareTaskRow({
     try {
       const resp = await gardenApi.logCare(plantId, { taskId: task.id });
       onCompleted(resp.harvested);
-    } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to complete task");
+    } catch (error) {
+      alert(getErrorMessage(error, "Failed to complete task"));
     } finally {
       setIsLoading(false);
     }
@@ -177,7 +207,7 @@ function JournalEntryRow({
             AI Health Check
           </div>
           {entry.healthStatus && (
-            <HealthBadge health={entry.healthStatus.toLowerCase() as any} />
+            <HealthBadge health={toPlantHealth(entry.healthStatus)} />
           )}
         </div>
 
@@ -301,8 +331,8 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
       setIsLoading(true);
       const data = await gardenApi.getPlantDetail(plantId);
       setPlant(data);
-    } catch (err: any) {
-      setError(err.response?.data?.message || "Failed to load plant details.");
+    } catch (error) {
+      setError(getErrorMessage(error, "Failed to load plant details."));
     } finally {
       setIsLoading(false);
     }
@@ -320,8 +350,8 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
       await gardenApi.logJournal(plantId, { imageAssetId: asset.id });
       await fetchDetail();
       setActiveTab("Journal");
-    } catch (err: any) {
-      setPhotoError(err.response?.data?.message || "Failed to process photo analysis.");
+    } catch (error) {
+      setPhotoError(getErrorMessage(error, "Failed to process photo analysis."));
     } finally {
       setIsProcessingPhoto(false);
     }
@@ -387,7 +417,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
             <div className={styles.detailHeroTitle}>
               {plant.nickname || plant.plantSpecies.commonName}
             </div>
-            <HealthBadge health={plant.healthStatus.toLowerCase() as any} />
+            <HealthBadge health={toPlantHealth(plant.healthStatus)} />
           </div>
           <div className={styles.detailHeroMeta}>
             {plant.plantSpecies.category} • {plant.growthStage} • Day {growingDays}
@@ -566,6 +596,9 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
               void handleAddPhoto(file);
             }}
             disabled={isProcessingPhoto}
+            cameraTitle="Capture today's plant check-in"
+            cameraDescription="Take a live photo, review it, then send it for journal analysis and storage."
+            cameraConfirmLabel="Use for Journal"
             actionsClassName="grid gap-3"
             cameraButtonClassName={styles.buttonPrimary}
             galleryButtonClassName={styles.buttonOutline}

@@ -137,7 +137,7 @@ Script `setup-nginx.sh` sẽ:
 Map mặc định:
 
 - `app.example.com` -> `127.0.0.1:3000`
-- `admin.example.com` -> `127.0.0.1:3003`
+- `admin.example.com` -> `127.0.0.1:3002`
 - `api.example.com` -> `127.0.0.1:3001`
 
 `model-api` không public trực tiếp.

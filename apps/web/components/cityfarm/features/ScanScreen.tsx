@@ -1,8 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 import { ImageCaptureActions } from "@/components/cityfarm/shared/ImageCaptureActions";
+import { ZoomableImageLightbox } from "@/components/cityfarm/shared/ZoomableImageLightbox";
 import { analyzeSpaceScan, type SpaceScanResult } from "@/lib/api/scan.api";
 import type { ScanRecommendation } from "@/lib/cityfarm/types";
 import styles from "../cityfarm.module.css";
@@ -39,9 +41,15 @@ function AnalyzeStep({
   );
 }
 
-function RecommendationThumb({ recommendation }: { recommendation: ScanRecommendation }) {
+function RecommendationThumb({
+  recommendation,
+  onOpenFullscreen,
+}: {
+  recommendation: ScanRecommendation;
+  onOpenFullscreen?: () => void;
+}) {
   if (recommendation.imageUrl) {
-    return (
+    const image = (
       <CityImage
         src={recommendation.imageUrl}
         alt={recommendation.name}
@@ -50,6 +58,21 @@ function RecommendationThumb({ recommendation }: { recommendation: ScanRecommend
         fit="contain"
       />
     );
+
+    if (onOpenFullscreen) {
+      return (
+        <button
+          type="button"
+          className="flex h-full w-full cursor-pointer items-stretch border-0 bg-transparent p-0 text-left focus-visible:rounded-2xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#456136]"
+          onClick={onOpenFullscreen}
+          aria-label={`View ${recommendation.name} full screen`}
+        >
+          {image}
+        </button>
+      );
+    }
+
+    return image;
   }
 
   return (
@@ -69,7 +92,9 @@ export function ScanScreen() {
   const [scanResult, setScanResult] = useState<SpaceScanResult | null>(null);
   const [selectedRecommendationId, setSelectedRecommendationId] = useState<string | null>(null);
   const [sourceImageUrl, setSourceImageUrl] = useState<string | null>(null);
+  const [visualizedImageSize, setVisualizedImageSize] = useState<{ width: number; height: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [imageLightbox, setImageLightbox] = useState<{ src: string; alt: string } | null>(null);
 
   useEffect(() => {
     if (!sourceImageUrl) {
@@ -109,6 +134,43 @@ export function ScanScreen() {
     };
   }, [scanStep]);
 
+  useEffect(() => {
+    const visualizedImageUrl = scanResult?.visualizedImageUrl;
+
+    if (!visualizedImageUrl) {
+      setVisualizedImageSize(null);
+      return;
+    }
+
+    let active = true;
+    const previewImage = new window.Image();
+
+    previewImage.onload = () => {
+      if (!active) {
+        return;
+      }
+
+      setVisualizedImageSize({
+        width: previewImage.naturalWidth,
+        height: previewImage.naturalHeight,
+      });
+    };
+
+    previewImage.onerror = () => {
+      if (!active) {
+        return;
+      }
+
+      setVisualizedImageSize(null);
+    };
+
+    previewImage.src = visualizedImageUrl;
+
+    return () => {
+      active = false;
+    };
+  }, [scanResult?.visualizedImageUrl]);
+
   const replaceSourceImage = (nextUrl: string | null) => {
     setSourceImageUrl((current) => {
       if (current) {
@@ -125,6 +187,7 @@ export function ScanScreen() {
     setError(null);
     setProgress(0);
     setScanStep("camera");
+    setImageLightbox(null);
     replaceSourceImage(null);
   };
 
@@ -156,6 +219,12 @@ export function ScanScreen() {
     null;
   const topRecommendation = scanResult?.recommendations[0] ?? null;
   const hasVisualization = Boolean(scanResult?.visualizedImageUrl && topRecommendation);
+  const latestScanPreviewSrc =
+    scanStep === "results" && scanResult?.visualizedImageUrl && hasVisualization
+      ? scanResult.visualizedImageUrl
+      : sourceImageUrl;
+  const latestScanPreviewAlt =
+    hasVisualization && scanResult?.visualizedImageUrl ? "AI placement preview for your scan" : "Scanned space";
 
   return (
     <div className={styles.screen}>
@@ -190,6 +259,9 @@ export function ScanScreen() {
                   onSelect={(file) => {
                     void handleCaptureSelect(file);
                   }}
+                  cameraTitle="Capture your grow space"
+                  cameraDescription="Use the live camera, review the shot, then send the freshest frame into the scan API."
+                  cameraConfirmLabel="Analyze This Photo"
                   actionsClassName={styles.cameraActions}
                   cameraButtonClassName={styles.buttonPrimary}
                   galleryButtonClassName={styles.buttonSecondary}
@@ -257,28 +329,40 @@ export function ScanScreen() {
 
       {scanStep === "results" && scanResult ? (
         <div className={styles.screenPadded}>
-          <section className="px-5 pt-5">
-            <div className="overflow-hidden rounded-[1.5rem] border border-[rgba(31,41,22,0.08)] bg-white p-4 shadow-[0_12px_32px_rgba(33,49,30,0.08)]">
-              <div className="flex items-center gap-4">
-                <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-[1.1rem] bg-[#eff4eb]">
-                  {sourceImageUrl ? (
-                    <CityImage src={sourceImageUrl} alt="Scanned space" sizes="80px" className="h-full w-full" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-[#567a3d]">
-                      <CameraIcon />
-                    </div>
-                  )}
+          <section className="pt-5">
+            <div className="overflow-hidden rounded-[1.5rem] border border-[rgba(31,41,22,0.08)] bg-white shadow-[0_12px_32px_rgba(33,49,30,0.08)]">
+              {latestScanPreviewSrc ? (
+                <button
+                  type="button"
+                  className="relative aspect-[4/3] w-full cursor-pointer overflow-hidden border-0 bg-[#eff4eb] p-0 text-left shadow-[inset_0_-1px_0_rgba(31,41,22,0.06)] transition active:opacity-90 focus-visible:z-[1] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-[#456136]"
+                  onClick={() => setImageLightbox({ src: latestScanPreviewSrc, alt: latestScanPreviewAlt })}
+                  aria-label="View scan preview full screen"
+                >
+                  <CityImage
+                    src={latestScanPreviewSrc}
+                    alt={latestScanPreviewAlt}
+                    sizes="(max-width: 420px) 100vw, 420px"
+                    className="h-full w-full"
+                    fit="contain"
+                    unoptimized
+                  />
+                </button>
+              ) : (
+                <div className="flex aspect-[4/3] w-full min-h-[10rem] items-center justify-center bg-[#eff4eb] text-[#567a3d]">
+                  <CameraIcon />
                 </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7f8e76]">Latest Space Scan</div>
-                  <div className="mt-1 text-base font-extrabold text-[#1f2916]">
-                    {topRecommendation ? `${topRecommendation.name} is your strongest match` : "Analysis complete"}
-                  </div>
-                  <div className="mt-1 text-sm leading-relaxed text-[#5f6d56]">
-                    {hasVisualization
-                      ? "A placement preview is ready for the top recommendation from this scan."
+              )}
+              <div className="px-4 pb-4 pt-3">
+                <div className="text-[11px] font-bold uppercase tracking-[0.14em] text-[#7f8e76]">Latest Space Scan</div>
+                <div className="mt-1 text-base font-extrabold text-[#1f2916]">
+                  {topRecommendation ? `${topRecommendation.name} is your strongest match` : "Analysis complete"}
+                </div>
+                <div className="mt-1 text-sm leading-relaxed text-[#5f6d56]">
+                  {hasVisualization
+                    ? "Full-width preview of your AI placement. Tap the image for full screen; pinch or double-tap to zoom."
+                    : latestScanPreviewSrc
+                      ? "Tap the photo to inspect your space full screen with zoom."
                       : "Recommendations are ready. Capture another angle if you want a new pass."}
-                  </div>
                 </div>
               </div>
             </div>
@@ -320,7 +404,12 @@ export function ScanScreen() {
                     <div key={`${plant.id}-${index}`} className={styles.recommendationCard}>
                       <div className={styles.plantCardInner}>
                         <div className={styles.plantThumb}>
-                          <RecommendationThumb recommendation={plant} />
+                          <RecommendationThumb
+                            recommendation={plant}
+                            onOpenFullscreen={
+                              plant.imageUrl ? () => setImageLightbox({ src: plant.imageUrl, alt: plant.name }) : undefined
+                            }
+                          />
                         </div>
                         <div className={styles.plantBody}>
                           <div className={styles.plantTopRow}>
@@ -383,17 +472,37 @@ export function ScanScreen() {
             </button>
           </div>
 
-          <div className={`${styles.visualizationStage} relative overflow-hidden border border-[rgba(31,41,22,0.08)]`}>
-            <CityImage
+          <button
+            type="button"
+            className={`${styles.visualizationStage} w-full cursor-zoom-in border border-[rgba(31,41,22,0.08)] bg-transparent p-0 text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#456136]`}
+            onClick={() => {
+              const src = scanResult.visualizedImageUrl;
+              if (!src) {
+                return;
+              }
+
+              setImageLightbox({
+                src,
+                alt: `${selectedRecommendation.name} placement preview`,
+              });
+            }}
+            aria-label="View placement preview full screen"
+          >
+            <Image
               src={scanResult.visualizedImageUrl}
               alt={`${selectedRecommendation.name} visualization`}
               sizes="100vw"
-              className="h-full w-full"
+              width={visualizedImageSize?.width ?? 1600}
+              height={visualizedImageSize?.height ?? 1000}
+              unoptimized
+              priority
+              className={styles.visualizationImage}
             />
-            <div className={styles.visualizationCaption}>
-              <div className={styles.plantName}>{selectedRecommendation.name}</div>
-              <div className={styles.captionText}>{selectedRecommendation.reason}</div>
-            </div>
+          </button>
+
+          <div className={`${styles.visualizationCaption} mt-3`}>
+            <div className={styles.plantName}>{selectedRecommendation.name}</div>
+            <div className={styles.captionText}>{selectedRecommendation.reason}</div>
           </div>
 
           <section className={styles.section}>
@@ -406,6 +515,10 @@ export function ScanScreen() {
             </Link>
           </section>
         </div>
+      ) : null}
+
+      {imageLightbox ? (
+        <ZoomableImageLightbox src={imageLightbox.src} alt={imageLightbox.alt} onClose={() => setImageLightbox(null)} />
       ) : null}
     </div>
   );

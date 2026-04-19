@@ -1,0 +1,119 @@
+@reference "tailwindcss";
+
+.backdrop {
+  @apply fixed inset-0 z-[120] bg-[rgba(17,24,16,0.7)] backdrop-blur-md;
+}
+
+.frame {
+  @apply mx-auto flex min-h-dvh w-full max-w-[420px] items-center justify-center px-4 py-5;
+}
+
+.sheet {
+  @apply flex max-h-[calc(100dvh-2.5rem)] w-full flex-col overflow-hidden rounded-[2rem] border border-white/12 bg-[#111712] text-white shadow-[0_24px_80px_rgba(0,0,0,0.45)];
+}
+
+.header {
+  @apply flex items-start justify-between gap-3 border-b border-white/10 px-5 py-4;
+}
+
+.eyebrow {
+  @apply text-[10px] font-bold uppercase tracking-[0.18em] text-[#9cc28b];
+}
+
+.title {
+  @apply mt-1 text-lg font-extrabold leading-tight text-white;
+}
+
+.description {
+  @apply mt-1 text-sm leading-relaxed text-[rgba(255,255,255,0.72)];
+}
+
+.closeButton {
+  @apply inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-white/10 bg-[rgba(255,255,255,0.08)] text-white transition-colors hover:bg-[rgba(255,255,255,0.14)];
+}
+
+.body {
+  @apply flex-1 overflow-y-auto px-5 py-4;
+}
+
+.stage {
+  @apply relative overflow-hidden rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,#1c251c,#111712)];
+}
+
+.videoStage {
+  @apply aspect-[3/4] w-full bg-black;
+}
+
+.video {
+  @apply h-full w-full object-cover;
+}
+
+.videoHidden {
+  @apply opacity-0;
+}
+
+.stageOverlay {
+  @apply absolute inset-0 flex items-center justify-center p-6;
+}
+
+.previewImage {
+  @apply aspect-[3/4] w-full;
+}
+
+.guide {
+  @apply pointer-events-none absolute inset-[1rem] rounded-[1.35rem] border border-[rgba(255,255,255,0.45)] shadow-[inset_0_0_0_999px_rgba(5,8,5,0.15)];
+}
+
+.guideDot {
+  @apply absolute left-1/2 top-1/2 h-24 w-24 -translate-x-1/2 -translate-y-1/2 rounded-full border border-dashed border-[rgba(255,255,255,0.35)];
+}
+
+.cameraNote {
+  @apply mt-4 rounded-[1.35rem] border border-[rgba(255,255,255,0.08)] bg-[rgba(255,255,255,0.06)] px-4 py-3 text-sm leading-relaxed text-[rgba(255,255,255,0.74)];
+}
+
+.cameraTip {
+  @apply mt-2 text-xs font-semibold uppercase tracking-[0.08em] text-[#9cc28b];
+}
+
+.errorCard {
+  @apply rounded-[1.4rem] border border-[#f2b8b2]/35 bg-[#3c1d1b] px-4 py-4 text-sm leading-relaxed text-[#ffd7d3];
+}
+
+.loadingCard {
+  @apply flex w-full max-w-[18rem] flex-col items-center justify-center gap-4 rounded-[1.6rem] border border-white/10 bg-[linear-gradient(180deg,#172018,#101510)] px-6 py-8 text-center;
+}
+
+.spinner {
+  @apply h-11 w-11 animate-spin rounded-full border-[3px] border-[rgba(255,255,255,0.18)] border-t-[#9cc28b];
+}
+
+.actions {
+  @apply grid gap-3 border-t border-white/10 px-5 py-4;
+}
+
+.primaryButton,
+.secondaryButton,
+.shutterButton {
+  @apply inline-flex min-h-12 items-center justify-center gap-2 rounded-full px-4 text-sm font-extrabold transition-colors disabled:cursor-not-allowed disabled:opacity-60;
+}
+
+.primaryButton {
+  @apply bg-[#6b9656] text-[#13200f] shadow-[0_14px_30px_rgba(107,150,86,0.24)] hover:bg-[#7ba764];
+}
+
+.secondaryButton {
+  @apply border border-white/12 bg-[rgba(255,255,255,0.07)] text-white hover:bg-[rgba(255,255,255,0.12)];
+}
+
+.shutterWrap {
+  @apply flex items-center justify-center;
+}
+
+.shutterButton {
+  @apply rounded-full border-[5px] border-white bg-transparent p-0 [height:4.5rem] [width:4.5rem];
+}
+
+.shutterButtonInner {
+  @apply h-14 w-14 rounded-full bg-white;
+}

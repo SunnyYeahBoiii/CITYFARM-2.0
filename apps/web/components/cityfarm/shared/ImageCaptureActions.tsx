@@ -1,18 +1,22 @@
 "use client";
 
-import { useRef, type ChangeEvent } from "react";
+import { useRef, useState, type ChangeEvent } from "react";
+import { CameraCaptureModal } from "./CameraCaptureModal";
 import { CameraIcon, ImageIcon } from "./icons";
 import { cn } from "./ui";
 
 export type CaptureSource = "camera" | "gallery";
 
 interface ImageCaptureActionsProps {
-  onSelect: (file: File, source: CaptureSource) => void;
+  onSelect: (file: File, source: CaptureSource) => void | Promise<void>;
   disabled?: boolean;
   accept?: string;
   captureFacingMode?: "environment" | "user";
   cameraLabel?: string;
   galleryLabel?: string;
+  cameraTitle?: string;
+  cameraDescription?: string;
+  cameraConfirmLabel?: string;
   actionsClassName?: string;
   cameraButtonClassName?: string;
   galleryButtonClassName?: string;
@@ -27,14 +31,17 @@ export function ImageCaptureActions({
   captureFacingMode = "environment",
   cameraLabel = "Open Camera",
   galleryLabel = "Choose from Gallery",
+  cameraTitle,
+  cameraDescription,
+  cameraConfirmLabel = "Use Photo",
   actionsClassName,
   cameraButtonClassName,
   galleryButtonClassName,
   hint,
   hintClassName,
 }: ImageCaptureActionsProps) {
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
 
   const handleChange =
     (source: CaptureSource) =>
@@ -54,7 +61,7 @@ export function ImageCaptureActions({
       <div className={cn("grid gap-3", actionsClassName)}>
         <button
           type="button"
-          onClick={() => cameraInputRef.current?.click()}
+          onClick={() => setIsCameraOpen(true)}
           disabled={disabled}
           className={cameraButtonClassName}
         >
@@ -75,21 +82,26 @@ export function ImageCaptureActions({
       {hint ? <div className={hintClassName}>{hint}</div> : null}
 
       <input
-        ref={cameraInputRef}
-        type="file"
-        accept={accept}
-        capture={captureFacingMode}
-        hidden
-        onChange={handleChange("camera")}
-        disabled={disabled}
-      />
-      <input
         ref={galleryInputRef}
         type="file"
         accept={accept}
         hidden
         onChange={handleChange("gallery")}
         disabled={disabled}
+      />
+
+      <CameraCaptureModal
+        open={isCameraOpen}
+        disabled={disabled}
+        title={cameraTitle}
+        description={cameraDescription}
+        confirmLabel={cameraConfirmLabel}
+        captureFacingMode={captureFacingMode}
+        onClose={() => setIsCameraOpen(false)}
+        onConfirm={(file) => {
+          setIsCameraOpen(false);
+          void onSelect(file, "camera");
+        }}
       />
     </>
   );
