@@ -257,6 +257,270 @@ def cv2_to_base64(img_cv2, ext=".jpg"):
     return f"data:image/{ext.replace('.', '')};base64,{base64_str}"
 
 
+def parse_optional_json(value):
+    """Parse JSON string/object if possible; otherwise keep the original value."""
+    if value is None:
+        return None
+    if isinstance(value, (dict, list)):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            return value
+    return value
+
+
+def load_pil_image_from_payload(image_base64=None, image_file=None):
+    """Load an uploaded or base64-encoded image into PIL."""
+    if image_file:
+        file_bytes = image_file.read()
+        image_file.seek(0)
+        return PIL.Image.open(io.BytesIO(file_bytes)).convert("RGB")
+
+    if not image_base64:
+        raise ValueError("Thiếu dữ liệu ảnh để phân tích.")
+
+    clean_b64 = image_base64.split("base64,")[1] if "base64," in image_base64 else image_base64
+    img_bytes = base64.b64decode(clean_b64)
+    return PIL.Image.open(io.BytesIO(img_bytes)).convert("RGB")
+
+
+def extract_plant_health_request():
+    """Support both JSON base64 payloads and multipart form uploads."""
+    payload = request.get_json(silent=True) if request.is_json else None
+    payload = payload or {}
+
+    if request.files:
+        image_file = request.files.get("image") or request.files.get("file") or request.files.get("photo")
+        form_data = request.form.to_dict(flat=True)
+        raw_context = (
+            form_data.pop("plantContext", None)
+            or form_data.pop("plant_context", None)
+            or form_data.pop("context", None)
+        )
+        parsed_context = parse_optional_json(raw_context)
+
+        if parsed_context is None:
+            parsed_context = form_data or {}
+
+        return {
+            "image_base64": None,
+            "image_file": image_file,
+            "plant_context": parsed_context if isinstance(parsed_context, dict) else {"notes": str(parsed_context)},
+        }
+
+    raw_context = payload.get("plantContext")
+    if raw_context is None:
+        raw_context = payload.get("plant_context")
+    if raw_context is None:
+        raw_context = payload.get("context")
+
+    parsed_context = parse_optional_json(raw_context)
+    if parsed_context is None:
+        parsed_context = {}
+
+    if not isinstance(parsed_context, dict):
+        parsed_context = {"notes": str(parsed_context)}
+
+    return {
+        "image_base64": payload.get("image_base64") or payload.get("imageBase64") or payload.get("image"),
+        "image_file": None,
+        "plant_context": parsed_context,
+    }
+
+
+def parse_json_response_text(raw_text):
+    cleaned = (raw_text or "").replace("```json", "").replace("```", "").strip()
+    if not cleaned:
+        raise ValueError("AI không trả về dữ liệu.")
+    return json.loads(cleaned)
+
+
+def normalize_confidence_score(value):
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return 0.0
+
+    if score > 1.0 and score <= 100.0:
+        score = score / 100.0
+
+    return max(0.0, min(score, 1.0))
+
+
+def normalize_string_list(value, limit=5):
+    if not isinstance(value, list):
+        return []
+
+    result = []
+    for item in value:
+        if isinstance(item, dict):
+            text = item.get("name") or item.get("issue") or item.get("symptom") or item.get("action")
+        else:
+            text = item
+
+        if text is None:
+            continue
+
+        text = str(text).strip()
+        if text:
+            result.append(text)
+
+        if len(result) >= limit:
+            break
+
+    return result
+
+
+def normalize_health_status(value):
+    normalized = str(value or "").strip().upper()
+    alias_map = {
+        "GOOD": "HEALTHY",
+        "NORMAL": "HEALTHY",
+        "OK": "HEALTHY",
+        "STRESSED": "WARNING",
+        "MONITOR": "WARNING",
+        "SEVERE": "CRITICAL",
+        "URGENT": "CRITICAL",
+    }
+    normalized = alias_map.get(normalized, normalized)
+    return normalized if normalized in {"UNKNOWN", "HEALTHY", "WARNING", "CRITICAL"} else "UNKNOWN"
+
+
+def normalize_urgency(value):
+    normalized = str(value or "").strip().upper()
+    alias_map = {
+        "NONE": "LOW",
+        "NORMAL": "LOW",
+        "MODERATE": "MEDIUM",
+        "SEVERE": "HIGH",
+        "URGENT": "HIGH",
+    }
+    normalized = alias_map.get(normalized, normalized)
+    return normalized if normalized in {"LOW", "MEDIUM", "HIGH"} else "MEDIUM"
+
+
+def normalize_bool(value):
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y"}
+    return bool(value)
+
+
+def normalize_plant_health_analysis(result_json, plant_context):
+    diagnosis_summary = (
+        result_json.get("diagnosisSummary")
+        or result_json.get("summary")
+        or "Chưa đủ dữ liệu để kết luận rõ ràng."
+    )
+    recommendation_summary = (
+        result_json.get("recommendationSummary")
+        or result_json.get("recommendation")
+        or "Theo dõi thêm trong 24-48 giờ và chụp lại ảnh rõ hơn nếu tình trạng không cải thiện."
+    )
+
+    analysis = {
+        "healthStatus": normalize_health_status(result_json.get("healthStatus")),
+        "confidenceScore": normalize_confidence_score(result_json.get("confidenceScore")),
+        "diagnosisSummary": str(diagnosis_summary).strip(),
+        "recommendationSummary": str(recommendation_summary).strip(),
+        "observedSymptoms": normalize_string_list(result_json.get("observedSymptoms")),
+        "likelyIssues": normalize_string_list(result_json.get("likelyIssues")),
+        "immediateActions": normalize_string_list(result_json.get("immediateActions")),
+        "followUpCare": normalize_string_list(result_json.get("followUpCare")),
+        "urgency": normalize_urgency(result_json.get("urgency")),
+        "inspectionNotes": str(result_json.get("inspectionNotes") or "").strip(),
+        "requiresHumanReview": normalize_bool(result_json.get("requiresHumanReview", False)),
+        "plantContextUsed": plant_context,
+    }
+
+    return analysis
+
+
+@app.route("/api/analyze-plant-health", methods=["POST"])
+@app.route("/api/analyze-plant", methods=["POST"])
+def analyze_plant_health():
+    if not client:
+        return jsonify({"success": False, "error": "Gemini Client chưa sẵn sàng"}), 500
+
+    try:
+        req_data = extract_plant_health_request()
+        if not req_data.get("image_base64") and not req_data.get("image_file"):
+            return jsonify({"success": False, "error": "Thiếu ảnh cây để phân tích"}), 400
+
+        plant_context = req_data.get("plant_context") or {}
+        img_pil = load_pil_image_from_payload(
+            image_base64=req_data.get("image_base64"),
+            image_file=req_data.get("image_file"),
+        )
+
+        context_block = (
+            json.dumps(plant_context, ensure_ascii=False, indent=2)
+            if plant_context else "Không có ngữ cảnh bổ sung từ hệ thống hoặc người dùng."
+        )
+
+        prompt = f"""Bạn là chuyên gia chẩn đoán sức khỏe cây trồng cho CITYFARM. Hãy quan sát ảnh cây và kết hợp với ngữ cảnh để đánh giá tình trạng thực tế của cây.
+
+[NGỮ CẢNH BỔ SUNG]
+{context_block}
+
+[YÊU CẦU PHÂN TÍCH]
+1. Đánh giá tình trạng sức khỏe tổng thể và bắt buộc chọn CHÍNH XÁC 1 giá trị healthStatus trong [UNKNOWN, HEALTHY, WARNING, CRITICAL].
+2. Chỉ nêu những dấu hiệu nhìn thấy được hoặc suy luận hợp lý từ ảnh và ngữ cảnh. Nếu ảnh không đủ rõ, nói rõ điều đó và giảm confidenceScore.
+3. Tìm các vấn đề có khả năng cao nhất như úng nước, thiếu nước, cháy lá, thiếu dinh dưỡng, sâu bệnh, nấm bệnh, sốc nhiệt hoặc cây vẫn khỏe mạnh.
+4. Đưa ra hành động ưu tiên ngắn gọn, an toàn, thực tế cho người trồng tại nhà. Không đề xuất dùng hóa chất nguy hiểm.
+5. Nếu ảnh mờ hoặc thiếu thông tin để chẩn đoán chắc chắn, bật requiresHumanReview = true.
+
+[TRẢ VỀ JSON THUẦN TÚY]
+Không bọc markdown. Trả về đúng schema sau:
+{{
+  "healthStatus": "UNKNOWN|HEALTHY|WARNING|CRITICAL",
+  "confidenceScore": 0.0,
+  "diagnosisSummary": "Tóm tắt ngắn gọn bằng tiếng Việt",
+  "recommendationSummary": "Khuyến nghị ngắn gọn bằng tiếng Việt",
+  "observedSymptoms": ["triệu chứng 1", "triệu chứng 2"],
+  "likelyIssues": ["vấn đề khả năng cao 1", "vấn đề khả năng cao 2"],
+  "immediateActions": ["việc cần làm ngay 1", "việc cần làm ngay 2"],
+  "followUpCare": ["theo dõi tiếp theo 1", "theo dõi tiếp theo 2"],
+  "urgency": "LOW|MEDIUM|HIGH",
+  "inspectionNotes": "ghi chú về chất lượng ảnh hoặc yếu tố chưa chắc chắn",
+  "requiresHumanReview": false
+}}"""
+
+        print("Đang gọi Gemini API để phân tích sức khỏe cây...")
+        config = types.GenerateContentConfig(
+            temperature=0.1,
+            response_mime_type="application/json"
+        )
+
+        response = client.models.generate_content(
+            model='gemini-3.1-flash-lite-preview',
+            contents=[img_pil, prompt],
+            config=config
+        )
+
+        result_json = parse_json_response_text(response.text)
+        analysis = normalize_plant_health_analysis(result_json, plant_context)
+
+        return jsonify({
+            "success": True,
+            "healthStatus": analysis["healthStatus"],
+            "confidenceScore": analysis["confidenceScore"],
+            "diagnosisSummary": analysis["diagnosisSummary"],
+            "recommendationSummary": analysis["recommendationSummary"],
+            "analysis": analysis,
+        }), 200
+
+    except Exception as e:
+        print(f"[ERROR] Plant Health Analysis API Error: {str(e)}")
+        return jsonify({"success": False, "error": str(e)}), 500
+
+
 @app.route("/api/analyze-space", methods=["POST"])
 def analyze_space():
     if not client:

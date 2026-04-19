@@ -60,4 +60,19 @@ export class SupabaseStorageService {
       console.error(`Failed to delete file from Supabase: ${error.message}`);
     }
   }
+
+  async downloadFile(path: string): Promise<Buffer> {
+    const { data, error } = await this.supabase.storage
+      .from(this.bucketName)
+      .download(path);
+
+    if (error || !data) {
+      throw new InternalServerErrorException(
+        `Supabase download error: ${error?.message ?? 'Unknown error'}`,
+      );
+    }
+
+    const arrayBuffer = await data.arrayBuffer();
+    return Buffer.from(arrayBuffer);
+  }
 }

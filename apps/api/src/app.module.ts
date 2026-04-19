@@ -13,6 +13,7 @@ import { AdminContentModule } from './admin/content/admin-content.module';
 import { AdminOperationsModule } from './admin/operations/admin-operations.module';
 import { ProductsModule } from './products/products.module';
 import { GardenModule } from './garden/garden.module';
+import { AiModule } from './ai/ai.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { GardenModule } from './garden/garden.module';
     AdminOperationsModule,
     ProductsModule,
     GardenModule,
+    AiModule,
   ],
   controllers: [AppController],
   providers: [AppService],

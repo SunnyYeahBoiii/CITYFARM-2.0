@@ -1,24 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useId, useState, type ChangeEvent } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { gardenApi } from "@/lib/api/garden.api";
 import { uploadAsset } from "@/lib/api/assets.api";
+import { ImageCaptureActions } from "@/components/cityfarm/shared/ImageCaptureActions";
 import type {
   CareTaskItem,
   GardenPlantDetail,
   JournalEntryItem,
-  LogJournalPayload,
-  PlantHealthStatus,
 } from "@/lib/types/garden";
 import { buildTimelineFromApi, daysSince, getHarvestDays } from "@/lib/cityfarm/utils";
 import styles from "../cityfarm.module.css";
 import {
   ArrowLeftIcon,
-  CameraIcon,
   CheckIcon,
   ClockIcon,
-  PlusIcon,
   SparkleIcon,
   TrashIcon,
 } from "@/components/cityfarm/shared/icons";
@@ -219,7 +216,7 @@ function HarvestSuccessModal({
           Amazing Harvest!
         </h2>
         <p className="mt-3 text-sm leading-relaxed text-[#5c6358]">
-          You've successfully harvested your <b>{plantName}</b>. Your care rate and stats have been updated!
+          You&apos;ve successfully harvested your <b>{plantName}</b>. Your care rate and stats have been updated!
         </p>
         
         <div className="mt-8 flex flex-col gap-3">
@@ -291,13 +288,13 @@ function MarketplaceActionCard({ plant }: { plant: GardenPlantDetail }) {
 
 
 export function PlantDetailScreen({ plantId }: { plantId: string }) {
-  const fileInputId = useId();
   const [activeTab, setActiveTab] = useState<DetailTab>("Timeline");
   const [plant, setPlant] = useState<GardenPlantDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);
   const [showHarvestModal, setShowHarvestModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoError, setPhotoError] = useState<string | null>(null);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -315,24 +312,18 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
     fetchDetail();
   }, [fetchDetail]);
 
-  const handleAddPhoto = async (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
+  const handleAddPhoto = async (file: File) => {
     setIsProcessingPhoto(true);
+    setPhotoError(null);
     try {
-      // 1. Upload
-      const asset = await uploadAsset(file, 'GARDEN_JOURNAL');
-      // 2. Log Journal (AI logic triggers in backend)
+      const asset = await uploadAsset(file, "GARDEN_JOURNAL");
       await gardenApi.logJournal(plantId, { imageAssetId: asset.id });
-      // 3. Refresh
       await fetchDetail();
       setActiveTab("Journal");
     } catch (err: any) {
-      alert(err.response?.data?.message || "Failed to process photo analysis.");
+      setPhotoError(err.response?.data?.message || "Failed to process photo analysis.");
     } finally {
       setIsProcessingPhoto(false);
-      event.target.value = "";
     }
   };
 
@@ -544,7 +535,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
               <div className={styles.mutedCard}>
                 <div className={styles.sectionTitle}>No journal entries</div>
                 <div className={styles.sectionSubtitle}>
-                  Start tracking your plant's daily health above.
+                  Start tracking your plant&apos;s daily health above.
                 </div>
               </div>
             )}
@@ -564,29 +555,28 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
       {/* Sticky Bottom Actions */}
       {plant.status !== "HARVESTED" && (
         <div className={styles.stickyFooter} style={{ position: "sticky", bottom: 0, padding: "1rem", background: "#ffffff", borderTop: "1px solid rgba(31, 41, 22, 0.08)", zIndex: 20 }}>
-          <label 
-            htmlFor={fileInputId} 
-            className={`${styles.buttonPrimary} ${isProcessingPhoto ? 'opacity-70 pointer-events-none' : ''}`}
-            style={{ width: "100%", cursor: "pointer" }}
-          >
-            {isProcessingPhoto ? (
-              <span className="flex items-center gap-2">
-                <SparkleIcon /> Analyzing Plant...
-              </span>
-            ) : (
-              <>
-                <CameraIcon /> Capture Daily Photo
-              </>
-            )}
-          </label>
-          <input 
-            id={fileInputId} 
-            type="file" 
-            accept="image/*" 
-            hidden 
-            onChange={handleAddPhoto} 
+          <div className="mb-3">
+            <div className="text-sm font-extrabold text-(--color-heading)">Add today&apos;s plant photo</div>
+            <div className="mt-1 text-xs font-medium text-(--color-muted)">
+              Use the camera on mobile, or fall back to your gallery for an AI journal check.
+            </div>
+          </div>
+          <ImageCaptureActions
+            onSelect={(file) => {
+              void handleAddPhoto(file);
+            }}
             disabled={isProcessingPhoto}
+            actionsClassName="grid gap-3"
+            cameraButtonClassName={styles.buttonPrimary}
+            galleryButtonClassName={styles.buttonOutline}
+            cameraLabel={isProcessingPhoto ? "Analyzing Plant..." : "Capture Daily Photo"}
+            galleryLabel="Choose from Gallery"
           />
+          {photoError ? (
+            <div className="mt-3 rounded-2xl bg-rose-50 px-4 py-3 text-sm font-medium text-rose-700">
+              {photoError}
+            </div>
+          ) : null}
         </div>
       )}
 

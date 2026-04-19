@@ -10,6 +10,7 @@ import { UserService } from '../user/user.service';
 import { AuthRegisterDto } from '../dtos/auth/auth-register.dto';
 import { AuthLoginDto } from '../dtos/auth/auth-login.dto';
 import * as bcrypt from 'bcrypt';
+import type { Request } from 'express';
 
 @Injectable()
 export class AuthService {
@@ -20,7 +21,9 @@ export class AuthService {
   ) {}
 
   readCookie(req: Request, cookieName: string): string {
-    const cookieValue: unknown = req.cookies?.[cookieName];
+    const cookieValue: unknown = (req as Request & {
+      cookies?: Record<string, unknown>;
+    }).cookies?.[cookieName];
     return typeof cookieValue === "string" ? cookieValue : "";
   }
 
