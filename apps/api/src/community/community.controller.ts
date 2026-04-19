@@ -44,24 +44,39 @@ export class CommunityController {
       throw new BadRequestException('Page and limit must be positive integers');
     }
 
-    return this.communityService.getFeedPosts(userId, postType, district, pageNum, limitNum);
+    return this.communityService.getFeedPosts(
+      userId,
+      postType,
+      district,
+      pageNum,
+      limitNum,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
   @Get('feed/:postId')
-  async getFeedPost(@Param('postId') postId: string, @CurrentUser() userId: string) {
+  async getFeedPost(
+    @Param('postId') postId: string,
+    @CurrentUser() userId: string,
+  ) {
     return this.communityService.getFeedPostById(postId, userId);
   }
 
   @UseGuards(JwtAuthGuard)
   @Post('feed')
-  async createFeedPost(@CurrentUser('id') userId: string, @Body() dto: CreateFeedPostDto) {
+  async createFeedPost(
+    @CurrentUser('id') userId: string,
+    @Body() dto: CreateFeedPostDto,
+  ) {
     return this.communityService.createFeedPost(userId, dto);
   }
 
   @UseGuards(JwtAuthGuard)
   @Delete('feed/:postId')
-  async deleteFeedPost(@Param('postId') postId: string, @CurrentUser() userId: string) {
+  async deleteFeedPost(
+    @Param('postId') postId: string,
+    @CurrentUser() userId: string,
+  ) {
     await this.communityService.deleteFeedPost(postId, userId);
     return { message: 'Post deleted successfully' };
   }
@@ -96,7 +111,10 @@ export class CommunityController {
 
   @UseGuards(JwtAuthGuard)
   @Delete('comments/:commentId')
-  async deleteComment(@Param('commentId') commentId: string, @CurrentUser() userId: string) {
+  async deleteComment(
+    @Param('commentId') commentId: string,
+    @CurrentUser() userId: string,
+  ) {
     await this.communityService.deleteComment(commentId, userId);
     return { message: 'Comment deleted successfully' };
   }
@@ -110,7 +128,11 @@ export class CommunityController {
     @CurrentUser('id') userId: string,
     @Body() dto: CreatePostReactionDto,
   ) {
-    const isLiked = await this.communityService.togglePostReaction(postId, userId, dto);
+    const isLiked = await this.communityService.togglePostReaction(
+      postId,
+      userId,
+      dto,
+    );
     return { isLiked };
   }
 
@@ -129,7 +151,11 @@ export class CommunityController {
       throw new BadRequestException('Page and limit must be positive integers');
     }
 
-    return this.communityService.getMarketplaceListings(district, pageNum, limitNum);
+    return this.communityService.getMarketplaceListings(
+      district,
+      pageNum,
+      limitNum,
+    );
   }
 
   @UseGuards(JwtAuthGuard)

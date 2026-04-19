@@ -1,4 +1,14 @@
-import { Controller, Post, Body, Res, Get, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Body,
+  Res,
+  Get,
+  Req,
+  UseGuards,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { AuthService } from './auth.service';
 import { AuthRegisterDto } from '../dtos/auth/auth-register.dto';
@@ -11,6 +21,16 @@ import { ConfigService } from '@nestjs/config';
 import { SetupPasswordDto } from 'src/dtos/auth/setup-password.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
+import {
+  readAccessToken,
+  readCookie,
+  shouldExposeTokensInBody,
+} from './auth-token.utils';
+
+type AuthTokens = {
+  access_token: string;
+  refresh_token: string;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -35,6 +55,67 @@ export class AuthController {
     };
   }
 
+  private setSessionCookies(res: Response, tokens: AuthTokens) {
+    res.cookie(
+      'access_token',
+      tokens.access_token,
+      this.authService.getAccessTokenCookieOptions(),
+    );
+    res.cookie(
+      'refresh_token',
+      tokens.refresh_token,
+      this.authService.getRefreshTokenCookieOptions(),
+    );
+  }
+
+  private buildAuthResponse(
+    req: Request,
+    message: string,
+    tokens: AuthTokens,
+  ) {
+    if (shouldExposeTokensInBody(req)) {
+      return {
+        message,
+        ...tokens,
+      };
+    }
+
+    return { message };
+  }
+
+  private async resolveProfileFromAccessToken(accessToken: string) {
+    try {
+      const payload = this.jwtService.verify(accessToken, {
+        secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
+      });
+
+      return await this.userService.findByIdWithProfile(payload.sub);
+    } catch {
+      return null;
+    }
+  }
+
+  private async resolveProfileFromRefreshToken(refreshToken: string) {
+    try {
+      const payload = this.jwtService.verify(refreshToken, {
+        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
+      });
+
+      const user = await this.userService.findById(payload.sub);
+      if (
+        !user ||
+        !user.refreshToken ||
+        !(await bcrypt.compare(refreshToken, user.refreshToken))
+      ) {
+        return null;
+      }
+
+      return await this.userService.findByIdWithProfile(user.id);
+    } catch {
+      return null;
+    }
+  }
+
   @Post('register')
   async register(@Body() registerDto: AuthRegisterDto) {
     return this.authService.register(registerDto);
@@ -42,29 +123,38 @@ export class AuthController {
 
   @HttpCode(HttpStatus.OK)
   @Post('login')
-  async login(@Body() loginDto: AuthLoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Req() req: Request,
+    @Body() loginDto: AuthLoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const user = await this.authService.validateUser(loginDto);
     const tokens = await this.authService.login(user);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
+    this.setSessionCookies(res, tokens);
 
-    return { message: 'Logged in successfully' };
+    return this.buildAuthResponse(req, 'Logged in successfully', tokens);
   }
 
   @UseGuards(JwtRefreshAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  async refresh(
+    @Req() req: any,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const userId = req.user.sub;
     const refreshToken = req.user.refreshToken;
 
     const tokens = await this.authService.refreshTokens(userId, refreshToken);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
+    this.setSessionCookies(res, tokens);
 
-    return { message: 'Tokens refreshed successfully' };
+    return this.buildAuthResponse(
+      req as Request,
+      'Tokens refreshed successfully',
+      tokens,
+    );
   }
 
   @UseGuards(JwtAuthGuard)
@@ -72,9 +162,15 @@ export class AuthController {
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     await this.authService.logout(req.user.id);
-    
-    res.clearCookie('access_token', { ...this.authService.getAccessTokenCookieOptions(), maxAge: 0 });
-    res.clearCookie('refresh_token', { ...this.authService.getRefreshTokenCookieOptions(), maxAge: 0 });
+
+    res.clearCookie('access_token', {
+      ...this.authService.getAccessTokenCookieOptions(),
+      maxAge: 0,
+    });
+    res.clearCookie('refresh_token', {
+      ...this.authService.getRefreshTokenCookieOptions(),
+      maxAge: 0,
+    });
 
     return { message: 'Logged out successfully' };
   }
@@ -85,18 +181,16 @@ export class AuthController {
 
   @Get('google/callback')
   @UseGuards(AuthGuard('google'))
-  async googleAuthRedirect(
-    @Req() req: any,
-    @Res() res: Response,
-  ) {
+  async googleAuthRedirect(@Req() req: any, @Res() res: Response) {
     const user = req.user;
 
     const tokens = await this.authService.login(user);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
-    
-    const redirectUrl = user.passwordHash ? `${this.frontendUrl}/`: `${this.frontendUrl}/setup-password?source=google`;
+    this.setSessionCookies(res, tokens);
+
+    const redirectUrl = user.passwordHash
+      ? `${this.frontendUrl}/`
+      : `${this.frontendUrl}/setup-password?source=google`;
 
     res.redirect(redirectUrl);
   }
@@ -104,40 +198,42 @@ export class AuthController {
   @Post('setup-password')
   @UseGuards(JwtAuthGuard)
   @HttpCode(HttpStatus.OK)
-  async setupPassword(@Req() req: any, @Body() body: SetupPasswordDto, @Res({ passthrough: true }) res: Response) {
+  async setupPassword(
+    @Req() req: any,
+    @Body() body: SetupPasswordDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const userId = req.user.id;
 
     const result = await this.authService.setupPassword(userId, body.password);
     const tokens = await this.authService.login(result);
 
-    res.cookie('access_token', tokens.access_token, this.authService.getAccessTokenCookieOptions());
-    res.cookie('refresh_token', tokens.refresh_token, this.authService.getRefreshTokenCookieOptions());
+    this.setSessionCookies(res, tokens);
 
-    return { message: 'Password set up successfully' };
+    return this.buildAuthResponse(
+      req as Request,
+      'Password set up successfully',
+      tokens,
+    );
   }
 
   @Get('profile')
   async getProfile(@Req() req: Request) {
-    const refresh_token = this.authService.readCookie(req, 'refresh_token');
-
-    if (!refresh_token) {
-      return this.getGuestProfile();
-    }
-
-    try {
-      const payload = this.jwtService.verify(refresh_token, {
-        secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
-      });
-
-      const user = await this.userService.findById(payload.sub);
-      if (!user || !user.refreshToken || !(await bcrypt.compare(refresh_token, user.refreshToken))) {
-        return this.getGuestProfile();
+    const accessToken = readAccessToken(req);
+    if (accessToken) {
+      const accessProfile = await this.resolveProfileFromAccessToken(accessToken);
+      if (accessProfile) {
+        return accessProfile;
       }
+    }
 
-      const detailedUser = await this.userService.findByIdWithProfile(user.id);
-      return detailedUser ?? this.getGuestProfile();
-    } catch {
+    const refreshToken = readCookie(req, 'refresh_token');
+    if (!refreshToken) {
       return this.getGuestProfile();
     }
+
+    const refreshProfile =
+      await this.resolveProfileFromRefreshToken(refreshToken);
+    return refreshProfile ?? this.getGuestProfile();
   }
 }

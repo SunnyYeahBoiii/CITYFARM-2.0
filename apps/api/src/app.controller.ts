@@ -48,7 +48,8 @@ export class AppController {
       typeof req.headers['x-cityfarm-user-id'] === 'string'
         ? req.headers['x-cityfarm-user-id']
         : null;
-    const chatUserId = guardUserId ?? forwardedUserId ?? `guest:${req.ip || 'unknown'}`;
+    const chatUserId =
+      guardUserId ?? forwardedUserId ?? `guest:${req.ip || 'unknown'}`;
 
     const response: unknown = await this.appService.handleChatRequest(
       chatUserId,

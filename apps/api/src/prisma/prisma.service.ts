@@ -4,7 +4,10 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaPg } from '@prisma/adapter-pg';
 
 @Injectable()
-export class PrismaService extends PrismaClient implements OnModuleInit, OnModuleDestroy {
+export class PrismaService
+  extends PrismaClient
+  implements OnModuleInit, OnModuleDestroy
+{
   constructor(private readonly configService: ConfigService) {
     super({
       adapter: new PrismaPg({
@@ -12,7 +15,7 @@ export class PrismaService extends PrismaClient implements OnModuleInit, OnModul
       }),
       log: ['query', 'info', 'warn', 'error'],
       errorFormat: 'minimal',
-    })
+    });
   }
 
   async onModuleInit() {

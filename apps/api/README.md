@@ -197,6 +197,21 @@ pnpm run test:e2e
 pnpm run test:debug
 ```
 
+## Mobile Auth Clients
+
+The API now supports a mobile-friendly bearer token flow alongside the existing
+cookie flow used by the web app.
+
+- Send `Authorization: Bearer <access_token>` on authenticated requests.
+- Call `POST /auth/refresh` with `{ "refreshToken": "<refresh_token>" }` when a
+  request returns `401`.
+- Add `X-Session-Transport: body` on `login`, `refresh`, and `setup-password`
+  requests from native clients to receive `{ access_token, refresh_token }` in
+  the JSON response.
+
+See [docs/mobile-auth-client.md](../../docs/mobile-auth-client.md) for a full
+axios client example with queued auto-refresh.
+
 ## Deployment
 
 Local development uses DATABASE_URL (pooled connection via PgBouncer).

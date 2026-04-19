@@ -19,7 +19,10 @@ export class AssetsService {
     const cleanFileName = file.originalname.replace(/[^a-zA-Z0-9.]/g, '_');
     const path = `${kind.toLowerCase()}/${ownerId}/${timestamp}-${cleanFileName}`;
 
-    const { publicUrl, storageKey } = await this.supabaseStorage.uploadFile(file, path);
+    const { publicUrl, storageKey } = await this.supabaseStorage.uploadFile(
+      file,
+      path,
+    );
 
     return this.prisma.mediaAsset.create({
       data: {

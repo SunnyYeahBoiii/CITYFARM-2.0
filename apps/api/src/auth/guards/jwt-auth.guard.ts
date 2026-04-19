@@ -11,13 +11,17 @@ export class JwtAuthGuard extends AuthGuard('jwt') {
 
     if (!user) {
       if (info instanceof TokenExpiredError) {
-        throw new UnauthorizedException('Token has expired. Please refresh your session.');
+        throw new UnauthorizedException(
+          'Token has expired. Please refresh your session.',
+        );
       }
-      
+
       if (info instanceof JsonWebTokenError) {
         throw new UnauthorizedException('Invalid token. Access denied.');
       }
-      throw new UnauthorizedException(info?.message || 'Authentication failed.');
+      throw new UnauthorizedException(
+        info?.message || 'Authentication failed.',
+      );
     }
 
     return user;

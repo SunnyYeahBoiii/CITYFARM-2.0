@@ -479,29 +479,29 @@ export class CommunityService {
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
         pickupDistrict: sellerProfile?.district || 'Unknown',
       },
-        include: {
-          seller: {
-            select: {
-              id: true,
-              email: true,
-              profile: {
-                select: {
-                  displayName: true,
-                  avatarAssetId: true,
-                  avatarAsset: {
-                    select: { publicUrl: true },
-                  },
-                  district: true,
-                  growerVerificationStatus: true,
+      include: {
+        seller: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarAssetId: true,
+                avatarAsset: {
+                  select: { publicUrl: true },
                 },
+                district: true,
+                growerVerificationStatus: true,
               },
             },
           },
-          imageAsset: {
-            select: { publicUrl: true },
-          },
         },
-      });
+        imageAsset: {
+          select: { publicUrl: true },
+        },
+      },
+    });
 
     return this.mapListingToDto(listing);
   }

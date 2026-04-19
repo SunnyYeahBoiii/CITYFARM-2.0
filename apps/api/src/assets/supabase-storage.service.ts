@@ -9,17 +9,26 @@ export class SupabaseStorageService {
 
   constructor(private configService: ConfigService) {
     const supabaseUrl = this.configService.getOrThrow<string>('SUPABASE_URL');
-    const supabaseKey = this.configService.getOrThrow<string>('SUPABASE_SERVICE_ROLE_KEY');
-    this.bucketName = this.configService.getOrThrow<string>('SUPABASE_BUCKET_NAME');
+    const supabaseKey = this.configService.getOrThrow<string>(
+      'SUPABASE_SERVICE_ROLE_KEY',
+    );
+    this.bucketName = this.configService.getOrThrow<string>(
+      'SUPABASE_BUCKET_NAME',
+    );
 
     if (!supabaseUrl || !supabaseKey || !this.bucketName) {
-      throw new Error('Supabase configuration is missing in environment variables');
+      throw new Error(
+        'Supabase configuration is missing in environment variables',
+      );
     }
 
     this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
-  async uploadFile(file: Express.Multer.File, path: string): Promise<{ publicUrl: string; storageKey: string }> {
+  async uploadFile(
+    file: Express.Multer.File,
+    path: string,
+  ): Promise<{ publicUrl: string; storageKey: string }> {
     const { data, error } = await this.supabase.storage
       .from(this.bucketName)
       .upload(path, file.buffer, {
@@ -28,7 +37,9 @@ export class SupabaseStorageService {
       });
 
     if (error) {
-      throw new InternalServerErrorException(`Supabase upload error: ${error.message}`);
+      throw new InternalServerErrorException(
+        `Supabase upload error: ${error.message}`,
+      );
     }
 
     const { data: publicUrlData } = this.supabase.storage
@@ -42,9 +53,11 @@ export class SupabaseStorageService {
   }
 
   async deleteFile(path: string): Promise<void> {
-    const { error } = await this.supabase.storage.from(this.bucketName).remove([path]);
+    const { error } = await this.supabase.storage
+      .from(this.bucketName)
+      .remove([path]);
     if (error) {
-       console.error(`Failed to delete file from Supabase: ${error.message}`);
+      console.error(`Failed to delete file from Supabase: ${error.message}`);
     }
   }
 }

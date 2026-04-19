@@ -4,7 +4,7 @@ import { PrismaService } from './prisma/prisma.service';
 @Injectable()
 export class AppService {
   // Inject PrismaService để tương tác với Database
-  constructor(private readonly prisma: PrismaService) { }
+  constructor(private readonly prisma: PrismaService) {}
 
   getHello(): string {
     return 'Hello World!';
@@ -93,16 +93,18 @@ export class AppService {
   private async getAIAdvice(payload: any) {
     try {
       // Gọi xuống Backend Python qua mạng LAN ảo của Docker
-      const modelBase = (process.env.MODEL_API_URL ?? "http://model-api:3002").replace(/\/$/, "");
+      const modelBase = (
+        process.env.MODEL_API_URL ?? 'http://model-api:3002'
+      ).replace(/\/$/, '');
       const response = await fetch(`${modelBase}/api/chat`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
       });
       return await response.json();
     } catch (error: any) {
-      console.error("Lỗi khi gọi Python Model API:", error);
-      return { success: false, error: "Cannot connect to AI Model" };
+      console.error('Lỗi khi gọi Python Model API:', error);
+      return { success: false, error: 'Cannot connect to AI Model' };
     }
   }
 
@@ -190,22 +192,30 @@ export class AppService {
         status: plantData.status,
         health: plantData.healthStatus,
         growthStage: plantData.growthStage,
-        daysGrowing: Math.floor((Date.now() - plantData.plantedAt.getTime()) / (1000 * 3600 * 24)),
+        daysGrowing: Math.floor(
+          (Date.now() - plantData.plantedAt.getTime()) / (1000 * 3600 * 24),
+        ),
         zoneName: plantData.zoneName,
         notes: plantData.notes,
       },
       history: {
         recentTasks: plantData.careTasks.map(
-          (t) => `${t.taskType} - ${t.completedAt?.toISOString().split('T')[0]}`,
+          (t) =>
+            `${t.taskType} - ${t.completedAt?.toISOString().split('T')[0]}`,
         ),
         recentJournals: plantData.journalEntries.map(
-          (j) => `Sức khỏe: ${j.healthStatus} - Ghi chú: ${j.issueSummary || 'Bình thường'}`,
+          (j) =>
+            `Sức khỏe: ${j.healthStatus} - Ghi chú: ${j.issueSummary || 'Bình thường'}`,
         ),
       },
     };
 
     // 4. Gửi sang Python (kèm lịch sử hội thoại) và nhận kết quả
-    const pythonPayload = { message, context: ragContext, history: chatHistory };
+    const pythonPayload = {
+      message,
+      context: ragContext,
+      history: chatHistory,
+    };
     const aiResponse = await this.getAIAdvice(pythonPayload);
 
     // 5. Lưu tin nhắn người dùng và phản hồi AI vào DB
@@ -237,6 +247,7 @@ export class AppService {
 
     return { ...aiResponse, conversationId: conversation.id };
   }
+}
 
   async getPlantCatalog() {
     const plants = await this.prisma.plantSpecies.findMany({
