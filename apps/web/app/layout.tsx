@@ -1,16 +1,19 @@
 import type { Metadata, Viewport } from "next";
+import { Be_Vietnam_Pro } from "next/font/google";
 import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getUser } from "@/lib/auth-server";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
+const beVietnamPro = Be_Vietnam_Pro({
+  weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
+  subsets: ["vietnamese", "latin"],
+  display: "swap",
+  variable: "--font-sans",
 });
 const geistMono = localFont({
   src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -37,7 +40,7 @@ export default async function RootLayout({
 
   return (
     <html suppressHydrationWarning lang="vi">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className={`${beVietnamPro.variable} ${geistMono.variable}`}>
         <Providers initialUser={user}>{children}</Providers>
       </body>
     </html>

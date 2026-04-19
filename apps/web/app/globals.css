@@ -33,7 +33,7 @@
   }
 
   body {
-    @apply min-h-screen text-[#172718] antialiased [background:radial-gradient(circle_at_top_left,rgba(121,150,94,0.16),transparent_24%),radial-gradient(circle_at_85%_18%,rgba(205,146,74,0.14),transparent_20%),linear-gradient(180deg,#f7f3ea_0%,#f4efe4_48%,#efe8d7_100%)] [font-family:var(--font-geist-sans),sans-serif] [text-rendering:optimizeLegibility];
+    @apply min-h-screen text-[#172718] antialiased [background:radial-gradient(circle_at_top_left,rgba(121,150,94,0.16),transparent_24%),radial-gradient(circle_at_85%_18%,rgba(205,146,74,0.14),transparent_20%),linear-gradient(180deg,#f7f3ea_0%,#f4efe4_48%,#efe8d7_100%)] [font-family:var(--font-sans),sans-serif] [text-rendering:optimizeLegibility];
   }
 
 *,

@@ -26,8 +26,8 @@
 @theme inline {
   --color-background: var(--color-bg);
   --color-foreground: var(--color-ink);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @layer base {
@@ -37,7 +37,7 @@
   }
 
   body {
-    @apply min-h-screen [font-family:var(--font-geist-sans),sans-serif] text-[var(--color-ink)] [background:radial-gradient(circle_at_top_left,rgba(121,150,94,0.16),transparent_22%),radial-gradient(circle_at_86%_12%,rgba(205,146,74,0.16),transparent_18%),linear-gradient(180deg,#f7f3ea_0%,#f4efe4_48%,#efe8d7_100%)] [text-rendering:optimizeLegibility];
+    @apply min-h-screen [font-family:var(--font-sans),sans-serif] text-[var(--color-ink)] [background:radial-gradient(circle_at_top_left,rgba(121,150,94,0.16),transparent_22%),radial-gradient(circle_at_86%_12%,rgba(205,146,74,0.16),transparent_18%),linear-gradient(180deg,#f7f3ea_0%,#f4efe4_48%,#efe8d7_100%)] [text-rendering:optimizeLegibility];
   }
 
   *,
