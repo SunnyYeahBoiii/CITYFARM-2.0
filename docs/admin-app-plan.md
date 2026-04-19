@@ -344,7 +344,7 @@ Palette de xuat:
 
 Typography:
 
-- Tiep tuc dung `Geist Sans`/`Geist Mono` nhu web hien tai de dong bo va tranh external font
+- Dung `Be Vietnam Pro` (sans) va `Geist Mono` (mono) giong web de dong bo
 - `Geist Mono` chi dung cho order code, ID, metric delta, log snippet
 
 ## 8.3 Component system admin
