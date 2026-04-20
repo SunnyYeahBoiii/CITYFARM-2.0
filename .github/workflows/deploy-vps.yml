@@ -1,9 +1,9 @@
-name: Deploy To VPS
+# .github/workflows/deploy.yml
+name: Build and Deploy
 
 on:
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -16,7 +16,7 @@ env:
   ADMIN_IMAGE_NAME: cityfarm-2-0-admin
   API_IMAGE_NAME: cityfarm-2-0-api
   MODEL_API_IMAGE_NAME: cityfarm-2-0-model-api
-  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/home/deploy/apps/cityfarm' }}
+  DEPLOY_PATH: /home/ubuntu/CITYFARM-2.0
 
 jobs:
   quality:
@@ -41,20 +41,13 @@ jobs:
         run: pnpm check-types
 
   build-and-push:
+    name: Build & push Docker images
     needs: quality
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - image_name: cityfarm-2-0-web
-            dockerfile: docker/web.Dockerfile
-          - image_name: cityfarm-2-0-admin
-            dockerfile: docker/admin.Dockerfile
-          - image_name: cityfarm-2-0-api
-            dockerfile: docker/api.Dockerfile
-          - image_name: cityfarm-2-0-model-api
-            dockerfile: docker/model-api.Dockerfile
+    permissions:
+      contents: read
+      packages: write
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -62,10 +55,7 @@ jobs:
       - name: Set lowercase image owner
         run: echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
-      - name: Setup QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Setup Docker Buildx
+      - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to ghcr.io
@@ -75,32 +65,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.image_name }}
+      - name: Build and push web
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ${{ matrix.dockerfile }}
+          file: docker/web.Dockerfile
           push: true
-          platforms: linux/amd64,linux/arm64
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
-            NEXT_PUBLIC_API_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_API_URL || matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_API_URL || '' }}
-            NEXT_PUBLIC_APP_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_API_URL || '' }}
-            NEXT_PUBLIC_WEB_URL=${{ matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_WEB_URL || '' }}
-          tags: |
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image_name }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image_name }}:latest
+            NEXT_PUBLIC_API_URL=${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_APP_URL=${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
+
+      - name: Build and push admin
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/admin.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
+            NEXT_PUBLIC_WEB_URL=${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
+
+      - name: Build and push api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/api.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build and push model-api
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/model-api.Dockerfile
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
   deploy:
-    needs: build-and-push
-    if: github.ref == 'refs/heads/main' || github.event_name == 'workflow_dispatch'
+    name: Deploy to VPS
     runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Set lowercase image owner
-        run: echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+    needs: build-and-push
 
+    steps:
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -110,34 +126,33 @@ jobs:
           command_timeout: 30m
           script: |
             set -euo pipefail
-
-            # Clone repo if not present, otherwise sync
-            if [ ! -d "${{ env.DEPLOY_PATH }}/.git" ]; then
-              mkdir -p "$(dirname ${{ env.DEPLOY_PATH }})"
-              git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}
-            fi
             cd ${{ env.DEPLOY_PATH }}
+
             git fetch --prune origin main
             git checkout main
             git pull --ff-only origin main
 
-            # Update image tags: strip old lines, append new ones
-            grep -v '^\(WEB_IMAGE\|ADMIN_IMAGE\|API_IMAGE\|MODEL_API_IMAGE\)=' .env > .env.tmp && mv .env.tmp .env
-            cat >> .env << 'IMGEEOF'
-WEB_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
-ADMIN_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
-API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
-MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
-IMGEEOF
-
-            # Login GHCR and deploy
-            echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin
             export COMPOSE_PARALLEL_LIMIT=1
-            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env pull
-            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env up -d --remove-orphans
+            docker compose -f docker-compose.vps.yml pull
+            docker compose -f docker-compose.vps.yml up -d --remove-orphans
 
-            # Wait for healthchecks
-            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env wait --timeout=120 api
-            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env wait --timeout=60 web
+            wait_for_http() {
+              service="$1"
+              url="$2"
+              for attempt in $(seq 1 60); do
+                if curl -sf "$url" >/dev/null 2>&1; then
+                  echo "Service $service is ready at $url"
+                  return 0
+                fi
+                sleep 3
+              done
+              echo "Timed out waiting for $service ($url)"
+              docker compose -f docker-compose.vps.yml logs --tail=100 "$service"
+              exit 1
+            }
+
+            wait_for_http api http://127.0.0.1:3001/
+            wait_for_http web http://127.0.0.1:3000/
+            wait_for_http admin http://127.0.0.1:3002/
 
             docker image prune -f

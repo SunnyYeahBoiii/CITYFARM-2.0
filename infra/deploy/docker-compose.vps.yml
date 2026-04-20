@@ -1,10 +1,10 @@
+# docker-compose.vps.yml
 services:
   web:
-    image: ${WEB_IMAGE}
+    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-web:latest
     restart: unless-stopped
     env_file: .env
     environment:
-      NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
     expose:
@@ -13,13 +13,18 @@ services:
       - api
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   admin:
-    image: ${ADMIN_IMAGE}
+    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-admin:latest
     restart: unless-stopped
     env_file: .env
     environment:
-      NODE_ENV: production
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
     expose:
@@ -28,13 +33,18 @@ services:
       - api
     networks:
       - app-net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
 
   api:
-    image: ${API_IMAGE}
+    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-api:latest
     restart: unless-stopped
     env_file: .env
     environment:
-      NODE_ENV: production
       PORT: "3001"
     expose:
       - "3001"
@@ -50,7 +60,7 @@ services:
       start_period: 30s
 
   model-api:
-    image: ${MODEL_API_IMAGE}
+    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-model-api:latest
     restart: unless-stopped
     env_file: .env
     environment:
