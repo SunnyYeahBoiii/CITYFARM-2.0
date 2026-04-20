@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateFeedPostDto, PostType } from '../dtos/feed/create-feed-post.dto';
 import { FeedPostDto, UserMinimalDto, FeedPostsPaginatedDto } from '../dtos/feed/feed-post.dto';
 import { CreateFeedCommentDto, FeedCommentDto, FeedCommentsDto } from '../dtos/feed/feed-comment.dto';
-import { CreatePostReactionDto, ReactionType } from '../dtos/feed/post-reaction.dto';
+import { CreatePostReactionDto } from '../dtos/feed/post-reaction.dto';
 import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketplace-listing.dto';
 import { MarketplaceListingDto, MarketplaceListingsPaginatedDto } from '../dtos/marketplace/marketplace-listing.dto';
 
@@ -42,12 +42,16 @@ export class CommunityService {
             select: {
               id: true,
               email: true,
-              userProfile: {
+              profile: {
                 select: {
-                  username: true,
-                  profileImage: true,
+                  displayName: true,
                   district: true,
-                  verifiedGrower: true,
+                  growerVerificationStatus: true,
+                  avatarAsset: {
+                    select: {
+                      publicUrl: true,
+                    },
+                  },
                 },
               },
             },
@@ -95,12 +99,16 @@ export class CommunityService {
           select: {
             id: true,
             email: true,
-            userProfile: {
+            profile: {
               select: {
-                username: true,
-                profileImage: true,
+                displayName: true,
                 district: true,
-                verifiedGrower: true,
+                growerVerificationStatus: true,
+                avatarAsset: {
+                  select: {
+                    publicUrl: true,
+                  },
+                },
               },
             },
           },
@@ -121,12 +129,16 @@ export class CommunityService {
           select: {
             id: true,
             email: true,
-            userProfile: {
+            profile: {
               select: {
-                username: true,
-                profileImage: true,
+                displayName: true,
                 district: true,
-                verifiedGrower: true,
+                growerVerificationStatus: true,
+                avatarAsset: {
+                  select: {
+                    publicUrl: true,
+                  },
+                },
               },
             },
           },
@@ -179,11 +191,15 @@ export class CommunityService {
             select: {
               id: true,
               email: true,
-              userProfile: {
+              profile: {
                 select: {
-                  username: true,
-                  profileImage: true,
+                  displayName: true,
                   district: true,
+                  avatarAsset: {
+                    select: {
+                      publicUrl: true,
+                    },
+                  },
                 },
               },
             },
@@ -194,11 +210,15 @@ export class CommunityService {
                 select: {
                   id: true,
                   email: true,
-                  userProfile: {
+                  profile: {
                     select: {
-                      username: true,
-                      profileImage: true,
+                      displayName: true,
                       district: true,
+                      avatarAsset: {
+                        select: {
+                          publicUrl: true,
+                        },
+                      },
                     },
                   },
                 },
@@ -251,11 +271,15 @@ export class CommunityService {
           select: {
             id: true,
             email: true,
-            userProfile: {
+            profile: {
               select: {
-                username: true,
-                profileImage: true,
+                displayName: true,
                 district: true,
+                avatarAsset: {
+                  select: {
+                    publicUrl: true,
+                  },
+                },
               },
             },
           },
@@ -339,9 +363,11 @@ export class CommunityService {
     const where: any = {};
 
     if (district) {
-      where.listing = {
-        userProfile: {
-          district,
+      where.seller = {
+        profile: {
+          is: {
+            district,
+          },
         },
       };
     }
@@ -350,16 +376,20 @@ export class CommunityService {
       this.prisma.marketplaceListing.findMany({
         where,
         include: {
-          listing: {
+          seller: {
             select: {
               id: true,
               email: true,
-              userProfile: {
+              profile: {
                 select: {
-                  username: true,
-                  profileImage: true,
+                  displayName: true,
                   district: true,
-                  verifiedGrower: true,
+                  growerVerificationStatus: true,
+                  avatarAsset: {
+                    select: {
+                      publicUrl: true,
+                    },
+                  },
                 },
               },
             },
@@ -402,28 +432,45 @@ export class CommunityService {
       throw new ForbiddenException('You can only list your own plants');
     }
 
+    const sellerProfile = await this.prisma.userProfile.findUnique({
+      where: { userId },
+      select: {
+        district: true,
+        ward: true,
+      },
+    });
+
     const listing = await this.prisma.marketplaceListing.create({
       data: {
         sellerId: userId,
         gardenPlantId: dto.gardenPlantId,
-        product: dto.product,
+        title: dto.product,
         quantity: dto.quantity,
+        unit: dto.unit ?? 'unit',
         priceAmount: dto.priceAmount,
+        pickupDistrict: dto.pickupDistrict ?? sellerProfile?.district ?? 'Unknown',
+        pickupWard: dto.pickupWard ?? sellerProfile?.ward ?? null,
         description: dto.description,
         imageAssetId: dto.imageAssetId,
         expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : null,
+        status: 'ACTIVE',
+        publishedAt: new Date(),
       },
       include: {
-        listing: {
+        seller: {
           select: {
             id: true,
             email: true,
-            userProfile: {
+            profile: {
               select: {
-                username: true,
-                profileImage: true,
+                displayName: true,
                 district: true,
-                verifiedGrower: true,
+                growerVerificationStatus: true,
+                avatarAsset: {
+                  select: {
+                    publicUrl: true,
+                  },
+                },
               },
             },
           },
@@ -493,25 +540,25 @@ export class CommunityService {
       id: listing.id,
       sellerId: listing.sellerId,
       gardenPlantId: listing.gardenPlantId,
-      product: listing.product,
-      quantity: listing.quantity,
+      product: listing.title,
+      quantity: `${listing.quantity} ${listing.unit}`,
       priceAmount: listing.priceAmount,
       description: listing.description,
       imageAssetId: listing.imageAssetId,
       expiresAt: listing.expiresAt,
       createdAt: listing.createdAt,
       updatedAt: listing.updatedAt,
-      seller: this.mapUserToMinimalDto(listing.listing),
+      seller: this.mapUserToMinimalDto(listing.seller),
     };
   }
 
   private mapUserToMinimalDto(user: any): UserMinimalDto {
     return {
       id: user.id,
-      username: user.userProfile?.username || user.email.split('@')[0],
-      profileImage: user.userProfile?.profileImage,
-      district: user.userProfile?.district,
-      verifiedGrower: user.userProfile?.verifiedGrower,
+      username: user.profile?.displayName || user.email.split('@')[0],
+      profileImage: user.profile?.avatarAsset?.publicUrl,
+      district: user.profile?.district,
+      verifiedGrower: user.profile?.growerVerificationStatus === 'VERIFIED',
     };
   }
 }
