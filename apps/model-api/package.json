@@ -1,8 +1,10 @@
 {
     "name": "model-api",
     "scripts": {
-        "dev": "nodemon --exec python ./src/main.py --ext py,html,yaml",
-        "build": "poetry build",
-        "start": "python ./src/main.py"
+        "dev": "poetry run python -m src.main",
+        "build": "poetry check",
+        "start": "poetry run python -m src.main",
+        "start:prod": "poetry run gunicorn --workers 2 --bind 0.0.0.0:${PORT:-3002} src.wsgi:app",
+        "start:asgi": "poetry run uvicorn src.asgi:app --host 0.0.0.0 --port ${PORT:-3002}"
     }
 }

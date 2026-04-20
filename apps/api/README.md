@@ -34,7 +34,7 @@ pnpm install -C apps/api
 
 ## Environment Variables
 
-Create `.env.local` file in `apps/api/`:
+Create `.env` file in `apps/api/`:
 
 ```env
 # PostgreSQL connections (Supabase)
@@ -42,12 +42,19 @@ DATABASE_URL="postgresql://user:password@db.example.com:5432/cityfarm?schema=pub
 DIRECT_URL="postgresql://user:password@db.example.com:6543/cityfarm?schema=public"
 
 # API configuration
-PORT=3000
+PORT=3001
 NODE_ENV=development
+FRONTEND_URL="http://localhost:3000"
+CORS_ORIGINS="http://localhost:3000"
+COOKIE_SAME_SITE="lax"
+COOKIE_DOMAIN=""
 ```
 
 - `DATABASE_URL`: Connection via PgBouncer (for application use)
 - `DIRECT_URL`: Direct connection (for database migrations via Prisma)
+- `CORS_ORIGINS`: Comma-separated list of allowed frontend origins.
+- `COOKIE_SAME_SITE`: `lax`, `strict`, or `none` (recommended `none` in production cross-origin setups).
+- `COOKIE_DOMAIN`: Optional cookie domain for production.
 
 ## Development
 
@@ -64,7 +71,7 @@ pnpm run start:prod
 pnpm run start:debug
 ```
 
-Server runs on `http://localhost:3000` by default.
+Server runs on `http://localhost:3001` by default.
 
 ### Code Quality
 

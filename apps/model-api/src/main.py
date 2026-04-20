@@ -1,19 +1,35 @@
-from flask import Flask
 import os
-app = Flask("Hello World API")
+
+from dotenv import load_dotenv
+from flask import Flask, jsonify
+
+load_dotenv()
 
 
-@app.route("/")
-def hello_world():
-    return "<p>Hello, World!</p>"
+def create_app() -> Flask:
+    app = Flask("CITYFARM Model API")
+
+    @app.get("/")
+    def hello_world():
+        return jsonify({"service": "model-api", "status": "ok"})
+
+    @app.get("/healthz")
+    def healthz():
+        return jsonify({"status": "healthy"}), 200
+
+    @app.get("/hello")
+    def hello():
+        return jsonify({"message": "Hello, World! from hello"})
+
+    return app
 
 
-@app.route("/hello")
-def hello():
-    return "<p>Hello, World! from hello</p>"
+def run_dev_server() -> None:
+    app = create_app()
+    port = int(os.getenv("PORT", "3002"))
+    debug = os.getenv("FLASK_DEBUG", "0") == "1"
+    app.run(host="0.0.0.0", port=port, debug=debug)
 
 
 if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 3002))
-    print(port)
-    app.run(host="0.0.0.0", port=port, debug=True)
+    run_dev_server()

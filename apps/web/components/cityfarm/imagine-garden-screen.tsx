@@ -260,8 +260,8 @@ export function ImagineGardenScreen() {
         <section className="overflow-hidden rounded-3xl border border-white/80 bg-white shadow-[0_18px_44px_rgba(18,54,34,0.12)]">
           <div className="relative h-56 overflow-hidden">
             <img
-              src={featuredPlant.imageUrl}
-              alt={featuredPlant.name}
+              src={featuredPlant?.imageUrl ?? ""}
+              alt={featuredPlant?.name ?? "Featured crop"}
               className="h-full w-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/72 via-black/18 to-transparent" />

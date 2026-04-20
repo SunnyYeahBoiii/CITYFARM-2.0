@@ -89,6 +89,8 @@ cp apps/model-api/.env.example apps/model-api/.env
 ```
 
 Add at least:
+* `apps/web/.env` — `NEXT_PUBLIC_API_BASE`, `NEXT_PUBLIC_AUTH_API_BASE`.
+* `apps/api/.env` — `DATABASE_URL`, `JWT_REFRESH_SECRET`, `JWT_ACCESS_SECRET`, `FRONTEND_URL`, `CORS_ORIGINS`.
 * `apps/model-api/.env` — e.g. `GEMINI_API_KEY`, `OPENWEATHER_API_KEY` if used.
 
 ### 3. Model API (Python)

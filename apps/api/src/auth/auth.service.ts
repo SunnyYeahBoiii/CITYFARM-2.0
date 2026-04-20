@@ -37,7 +37,7 @@ export class AuthService {
 
   async validateUser(loginDto: AuthLoginDto) {
     const user = await this.userService.findByEmail(loginDto.email);
-    if (user && (await bcrypt.compare(loginDto.password, user.passwordHash))) {
+    if (user?.passwordHash && (await bcrypt.compare(loginDto.password, user.passwordHash))) {
       return user;
     }
     throw new UnauthorizedException('Invalid credentials');
@@ -85,11 +85,29 @@ export class AuthService {
     return { message: 'Logged out successfully' };
   }
 
+  private isProduction() {
+    return this.configService.get<string>('NODE_ENV') === 'production';
+  }
+
+  private getCookieSameSite(): 'lax' | 'strict' | 'none' {
+    const configured = this.configService.get<string>('COOKIE_SAME_SITE')?.toLowerCase();
+    if (configured === 'strict' || configured === 'lax' || configured === 'none') {
+      return configured;
+    }
+
+    return this.isProduction() ? 'none' : 'lax';
+  }
+
+  private getCookieDomain() {
+    return this.configService.get<string>('COOKIE_DOMAIN') || undefined;
+  }
+
   getAccessTokenCookieOptions() {
     return {
       httpOnly: true,
-      secure: this.configService.getOrThrow<string>('NODE_ENV') === 'production',
-      sameSite: 'lax' as const,
+      secure: this.isProduction(),
+      sameSite: this.getCookieSameSite(),
+      domain: this.getCookieDomain(),
       maxAge: 15 * 60 * 1000,
     };
   }
@@ -97,8 +115,9 @@ export class AuthService {
   getRefreshTokenCookieOptions() {
     return {
       httpOnly: true,
-      secure: this.configService.getOrThrow<string>('NODE_ENV') === 'production',
-      sameSite: 'lax' as const,
+      secure: this.isProduction(),
+      sameSite: this.getCookieSameSite(),
+      domain: this.getCookieDomain(),
       maxAge: 7 * 24 * 60 * 60 * 1000,
     };
   }
