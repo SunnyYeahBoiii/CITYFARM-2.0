@@ -26,10 +26,12 @@ export interface FeedPost {
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+  userId: string;
   user: UserMinimal;
   likes: number;
   comments: number;
   isLiked?: boolean;
+  gardenPlant?: any;
   latestComments?: FeedComment[];
 }
 

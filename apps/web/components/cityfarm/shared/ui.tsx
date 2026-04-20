@@ -91,7 +91,7 @@ export function AnalysisMetric({
   );
 }
 
-export function Avatar({ name }: { name: string }) {
+export function Avatar({ name, size, className }: { name: string; size?: number; className?: string }) {
   const initials = name
     .split(" ")
     .filter(Boolean)
@@ -100,8 +100,13 @@ export function Avatar({ name }: { name: string }) {
     .join("")
     .toUpperCase();
 
+  const sizeStyle = size ? { width: `${size}px`, height: `${size}px`, minWidth: `${size}px`, minHeight: `${size}px`, fontSize: `${size * 0.4}px` } : {};
+
   return (
-    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-(--color-interactive-bg) font-bold text-(--color-green-deep)">
+    <div 
+      className={cn("flex h-11 w-11 items-center justify-center rounded-full bg-(--color-interactive-bg) font-bold text-(--color-green-deep)", className)}
+      style={sizeStyle}
+    >
       {initials}
     </div>
   );

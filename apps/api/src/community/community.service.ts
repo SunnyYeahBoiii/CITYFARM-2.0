@@ -83,6 +83,36 @@ export class CommunityService {
               comments: true,
             },
           },
+          gardenPlant: {
+            include: {
+              plantSpecies: {
+                select: {
+                  commonName: true,
+                  category: true,
+                  harvestDaysMin: true,
+                  careProfile: {
+                    select: {
+                      growthTimeline: true,
+                    },
+                  },
+                  products: {
+                    take: 1,
+                    select: {
+                      name: true,
+                      coverAsset: { select: { publicUrl: true } },
+                    },
+                  },
+                },
+              },
+              journalEntries: {
+                take: 1,
+                orderBy: { createdAt: 'desc' },
+                include: {
+                  imageAsset: { select: { publicUrl: true } },
+                },
+              },
+            },
+          },
         },
         orderBy: {
           createdAt: 'desc',
@@ -150,6 +180,31 @@ export class CommunityService {
             comments: true,
           },
         },
+        gardenPlant: {
+          include: {
+            plantSpecies: {
+              select: {
+                commonName: true,
+                category: true,
+                harvestDaysMin: true,
+                products: {
+                  take: 1,
+                  select: {
+                    name: true,
+                    coverAsset: { select: { publicUrl: true } },
+                  },
+                },
+              },
+            },
+            journalEntries: {
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                imageAsset: { select: { publicUrl: true } },
+              },
+            },
+          },
+        },
       },
     });
 
@@ -187,6 +242,31 @@ export class CommunityService {
           select: {
             reactions: true,
             comments: true,
+          },
+        },
+        gardenPlant: {
+          include: {
+            plantSpecies: {
+              select: {
+                commonName: true,
+                category: true,
+                harvestDaysMin: true,
+                products: {
+                  take: 1,
+                  select: {
+                    name: true,
+                    coverAsset: { select: { publicUrl: true } },
+                  },
+                },
+              },
+            },
+            journalEntries: {
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                imageAsset: { select: { publicUrl: true } },
+              },
+            },
           },
         },
       },
@@ -548,6 +628,10 @@ export class CommunityService {
       likes: post._count?.reactions || 0,
       comments: post._count?.comments || 0,
       isLiked: post.reactions?.length > 0,
+      gardenPlant: post.gardenPlant ? {
+        ...post.gardenPlant,
+        daysGrowing: Math.floor((new Date().getTime() - new Date(post.gardenPlant.plantedAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
+      } : undefined,
     };
   }
 

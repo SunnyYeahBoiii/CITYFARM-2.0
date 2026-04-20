@@ -25,6 +25,7 @@ export class FeedPostDto {
   user: UserMinimalDto;
   likes: number;
   comments: number;
+  gardenPlant?: any;
   isLiked?: boolean;
 }
 

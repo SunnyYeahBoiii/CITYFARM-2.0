@@ -57,7 +57,7 @@ export class CommunityController {
   @Get('feed/:postId')
   async getFeedPost(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     return this.communityService.getFeedPostById(postId, userId);
   }
@@ -75,7 +75,7 @@ export class CommunityController {
   @Delete('feed/:postId')
   async deleteFeedPost(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     await this.communityService.deleteFeedPost(postId, userId);
     return { message: 'Post deleted successfully' };
@@ -113,7 +113,7 @@ export class CommunityController {
   @Delete('comments/:commentId')
   async deleteComment(
     @Param('commentId') commentId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     await this.communityService.deleteComment(commentId, userId);
     return { message: 'Comment deleted successfully' };
