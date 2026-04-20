@@ -14,7 +14,7 @@ WORKDIR /app
 COPY . .
 
 RUN pnpm install --frozen-lockfile \
-  && pnpm --filter api prisma generate \
+  && pnpm --filter api run prisma:generate \
   && pnpm --filter api build
 
 WORKDIR /app/apps/api
