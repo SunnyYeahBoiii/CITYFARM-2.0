@@ -85,3 +85,10 @@ export async function createComment(
 export async function deleteComment(commentId: string): Promise<void> {
   await api.delete(`/community/comments/${commentId}`);
 }
+export async function deleteMarketplaceListing(listingId: string): Promise<void> {
+  await api.delete(`/community/marketplace/${listingId}`);
+}
+export async function updateMarketplaceListing(listingId: string, payload: any): Promise<MarketListing> {
+  const { data } = await api.patch<MarketListing>(`/community/marketplace/${listingId}`, payload);
+  return data;
+}

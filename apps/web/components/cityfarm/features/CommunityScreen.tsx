@@ -6,7 +6,7 @@ import { getPlantById, getPlants } from "@/lib/cityfarm";
 import { getHarvestDays } from "@/lib/cityfarm/utils";
 import { uploadAsset } from "@/lib/api/assets.api";
 import { gardenApi } from "@/lib/api/garden.api";
-import { createComment, createPost, deleteComment, deletePost, getPostComments, loadCommunityData, toggleReaction } from "@/lib/api/community.api";
+import { createComment, createPost, deleteComment, deletePost, getPostComments, loadCommunityData, toggleReaction, deleteMarketplaceListing, updateMarketplaceListing } from "@/lib/api/community.api";
 import { PostType, type FeedPost, type MarketListing, type FeedComment } from "@/lib/types/community";
 import { useAuth } from "@/context/AuthContext";
 import styles from "../cityfarm.module.css";
@@ -60,6 +60,28 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
   const [isCommentsLoading, setIsCommentsLoading] = useState(false);
   const [newCommentText, setNewCommentText] = useState("");
   const [replyingToId, setReplyingToId] = useState<string | null>(null);
+  
+  // Market states
+  const [activeListing, setActiveListing] = useState<MarketListing | null>(null);
+  const [isPurchasing, setIsPurchasing] = useState(false);
+  const [marketFilter, setMarketFilter] = useState<"all" | "mine">("all");
+  const [isEditingListing, setIsEditingListing] = useState(false);
+  const [editFormData, setEditFormData] = useState({
+    description: "",
+    priceAmount: 0,
+    quantity: "",
+    unit: ""
+  });
+  
+  // Purchase Wizard states
+  const [purchaseStep, setPurchaseStep] = useState<"quantity" | "shipping" | "summary">("quantity");
+  const [purchaseData, setPurchaseData] = useState({
+    buyQuantity: "",
+    receiverName: "",
+    receiverPhone: "",
+    deliveryAddress: "",
+    note: ""
+  });
   
   const { user } = useAuth();
 
@@ -329,6 +351,74 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
     }
   };
 
+  const handleConfirmPurchase = async () => {
+    if (!activeListing) return;
+
+    try {
+      setIsPurchasing(true);
+      // Success!
+      setActiveListing(null);
+      setPurchaseStep("quantity");
+      alert(`🎉 Dat hang thanh cong! Chuc mung ban da mua ${purchaseData.buyQuantity} ${activeListing.unit} ${activeListing.product}. Nguoi ban (${activeListing.seller.username}) se lien he voi ban qua so dien thoai ${purchaseData.receiverPhone} de giao hang den ${purchaseData.deliveryAddress}.`);
+      
+      // Reset purchase data
+      setPurchaseData({
+        buyQuantity: "",
+        receiverName: "",
+        receiverPhone: "",
+        deliveryAddress: "",
+        note: ""
+      });
+    } catch (error) {
+      console.error("Failed to purchase listing:", error);
+      alert("Co loi khi mua hang. Vui long thu lai.");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleUpdateListing = async () => {
+    if (!activeListing) return;
+    try {
+      setIsPurchasing(true);
+      const updated = await updateMarketplaceListing(activeListing.id, {
+        description: editFormData.description,
+        priceAmount: editFormData.priceAmount,
+        quantity: editFormData.quantity,
+        unit: editFormData.unit
+      });
+      
+      setListings(prev => prev.map(l => l.id === updated.id ? updated : l));
+      setActiveListing(null);
+      setIsEditingListing(false);
+      alert("Cap nhat bai dang thanh cong!");
+    } catch (error) {
+      console.error("Failed to update listing:", error);
+      alert("Khong the cap nhat. Vui long thu lai.");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
+  const handleDeleteListing = async () => {
+    if (!activeListing) return;
+    if (!confirm("Ban co chac chan muon xoa bai dang nay?")) return;
+    
+    try {
+      setIsPurchasing(true);
+      await deleteMarketplaceListing(activeListing.id);
+      setListings(prev => prev.filter(l => l.id !== activeListing.id));
+      setActiveListing(null);
+      setIsEditingListing(false);
+      alert("Da xoa bai dang.");
+    } catch (error) {
+      console.error("Failed to delete listing:", error);
+      alert("Khong the xoa. Vui long thu lai.");
+    } finally {
+      setIsPurchasing(false);
+    }
+  };
+
   return (
     <div className={styles.screen}>
       <div className={styles.screenPadded}>
@@ -559,10 +649,47 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
           </section>
         ) : (
           <section className={styles.section} style={{ marginTop: 0 }}>
+            <div className={styles.filterRow} style={{ marginBottom: "1rem" }}>
+              <button
+                type="button"
+                className={marketFilter === "all" ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setMarketFilter("all")}
+              >
+                All Deliveries
+              </button>
+              <button
+                type="button"
+                className={marketFilter === "mine" ? styles.filterChipActive : styles.filterChip}
+                onClick={() => setMarketFilter("mine")}
+              >
+                My Listings
+              </button>
+            </div>
             <div className={styles.listingFeed}>
               {!isCommunityLoading && listings.length === 0 ? <div className={styles.metaText}>No marketplace listings available.</div> : null}
-              {listings.map((listing) => (
-                <div key={listing.id} className={styles.listingCard}>
+              {listings
+                .filter(l => marketFilter === "all" || l.seller.id === user.id)
+                .map((listing) => (
+                  <div 
+                    key={listing.id} 
+                    className={styles.listingCard} 
+                    onClick={() => {
+                      setActiveListing(listing);
+                      if (listing.seller.id === user.id) {
+                        setIsEditingListing(true);
+                        setEditFormData({
+                          description: listing.description || "",
+                          priceAmount: listing.priceAmount,
+                          quantity: listing.quantity?.toString() || "",
+                          unit: listing.unit || ""
+                        });
+                      } else {
+                        setIsEditingListing(false);
+                        setPurchaseStep("quantity"); // Reset to first step
+                        setPurchaseData(prev => ({ ...prev, receiverName: user?.profile?.displayName || "", receiverPhone: "" }));
+                      }
+                    }}
+                  >
                   <div className={styles.listingBody}>
                     <div className={styles.listingRow}>
                       <div className={styles.listingImage}>
@@ -575,7 +702,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                           <div>
                             <div className={styles.plantName}>{listing.product}</div>
                             <div className={styles.metaText}>
-                              {listing.quantity} • {formatDateShort(listing.createdAt)}
+                              {listing.quantity} {listing.unit} • {formatDateShort(listing.createdAt)}
                             </div>
                           </div>
                           <div className={styles.matchPill}>₫{listing.priceAmount.toLocaleString()}</div>
@@ -814,6 +941,286 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
               >
                 <PlusIcon size={20} style={{ transform: "rotate(0deg)" }} />
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit Listing Sheet */}
+      {activeListing && isEditingListing && (
+        <div className={styles.commentSheetOverlay} onClick={() => { setActiveListing(null); setIsEditingListing(false); }}>
+          <div className={styles.commentSheet} onClick={(e) => e.stopPropagation()} style={{ height: "auto", minHeight: "50vh" }}>
+            <div className={styles.commentSheetHeader}>
+              <div className={styles.commentSheetTitle}>Edit Your Listing</div>
+              <button type="button" onClick={() => { setActiveListing(null); setIsEditingListing(false); }} className={styles.iconButton}>
+                <CloseIcon size={20} />
+              </button>
+            </div>
+
+            <div className={styles.commentSheetBody} style={{ padding: "1.5rem" }}>
+              <div className="bg-[#f0f4ef] p-4 rounded-2xl mb-6 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-[#355b31] flex items-center justify-center text-white">
+                  <HelpIcon size={18} />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-[#355b31] uppercase tracking-wide">Owner Management</div>
+                  <div className="text-sm text-[#1f2916]">You are managing: <strong>{activeListing.product}</strong></div>
+                </div>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-xs font-bold text-[#8a9687] uppercase tracking-wider mb-2">Description</label>
+                <textarea 
+                  className={styles.commentInput}
+                  style={{ minHeight: "100px", background: "#f0f4ef", padding: "1rem" }}
+                  value={editFormData.description}
+                  onChange={(e) => setEditFormData({ ...editFormData, description: e.target.value })}
+                />
+              </div>
+
+              <div className="flex gap-4 mb-6">
+                <div className="flex-2">
+                  <label className="block text-xs font-bold text-[#8a9687] uppercase tracking-wider mb-2">Price (₫)</label>
+                  <input 
+                    type="number"
+                    className={styles.commentInput}
+                    style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                    value={editFormData.priceAmount}
+                    onChange={(e) => setEditFormData({ ...editFormData, priceAmount: parseInt(e.target.value) || 0 })}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-[#8a9687] uppercase tracking-wider mb-2">Qty</label>
+                  <input 
+                    type="text"
+                    className={styles.commentInput}
+                    style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                    value={editFormData.quantity}
+                    onChange={(e) => setEditFormData({ ...editFormData, quantity: e.target.value })}
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-bold text-[#8a9687] uppercase tracking-wider mb-2">Unit</label>
+                  <input 
+                    type="text"
+                    className={styles.commentInput}
+                    style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                    value={editFormData.unit}
+                    onChange={(e) => setEditFormData({ ...editFormData, unit: e.target.value })}
+                    placeholder="kg, pcs..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <button 
+                  className={styles.buttonPrimary}
+                  style={{ width: "100%", padding: "1.2rem", borderRadius: "1.5rem" }}
+                  onClick={handleUpdateListing}
+                  disabled={isPurchasing}
+                >
+                  {isPurchasing ? "Updating..." : "Update Listing"}
+                </button>
+                <button 
+                  className="w-full py-4 text-[#dc2626] font-bold text-sm bg-rose-50 rounded-[1.5rem] hover:bg-rose-100 transition-colors"
+                  onClick={handleDeleteListing}
+                  disabled={isPurchasing}
+                >
+                  Delete Permanently
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Purchase Confirmation Sheet */}
+      {activeListing && !isEditingListing && (
+        <div className={styles.commentSheetOverlay} onClick={() => setActiveListing(null)}>
+          <div className={styles.commentSheet} onClick={(e) => e.stopPropagation()} style={{ height: "auto", minHeight: "40vh" }}>
+            <div className={styles.commentSheetHeader}>
+              <div className={styles.commentSheetTitle}>
+                {purchaseStep === "quantity" && "Select Quantity"}
+                {purchaseStep === "shipping" && "Shipping Information"}
+                {purchaseStep === "summary" && "Order Summary"}
+              </div>
+              <button type="button" onClick={() => setActiveListing(null)} className={styles.iconButton}>
+                <CloseIcon size={20} />
+              </button>
+            </div>
+
+            <div className={styles.commentSheetBody} style={{ padding: "1.5rem" }}>
+              {/* Product Header (Visible in all steps) */}
+              <div className="flex gap-4 mb-6 pb-6 border-b border-[#f0f4ef]">
+                <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#f0f4ef] shrink-0">
+                  {activeListing.imageUrl && (
+                    <img src={activeListing.imageUrl} alt={activeListing.product} className="w-full h-full object-contain" />
+                  )}
+                </div>
+                <div>
+                  <div className="text-md font-bold text-[#1f2916] mb-1">{activeListing.product}</div>
+                  <div className="text-[#355b31] font-bold">₫{activeListing.priceAmount.toLocaleString()} / {activeListing.unit}</div>
+                  <div className="text-xs text-[#8a9687] mt-1">{activeListing.quantity} {activeListing.unit} available</div>
+                </div>
+              </div>
+
+              {/* Step 1: Quantity Selection */}
+              {purchaseStep === "quantity" && (
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-300">
+                  <div className="mb-8">
+                    <label className="block text-xs font-bold text-[#8a9687] uppercase tracking-wider mb-3 text-center">How much would you like to buy?</label>
+                    <div className="flex items-center justify-center gap-3">
+                      <input 
+                        type="number"
+                        className={styles.commentInput}
+                        style={{ 
+                          fontSize: "2rem", 
+                          textAlign: "center", 
+                          fontWeight: "800", 
+                          color: parseFloat(purchaseData.buyQuantity) > parseFloat(activeListing.quantity) ? "#dc2626" : "#355b31", 
+                          background: "#f0f4ef", 
+                          height: "80px" 
+                        }}
+                        value={purchaseData.buyQuantity}
+                        onChange={(e) => setPurchaseData({ ...purchaseData, buyQuantity: e.target.value })}
+                        placeholder="0"
+                      />
+                      <span className="text-xl font-bold text-[#8a9687]">{activeListing.unit}</span>
+                    </div>
+                    {purchaseData.buyQuantity && parseFloat(purchaseData.buyQuantity) > parseFloat(activeListing.quantity) && (
+                      <div className="text-xs text-red-500 text-center mt-2 font-bold animate-pulse">
+                        Cannot exceed available quantity ({activeListing.quantity} {activeListing.unit})
+                      </div>
+                    )}
+                  </div>
+
+                  <button 
+                    className={styles.buttonPrimary}
+                    style={{ width: "100%", padding: "1.2rem", borderRadius: "1.5rem" }}
+                    onClick={() => setPurchaseStep("shipping")}
+                    disabled={!purchaseData.buyQuantity || parseFloat(purchaseData.buyQuantity) <= 0 || parseFloat(purchaseData.buyQuantity) > parseFloat(activeListing.quantity)}
+                  >
+                    Continue to Shipping
+                  </button>
+                </div>
+              )}
+
+              {/* Step 2: Shipping Information */}
+              {purchaseStep === "shipping" && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="grid grid-cols-1 gap-4 mb-8">
+                    <div>
+                      <label className="block text-xs font-bold text-[#8a9687] mb-2 uppercase">
+                        Recipient Name <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        className={styles.commentInput}
+                        style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                        value={purchaseData.receiverName}
+                        onChange={(e) => setPurchaseData({ ...purchaseData, receiverName: e.target.value })}
+                        placeholder="Full Name"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#8a9687] mb-2 uppercase">
+                        Phone Number <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        className={styles.commentInput}
+                        style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                        value={purchaseData.receiverPhone}
+                        onChange={(e) => setPurchaseData({ ...purchaseData, receiverPhone: e.target.value })}
+                        placeholder="0xxx xxx xxx"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#8a9687] mb-2 uppercase">
+                        Delivery Address <span className="text-red-500">*</span>
+                      </label>
+                      <input 
+                        className={styles.commentInput}
+                        style={{ background: "#f0f4ef", padding: "0.8rem 1rem" }}
+                        value={purchaseData.deliveryAddress}
+                        onChange={(e) => setPurchaseData({ ...purchaseData, deliveryAddress: e.target.value })}
+                        placeholder="Street, District, City"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-bold text-[#8a9687] mb-2 uppercase">Note (Optional)</label>
+                      <textarea 
+                        className={styles.commentInput}
+                        style={{ background: "#f0f4ef", padding: "0.8rem 1rem", minHeight: "80px" }}
+                        value={purchaseData.note}
+                        onChange={(e) => setPurchaseData({ ...purchaseData, note: e.target.value })}
+                        placeholder="Delivery time, instructions..."
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      className="flex-1 py-4 font-bold text-[#355b31] bg-[#f0f4ef] rounded-[1.5rem]"
+                      onClick={() => setPurchaseStep("quantity")}
+                    >
+                      Back
+                    </button>
+                    <button 
+                      className="flex-2 py-4 font-bold text-white bg-[#355b31] rounded-[1.5rem]"
+                      onClick={() => setPurchaseStep("summary")}
+                      disabled={!purchaseData.receiverName || !purchaseData.receiverPhone || !purchaseData.deliveryAddress}
+                    >
+                      Review Order
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Step 3: Order Summary */}
+              {purchaseStep === "summary" && (
+                <div className="animate-in fade-in slide-in-from-right-4 duration-300">
+                  <div className="bg-[#f0f4ef] p-5 rounded-2xl mb-8">
+                    <h4 className="text-xs font-bold text-[#8a9687] uppercase mb-4 tracking-widest text-center">ORDER TOTAL</h4>
+                    <div className="flex justify-between items-center mb-6">
+                      <div className="text-[#1f2916] font-medium">{activeListing.product} x {purchaseData.buyQuantity} {activeListing.unit}</div>
+                      <div className="text-lg font-bold text-[#355b31]">
+                        ₫{(activeListing.priceAmount * parseFloat(purchaseData.buyQuantity)).toLocaleString()}
+                      </div>
+                    </div>
+
+                    <div className="space-y-4 pt-4 border-t border-white/50">
+                      <div>
+                        <div className="text-[10px] font-bold text-[#8a9687] uppercase tracking-wider mb-1">SHIPPING TO</div>
+                        <div className="text-sm font-bold text-[#1f2916]">{purchaseData.receiverName}</div>
+                        <div className="text-xs text-[#1f2916]">{purchaseData.receiverPhone}</div>
+                        <div className="text-xs text-[#1f2916] mt-1 line-clamp-1">{purchaseData.deliveryAddress}</div>
+                      </div>
+                      {purchaseData.note && (
+                        <div>
+                          <div className="text-[10px] font-bold text-[#8a9687] uppercase tracking-wider mb-1">NOTES</div>
+                          <div className="text-xs italic text-[#1f2916]">"{purchaseData.note}"</div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button 
+                      className="flex-1 py-4 font-bold text-[#355b31] bg-[#f0f4ef] rounded-[1.5rem]"
+                      onClick={() => setPurchaseStep("shipping")}
+                    >
+                      Edit Info
+                    </button>
+                    <button 
+                      className={styles.buttonPrimary}
+                      style={{ flex: 2, padding: "1.2rem", borderRadius: "1.5rem" }}
+                      onClick={handleConfirmPurchase}
+                      disabled={isPurchasing}
+                    >
+                      {isPurchasing ? "Processing..." : "Confirm Purchase"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </div>

@@ -24,6 +24,7 @@ import {
   MarketplaceListingDto,
   MarketplaceListingsPaginatedDto,
 } from '../dtos/marketplace/marketplace-listing.dto';
+import { UpdateMarketplaceListingDto } from '../dtos/marketplace/update-marketplace-listing.dto';
 
 @Injectable()
 export class CommunityService {
@@ -605,6 +606,61 @@ export class CommunityService {
     await this.prisma.marketplaceListing.delete({
       where: { id: listingId },
     });
+  }
+
+  async updateMarketplaceListing(
+    listingId: string,
+    userId: string,
+    dto: UpdateMarketplaceListingDto,
+  ): Promise<MarketplaceListingDto> {
+    const listing = await this.prisma.marketplaceListing.findUnique({
+      where: { id: listingId },
+    });
+
+    if (!listing) {
+      throw new NotFoundException('Listing not found');
+    }
+
+    if (listing.sellerId !== userId) {
+      throw new ForbiddenException('You can only update your own listings');
+    }
+
+    const updatedListing = await this.prisma.marketplaceListing.update({
+      where: { id: listingId },
+      data: {
+        title: dto.product,
+        quantity: dto.quantity,
+        unit: dto.unit,
+        priceAmount: dto.priceAmount,
+        description: dto.description,
+        imageAssetId: dto.imageAssetId,
+        expiresAt: dto.expiresAt ? new Date(dto.expiresAt) : undefined,
+      },
+      include: {
+        seller: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarAssetId: true,
+                avatarAsset: {
+                  select: { publicUrl: true },
+                },
+                district: true,
+                growerVerificationStatus: true,
+              },
+            },
+          },
+        },
+        imageAsset: {
+          select: { publicUrl: true },
+        },
+      },
+    });
+
+    return this.mapListingToDto(updatedListing);
   }
 
   // ============ HELPERS ============

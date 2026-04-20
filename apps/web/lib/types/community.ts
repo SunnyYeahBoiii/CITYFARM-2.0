@@ -52,6 +52,7 @@ export interface MarketListing {
   gardenPlantId: string;
   product: string;
   quantity: string;
+  unit?: string;
   priceAmount: number;
   description?: string;
   imageAssetId?: string;
