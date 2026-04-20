@@ -599,7 +599,7 @@
   @apply [width:4.6rem] [height:4.6rem] overflow-hidden shrink-0 rounded-2xl [background:linear-gradient(145deg,#eef5e9,#fbfcfa)];
 }
 .listingImage img {
-  @apply w-full h-full object-contain;
+  @apply w-full h-full object-cover;
 }
 .listingRow {
   @apply flex [gap:0.85rem];

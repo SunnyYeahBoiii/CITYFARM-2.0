@@ -694,7 +694,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                     <div className={styles.listingRow}>
                       <div className={styles.listingImage}>
                         {listing.imageUrl ? (
-                          <CityImage src={listing.imageUrl} alt={listing.product} sizes="88px" className="h-full w-full" fit="contain" />
+                          <CityImage src={listing.imageUrl} alt={listing.product} sizes="88px" className="h-full w-full" fit="cover" />
                         ) : null}
                       </div>
                       <div style={{ flex: 1 }}>
@@ -1054,7 +1054,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
               <div className="flex gap-4 mb-6 pb-6 border-b border-[#f0f4ef]">
                 <div className="w-16 h-16 rounded-xl overflow-hidden bg-[#f0f4ef] shrink-0">
                   {activeListing.imageUrl && (
-                    <img src={activeListing.imageUrl} alt={activeListing.product} className="w-full h-full object-contain" />
+                    <img src={activeListing.imageUrl} alt={activeListing.product} className="w-full h-full object-cover" />
                   )}
                 </div>
                 <div>
@@ -1279,7 +1279,7 @@ function PlantSharePicker({
         <div className={styles.selectorContainer}>
           <div className={styles.plantSlide}>
             <div className={styles.plantSlideImage}>
-              <CityImage src={activePlant.imageUrl} alt={activePlant.name} sizes="160px" className="h-full w-full" fit="contain" />
+              <CityImage src={activePlant.imageUrl} alt={activePlant.name} sizes="160px" className="h-full w-full" fit="cover" />
             </div>
             <div className={styles.plantSlideContent}>
               <div className={styles.plantSlideType}>{activePlant.type}</div>

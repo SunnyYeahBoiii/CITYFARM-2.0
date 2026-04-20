@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { gardenApi } from "@/lib/api/garden.api";
 import { uploadAsset } from "@/lib/api/assets.api";
@@ -318,7 +319,9 @@ function MarketplaceActionCard({ plant }: { plant: GardenPlantDetail }) {
 
 
 export function PlantDetailScreen({ plantId }: { plantId: string }) {
-  const [activeTab, setActiveTab] = useState<DetailTab>("Timeline");
+  const searchParams = useSearchParams();
+  const initialTab = (searchParams.get("tab") as DetailTab) || "Timeline";
+  const [activeTab, setActiveTab] = useState<DetailTab>(initialTab);
   const [plant, setPlant] = useState<GardenPlantDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isProcessingPhoto, setIsProcessingPhoto] = useState(false);

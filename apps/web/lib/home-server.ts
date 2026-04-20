@@ -11,6 +11,7 @@ type HomeStatTone = "green" | "blue" | "amber";
 
 export interface HomeTaskCard {
   id: string;
+  gardenPlantId: string;
   plantName: string;
   action: string;
   timeLabel: string;
@@ -225,6 +226,7 @@ function buildTaskCards(plants: GardenPlantSummary[]): HomeTaskCard[] {
     .flatMap((plant) =>
       plant.careTasks.map((task) => ({
         id: task.id,
+        gardenPlantId: plant.id,
         plantName: plant.nickname || plant.plantSpecies.commonName,
         action: task.title,
         timeLabel: formatRelativeDay(task.dueAt),
@@ -236,6 +238,7 @@ function buildTaskCards(plants: GardenPlantSummary[]): HomeTaskCard[] {
     .slice(0, 3)
     .map((task) => ({
       id: task.id,
+      gardenPlantId: task.gardenPlantId,
       plantName: task.plantName,
       action: task.action,
       timeLabel: task.timeLabel,
@@ -248,7 +251,14 @@ function buildPlantCards(plants: GardenPlantSummary[]): HomePlantCard[] {
     .filter((plant) => plant.status === "ACTIVE" || plant.status === "HARVEST_READY")
     .slice(0, 3)
     .map((plant) => {
-      const harvestDays = plant.plantSpecies.harvestDaysMin ?? plant.plantSpecies.harvestDaysMax ?? 60;
+      const timeline = plant.plantSpecies.careProfile?.growthTimeline;
+      let harvestDays = plant.plantSpecies.harvestDaysMin ?? plant.plantSpecies.harvestDaysMax ?? 60;
+      
+      if (timeline && timeline.length > 0) {
+        const cumulativeDays = timeline.reduce((acc, stage) => acc + (stage.days || 0), 0);
+        harvestDays = Math.max(cumulativeDays, plant.plantSpecies.harvestDaysMin ?? 0);
+      }
+
       const daysGrowing = Math.max(0, diffInDays(plant.plantedAt));
       const progress = Math.min(100, Math.round((daysGrowing / harvestDays) * 100));
       const imageUrl =
