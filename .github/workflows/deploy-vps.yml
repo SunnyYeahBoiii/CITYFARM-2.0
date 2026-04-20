@@ -135,27 +135,9 @@ jobs:
             export COMPOSE_PARALLEL_LIMIT=1
             docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env pull
             docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env up -d --remove-orphans
+
+            # Wait for healthchecks
+            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env wait --timeout=120 api
+            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env wait --timeout=60 web
+
             docker image prune -f
-
-            wait_for_http() {
-              service="$1"
-              url="$2"
-              for attempt in $(seq 1 30); do
-                if curl -sf "$url" >/dev/null 2>&1; then
-                  echo "Service $service is ready at $url"
-                  return 0
-                fi
-                sleep 3
-              done
-              echo "Timed out waiting for $service ($url)"
-              docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env logs --tail=50 "$service"
-              exit 1
-            }
-
-            # Source .env for health check URLs
-            set -a; source .env; set +a
-            WEB_CHECK_URL="http://${WEB_BIND_IP:-127.0.0.1}:${WEB_HOST_PORT:-3000}/"
-            API_CHECK_URL="http://${API_BIND_IP:-127.0.0.1}:${API_HOST_PORT:-3001}/"
-
-            wait_for_http api "$API_CHECK_URL"
-            wait_for_http web "$WEB_CHECK_URL"
