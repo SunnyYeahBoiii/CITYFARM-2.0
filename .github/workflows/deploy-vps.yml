@@ -164,8 +164,8 @@ jobs:
             # Login GHCR and deploy
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin
             export COMPOSE_PARALLEL_LIMIT=1
-            docker compose -f docker-compose.vps.yml --env-file .env pull
-            docker compose -f docker-compose.vps.yml --env-file .env up -d --remove-orphans
+            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env pull
+            docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env up -d --remove-orphans
             docker image prune -f
 
             wait_for_http() {
@@ -179,7 +179,7 @@ jobs:
                 sleep 3
               done
               echo "Timed out waiting for $service ($url)"
-              docker compose -f docker-compose.vps.yml --env-file .env logs --tail=50 "$service"
+              docker compose -f infra/deploy/docker-compose.vps.yml --env-file .env logs --tail=50 "$service"
               exit 1
             }
 
