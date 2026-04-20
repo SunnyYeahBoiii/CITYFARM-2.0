@@ -2,7 +2,6 @@ FROM node:20-bookworm-slim
 
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-ENV NODE_ENV=production
 
 RUN apt-get update \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
@@ -21,5 +20,7 @@ RUN pnpm install --frozen-lockfile \
 WORKDIR /app/apps/api
 
 EXPOSE 3001
+
+ENV NODE_ENV=production
 
 CMD ["sh", "-c", "pnpm prisma:migrate:deploy && node dist/main"]
