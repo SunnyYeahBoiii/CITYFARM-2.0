@@ -59,9 +59,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Set lowercase owner
-        id: owner
-        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+      - name: Set lowercase image owner
+        run: echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
       - name: Setup QEMU
         uses: docker/setup-qemu-action@v3
@@ -69,7 +68,7 @@ jobs:
       - name: Setup Docker Buildx
         uses: docker/setup-buildx-action@v3
 
-      - name: Login to GHCR
+      - name: Log in to ghcr.io
         uses: docker/login-action@v3
         with:
           registry: ${{ env.REGISTRY }}
@@ -85,11 +84,11 @@ jobs:
           platforms: linux/amd64,linux/arm64
           build-args: |
             NEXT_PUBLIC_API_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_API_URL || matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_API_URL || '' }}
-            NEXT_PUBLIC_APP_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_APP_URL || '' }}
+            NEXT_PUBLIC_APP_URL=${{ matrix.image_name == 'cityfarm-2-0-web' && secrets.WEB_NEXT_PUBLIC_API_URL || '' }}
             NEXT_PUBLIC_WEB_URL=${{ matrix.image_name == 'cityfarm-2-0-admin' && secrets.ADMIN_NEXT_PUBLIC_WEB_URL || '' }}
           tags: |
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ matrix.image_name }}:${{ github.sha }}
-            ${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ matrix.image_name }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image_name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ matrix.image_name }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -99,80 +98,83 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          command_timeout: 30m
+          script: |
+            set -euo pipefail
+            cd ${{ env.DEPLOY_PATH }}
 
-      - name: Set lowercase owner
-        id: owner
-        run: echo "value=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_OUTPUT"
+            # Sync deploy files with the commit that triggered this workflow
+            git fetch --prune origin main
+            git checkout main
+            git pull --ff-only origin main
 
-      - name: Setup SSH key
-        run: |
-          mkdir -p ~/.ssh
-          echo '${{ secrets.VPS_SSH_KEY }}' > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -p "${{ secrets.VPS_PORT }}" -H "${{ secrets.VPS_HOST }}" >> ~/.ssh/known_hosts
+            # Prepare .env from secrets (written by workflow, not committed)
+            cat > .env << 'ENVEOF'
+            WEB_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
+            ADMIN_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
+            API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+            MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
+            APP_DOMAIN=${{ vars.APP_DOMAIN || 'app.example.com' }}
+            ADMIN_DOMAIN=${{ vars.ADMIN_DOMAIN || 'admin.example.com' }}
+            API_DOMAIN=${{ vars.API_DOMAIN || 'api.example.com' }}
+            LETSENCRYPT_EMAIL=${{ secrets.LETSENCRYPT_EMAIL }}
+            NGINX_CLIENT_MAX_BODY_SIZE=${{ vars.NGINX_CLIENT_MAX_BODY_SIZE || '25m' }}
+            WEB_BIND_IP=${{ vars.WEB_BIND_IP || '127.0.0.1' }}
+            WEB_HOST_PORT=${{ vars.WEB_HOST_PORT || '3000' }}
+            ADMIN_BIND_IP=${{ vars.ADMIN_BIND_IP || '127.0.0.1' }}
+            ADMIN_HOST_PORT=${{ vars.ADMIN_HOST_PORT || '3002' }}
+            API_BIND_IP=${{ vars.API_BIND_IP || '127.0.0.1' }}
+            API_HOST_PORT=${{ vars.API_HOST_PORT || '3001' }}
+            MODEL_BIND_IP=${{ vars.MODEL_BIND_IP || '127.0.0.1' }}
+            MODEL_HOST_PORT=${{ vars.MODEL_HOST_PORT || '3003' }}
+            WEB_NEXT_PUBLIC_API_URL=${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
+            WEB_NEXT_PUBLIC_APP_URL=${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
+            ADMIN_NEXT_PUBLIC_API_URL=${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
+            ADMIN_NEXT_PUBLIC_WEB_URL=${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
+            API_DATABASE_URL=${{ secrets.API_DATABASE_URL }}
+            API_DIRECT_URL=${{ secrets.API_DIRECT_URL }}
+            API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
+            API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
+            API_SUPABASE_BUCKET_NAME=${{ secrets.API_SUPABASE_BUCKET_NAME }}
+            API_SUPABASE_PUBLISHABLE_KEY=${{ secrets.API_SUPABASE_PUBLISHABLE_KEY }}
+            API_SUPABASE_SECRET_KEY=${{ secrets.API_SUPABASE_SECRET_KEY }}
+            API_JWT_REFRESH_SECRET=${{ secrets.API_JWT_REFRESH_SECRET }}
+            API_JWT_ACCESS_SECRET=${{ secrets.API_JWT_ACCESS_SECRET }}
+            API_GOOGLE_CLIENT_ID=${{ secrets.API_GOOGLE_CLIENT_ID }}
+            API_GOOGLE_CLIENT_SECRET=${{ secrets.API_GOOGLE_CLIENT_SECRET }}
+            API_GOOGLE_CALLBACK_URL=${{ secrets.API_GOOGLE_CALLBACK_URL }}
+            API_FRONTEND_URL=${{ secrets.API_FRONTEND_URL }}
+            API_WEB_ORIGINS=${{ secrets.API_WEB_ORIGINS }}
+            MODEL_GEMINI_API_KEY=${{ secrets.MODEL_GEMINI_API_KEY }}
+            ENVEOF
 
-      - name: Render deploy env
-        run: |
-          cat <<EOF > deploy.env
-          WEB_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
-          ADMIN_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
-          API_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
-          MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ steps.owner.outputs.value }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
-          APP_DOMAIN=${{ vars.APP_DOMAIN || 'app.example.com' }}
-          ADMIN_DOMAIN=${{ vars.ADMIN_DOMAIN || 'admin.example.com' }}
-          API_DOMAIN=${{ vars.API_DOMAIN || 'api.example.com' }}
-          LETSENCRYPT_EMAIL=${{ secrets.LETSENCRYPT_EMAIL }}
-          NGINX_CLIENT_MAX_BODY_SIZE=${{ vars.NGINX_CLIENT_MAX_BODY_SIZE || '25m' }}
-          WEB_UPSTREAM_HOST=${{ vars.WEB_UPSTREAM_HOST || '127.0.0.1' }}
-          ADMIN_UPSTREAM_HOST=${{ vars.ADMIN_UPSTREAM_HOST || '127.0.0.1' }}
-          API_UPSTREAM_HOST=${{ vars.API_UPSTREAM_HOST || '127.0.0.1' }}
-          WEB_BIND_IP=${{ vars.WEB_BIND_IP || '127.0.0.1' }}
-          WEB_HOST_PORT=${{ vars.WEB_HOST_PORT || '3000' }}
-          ADMIN_BIND_IP=${{ vars.ADMIN_BIND_IP || '127.0.0.1' }}
-          ADMIN_HOST_PORT=${{ vars.ADMIN_HOST_PORT || '3003' }}
-          API_BIND_IP=${{ vars.API_BIND_IP || '127.0.0.1' }}
-          API_HOST_PORT=${{ vars.API_HOST_PORT || '3001' }}
-          MODEL_BIND_IP=${{ vars.MODEL_BIND_IP || '127.0.0.1' }}
-          MODEL_HOST_PORT=${{ vars.MODEL_HOST_PORT || '3002' }}
-          WEB_NEXT_PUBLIC_API_URL=${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
-          WEB_NEXT_PUBLIC_APP_URL=${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
-          ADMIN_NEXT_PUBLIC_API_URL=${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
-          ADMIN_NEXT_PUBLIC_WEB_URL=${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
-          API_DATABASE_URL=${{ secrets.API_DATABASE_URL }}
-          API_DIRECT_URL=${{ secrets.API_DIRECT_URL }}
-          API_SUPABASE_URL=${{ secrets.API_SUPABASE_URL }}
-          API_SUPABASE_SERVICE_ROLE_KEY=${{ secrets.API_SUPABASE_SERVICE_ROLE_KEY }}
-          API_SUPABASE_BUCKET_NAME=${{ secrets.API_SUPABASE_BUCKET_NAME }}
-          API_SUPABASE_PUBLISHABLE_KEY=${{ secrets.API_SUPABASE_PUBLISHABLE_KEY }}
-          API_SUPABASE_SECRET_KEY=${{ secrets.API_SUPABASE_SECRET_KEY }}
-          API_JWT_REFRESH_SECRET=${{ secrets.API_JWT_REFRESH_SECRET }}
-          API_JWT_ACCESS_SECRET=${{ secrets.API_JWT_ACCESS_SECRET }}
-          API_GOOGLE_CLIENT_ID=${{ secrets.API_GOOGLE_CLIENT_ID }}
-          API_GOOGLE_CLIENT_SECRET=${{ secrets.API_GOOGLE_CLIENT_SECRET }}
-          API_GOOGLE_CALLBACK_URL=${{ secrets.API_GOOGLE_CALLBACK_URL }}
-          API_FRONTEND_URL=${{ secrets.API_FRONTEND_URL }}
-          API_WEB_ORIGINS=${{ secrets.API_WEB_ORIGINS }}
-          MODEL_GEMINI_API_KEY=${{ secrets.MODEL_GEMINI_API_KEY }}
-          EOF
+            # Login GHCR and deploy
+            echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin
+            export COMPOSE_PARALLEL_LIMIT=1
+            docker compose -f docker-compose.vps.yml --env-file .env pull
+            docker compose -f docker-compose.vps.yml --env-file .env up -d --remove-orphans
+            docker image prune -f
 
-      - name: Upload deploy bundle
-        run: |
-          ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" "mkdir -p '${{ env.DEPLOY_PATH }}'"
-          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/docker-compose.vps.yml "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/docker-compose.vps.yml"
-          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/deploy.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/deploy.sh"
-          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/bootstrap-ubuntu-vps.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/bootstrap-ubuntu-vps.sh"
-          scp -P "${{ secrets.VPS_PORT }}" infra/deploy/setup-nginx.sh "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/setup-nginx.sh"
-          scp -P "${{ secrets.VPS_PORT }}" infra/nginx/cityfarm.http.conf.template "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/cityfarm.http.conf.template"
-          scp -P "${{ secrets.VPS_PORT }}" infra/nginx/cityfarm.https.conf.template "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/cityfarm.https.conf.template"
-          scp -P "${{ secrets.VPS_PORT }}" deploy.env "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:${{ env.DEPLOY_PATH }}/.env"
+            wait_for_http() {
+              service="$1"
+              url="$2"
+              for attempt in $(seq 1 30); do
+                if curl -sf "$url" >/dev/null 2>&1; then
+                  echo "Service $service is ready at $url"
+                  return 0
+                fi
+                sleep 3
+              done
+              echo "Timed out waiting for $service ($url)"
+              docker compose -f docker-compose.vps.yml --env-file .env logs --tail=50 "$service"
+              exit 1
+            }
 
-      - name: Deploy on VPS
-        run: |
-          ssh -p "${{ secrets.VPS_PORT }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "chmod +x '${{ env.DEPLOY_PATH }}/deploy.sh' && \
-            GHCR_USERNAME='${{ secrets.GHCR_USERNAME }}' \
-            GHCR_TOKEN='${{ secrets.GHCR_TOKEN }}' \
-            DEPLOY_PATH='${{ env.DEPLOY_PATH }}' \
-            '${{ env.DEPLOY_PATH }}/deploy.sh'"
+            wait_for_http api "http://${{ vars.API_UPSTREAM_HOST || '127.0.0.1' }}:${{ vars.API_HOST_PORT || '3001' }}/"
+            wait_for_http web "http://${{ vars.WEB_UPSTREAM_HOST || '127.0.0.1' }}:${{ vars.WEB_HOST_PORT || '3000' }}/"
