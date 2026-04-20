@@ -3,6 +3,7 @@ import {
   Get,
   Post,
   Delete,
+  Patch,
   Param,
   Body,
   Query,
@@ -17,6 +18,7 @@ import { CreateFeedPostDto, PostType } from '../dtos/feed/create-feed-post.dto';
 import { CreateFeedCommentDto } from '../dtos/feed/feed-comment.dto';
 import { CreatePostReactionDto } from '../dtos/feed/post-reaction.dto';
 import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketplace-listing.dto';
+import { UpdateMarketplaceListingDto } from '../dtos/marketplace/update-marketplace-listing.dto';
 import { AuthService } from 'src/auth/auth.service';
 
 @Controller('community')
@@ -57,7 +59,7 @@ export class CommunityController {
   @Get('feed/:postId')
   async getFeedPost(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     return this.communityService.getFeedPostById(postId, userId);
   }
@@ -75,7 +77,7 @@ export class CommunityController {
   @Delete('feed/:postId')
   async deleteFeedPost(
     @Param('postId') postId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     await this.communityService.deleteFeedPost(postId, userId);
     return { message: 'Post deleted successfully' };
@@ -113,7 +115,7 @@ export class CommunityController {
   @Delete('comments/:commentId')
   async deleteComment(
     @Param('commentId') commentId: string,
-    @CurrentUser() userId: string,
+    @CurrentUser('id') userId: string,
   ) {
     await this.communityService.deleteComment(commentId, userId);
     return { message: 'Comment deleted successfully' };
@@ -175,5 +177,15 @@ export class CommunityController {
   ) {
     await this.communityService.deleteMarketplaceListing(listingId, userId);
     return { message: 'Listing deleted successfully' };
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @Patch('marketplace/:listingId')
+  async patchMarketplaceListing(
+    @Param('listingId') listingId: string,
+    @CurrentUser('id') userId: string,
+    @Body() dto: UpdateMarketplaceListingDto,
+  ) {
+    return this.communityService.updateMarketplaceListing(listingId, userId, dto);
   }
 }

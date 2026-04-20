@@ -64,6 +64,9 @@ export interface GardenPlantSummary {
         publicUrl: string;
       } | null;
     }[];
+    careProfile: {
+      growthTimeline: GrowthTimelineStage[] | null;
+    } | null;
   };
   _count: {
     journalEntries: number;

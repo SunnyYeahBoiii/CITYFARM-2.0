@@ -3,7 +3,8 @@ import type {
   FeedPost, 
   MarketListing, 
   CreateFeedPostPayload, 
-  CommunityDataResponse 
+  CommunityDataResponse,
+  FeedComment 
 } from "../types/community";
 
 export async function loadCommunityData(): Promise<CommunityDataResponse> {
@@ -57,5 +58,37 @@ export async function getMarketplace(params?: {
 
 export async function createMarketplaceListing(payload: any): Promise<MarketListing> {
   const { data } = await api.post<MarketListing>("/community/marketplace", payload);
+  return data;
+}
+
+export async function deletePost(postId: string): Promise<void> {
+  await api.delete(`/community/feed/${postId}`);
+}
+
+export async function getPostComments(postId: string): Promise<FeedComment[]> {
+  const { data } = await api.get<{ data: FeedComment[] } | FeedComment[]>(`/community/feed/${postId}/comments`);
+  return Array.isArray(data) ? data : data.data ?? [];
+}
+
+export async function createComment(
+  postId: string, 
+  body: string, 
+  parentCommentId?: string
+): Promise<FeedComment> {
+  const { data } = await api.post<FeedComment>(`/community/feed/${postId}/comments`, {
+    body,
+    parentCommentId
+  });
+  return data;
+}
+
+export async function deleteComment(commentId: string): Promise<void> {
+  await api.delete(`/community/comments/${commentId}`);
+}
+export async function deleteMarketplaceListing(listingId: string): Promise<void> {
+  await api.delete(`/community/marketplace/${listingId}`);
+}
+export async function updateMarketplaceListing(listingId: string, payload: any): Promise<MarketListing> {
+  const { data } = await api.patch<MarketListing>(`/community/marketplace/${listingId}`, payload);
   return data;
 }

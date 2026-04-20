@@ -26,10 +26,12 @@ export interface FeedPost {
   publishedAt?: string;
   createdAt: string;
   updatedAt: string;
+  userId: string;
   user: UserMinimal;
   likes: number;
   comments: number;
   isLiked?: boolean;
+  gardenPlant?: any;
   latestComments?: FeedComment[];
 }
 
@@ -50,6 +52,7 @@ export interface MarketListing {
   gardenPlantId: string;
   product: string;
   quantity: string;
+  unit?: string;
   priceAmount: number;
   description?: string;
   imageAssetId?: string;

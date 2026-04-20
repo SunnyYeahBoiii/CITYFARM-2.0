@@ -92,9 +92,10 @@ export function HomeScreen({ data }: { data: HomeData }) {
           {data.careTasks.length > 0 ? (
             <div className="grid gap-2.5">
               {data.careTasks.map((task) => (
-                <div
+                <Link
                   key={task.id}
-                  className="flex items-center justify-between gap-3 rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)]"
+                  href={`/garden/${task.gardenPlantId}?tab=Care`}
+                  className="flex items-center justify-between gap-3 rounded-[1rem] border border-[rgba(31,41,22,0.08)] bg-white p-3 shadow-[0_8px_20px_rgba(33,49,30,0.06)] active:scale-[0.98] transition-transform"
                 >
                   <div className="flex items-center gap-3">
                     <div className="flex h-9 w-9 items-center justify-center rounded-full bg-(--color-interactive-bg) text-(--color-green-deep)">
@@ -108,7 +109,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
                   <span className="rounded-full bg-(--color-screen) px-3 py-1 text-xs font-semibold text-(--color-interactive-ink)">
                     {task.timeLabel}
                   </span>
-                </div>
+                </Link>
               ))}
             </div>
           ) : (
@@ -155,8 +156,8 @@ export function HomeScreen({ data }: { data: HomeData }) {
                       src={plant.imageUrl}
                       alt={plant.name}
                       sizes="96px"
-                      fit="contain"
-                      className="h-[4.5rem] w-[4.5rem] rounded-[1rem] bg-[linear-gradient(145deg,#eef5e9,#f8fbf5)] p-2"
+                      fit="cover"
+                      className="h-[4.5rem] w-[4.5rem] rounded-[1rem] bg-[linear-gradient(145deg,#eef5e9,#f8fbf5)]"
                       priority
                     />
                     <div className="min-w-0 flex-1">
