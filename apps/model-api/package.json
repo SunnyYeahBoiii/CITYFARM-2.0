@@ -1,8 +1,11 @@
 {
     "name": "model-api",
     "scripts": {
-        "dev": "nodemon --exec python ./src/main.py --ext py,html,yaml",
-        "build": "poetry build",
-        "start": "python ./src/main.py"
+        "dev": "nodemon --exec poetry run python3 ./src/main.py --ext py,html,yaml",
+        "build": "exit 0",
+        "start": "poetry run python3 ./src/main.py"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14"
     }
 }

@@ -1,5 +1,5 @@
-const DEFAULT_API_BASE_URL = "http://localhost:3001";
-const DEFAULT_WEB_BASE_URL = "http://localhost:3000";
+const DEFAULT_API_BASE_URL = "http://ec2-54-151-135-60.ap-southeast-1.compute.amazonaws.com:3001";
+const DEFAULT_WEB_BASE_URL = "http://ec2-54-151-135-60.ap-southeast-1.compute.amazonaws.com:3000";
 
 function normalizeBaseUrl(rawValue: string | undefined, fallback: string): string {
   const baseUrl = rawValue?.trim() || fallback;
