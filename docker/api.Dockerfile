@@ -23,4 +23,4 @@ EXPOSE 3001
 
 ENV NODE_ENV=production
 
-CMD ["sh", "-c", "pnpm prisma:migrate:deploy && node dist/main"]
+CMD ["sh", "-c", "DATABASE_URL=$DIRECT_URL pnpm prisma:generate && node dist/main"]
