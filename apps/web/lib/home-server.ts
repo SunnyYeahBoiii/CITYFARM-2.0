@@ -234,6 +234,11 @@ function buildTaskCards(plants: GardenPlantSummary[]): HomeTaskCard[] {
         dueAt: new Date(task.dueAt).getTime(),
       })),
     )
+    .filter((task) => {
+      const now = new Date();
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      return task.dueAt <= endOfToday;
+    })
     .sort((left, right) => left.dueAt - right.dueAt)
     .slice(0, 3)
     .map((task) => ({
