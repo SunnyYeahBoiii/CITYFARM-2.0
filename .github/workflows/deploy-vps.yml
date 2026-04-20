@@ -121,14 +121,14 @@ jobs:
             git checkout main
             git pull --ff-only origin main
 
-            # Update only image tags in existing .env; copy template if missing
-            if [ ! -f .env ]; then
-              cp infra/deploy/.env.vps.example .env
-            fi
-            sed -i "s|^WEB_IMAGE=.*|WEB_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}|" .env
-            sed -i "s|^ADMIN_IMAGE=.*|ADMIN_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}|" .env
-            sed -i "s|^API_IMAGE=.*|API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}|" .env
-            sed -i "s|^MODEL_API_IMAGE=.*|MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}|" .env
+            # Update image tags: strip old lines, append new ones
+            grep -v '^\(WEB_IMAGE\|ADMIN_IMAGE\|API_IMAGE\|MODEL_API_IMAGE\)=' .env > .env.tmp && mv .env.tmp .env
+            cat >> .env << 'IMGEEOF'
+WEB_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
+ADMIN_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
+API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+MODEL_API_IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
+IMGEEOF
 
             # Login GHCR and deploy
             echo '${{ secrets.GHCR_TOKEN }}' | docker login ghcr.io -u '${{ secrets.GHCR_USERNAME }}' --password-stdin
