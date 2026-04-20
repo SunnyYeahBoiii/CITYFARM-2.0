@@ -98,6 +98,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
+      - name: Set lowercase image owner
+        run: echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
+
       - name: Deploy via SSH
         uses: appleboy/ssh-action@v1.0.3
         with:
@@ -107,9 +110,13 @@ jobs:
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd ${{ env.DEPLOY_PATH }}
 
-            # Sync deploy files with the commit that triggered this workflow
+            # Clone repo if not present, otherwise sync
+            if [ ! -d "${{ env.DEPLOY_PATH }}/.git" ]; then
+              mkdir -p "$(dirname ${{ env.DEPLOY_PATH }})"
+              git clone https://github.com/${{ github.repository }}.git ${{ env.DEPLOY_PATH }}
+            fi
+            cd ${{ env.DEPLOY_PATH }}
             git fetch --prune origin main
             git checkout main
             git pull --ff-only origin main
