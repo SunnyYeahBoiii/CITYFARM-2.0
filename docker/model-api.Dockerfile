@@ -11,7 +11,7 @@ WORKDIR /app/apps/model-api
 
 COPY apps/model-api/pyproject.toml apps/model-api/poetry.lock ./
 
-RUN poetry install --only main
+RUN poetry lock && poetry install --only main
 
 COPY apps/model-api ./
 

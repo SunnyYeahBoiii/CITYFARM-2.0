@@ -133,6 +133,7 @@ jobs:
             git pull --ff-only origin main
 
             export COMPOSE_PARALLEL_LIMIT=1
+            echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
             docker compose -f infra/deploy/docker-compose.vps.yml pull
             docker compose -f infra/deploy/docker-compose.vps.yml up -d --remove-orphans
 
