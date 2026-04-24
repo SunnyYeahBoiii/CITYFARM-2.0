@@ -13,6 +13,7 @@ google-genai = "^0.3.0"
 opencv-python-headless = "^4.9.0"
 numpy = "^1.26.0"
 pillow = "^10.2.0"
+rembg = "^2.0.66"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

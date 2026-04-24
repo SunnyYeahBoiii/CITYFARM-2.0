@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { ModelApiService } from './ai/model-api.service';
+import { SupabaseStorageService } from './assets/supabase-storage.service';
 
 type WebDemoContext = {
   name: string;
@@ -25,10 +26,41 @@ type PlantCatalogItem = {
   harvestDaysMin: number | null;
   harvestDaysMax: number | null;
   products: Array<{
+    type: string;
+    createdAt: Date;
     coverAsset: {
       publicUrl: string;
+      storageKey: string;
     } | null;
   }>;
+};
+
+type PlantAsset = {
+  publicUrl: string;
+  storageKey: string;
+};
+
+type SpaceRecommendation = Record<string, unknown>;
+
+type SpaceLayoutResponse = {
+  success?: boolean;
+  analysis?: unknown;
+  recommendations?: SpaceRecommendation[];
+  best_location?: unknown;
+};
+
+type SpaceVisualizationResponse = {
+  success?: boolean;
+  visualizedImage?: unknown;
+};
+
+const PRODUCT_TYPE_PRIORITY: Record<string, number> = {
+  SEED: 0,
+  KIT: 1,
+  SOIL: 2,
+  POT: 3,
+  SENSOR: 4,
+  ADD_ON: 5,
 };
 
 @Injectable()
@@ -36,6 +68,7 @@ export class AppService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly modelApiService: ModelApiService,
+    private readonly storageService: SupabaseStorageService,
   ) {}
 
   getHello(): string {
@@ -270,17 +303,55 @@ export class AppService {
         harvestDaysMin: true,
         harvestDaysMax: true,
         products: {
+          where: {
+            isActive: true,
+            coverAssetId: {
+              not: null,
+            },
+          },
           select: {
+            type: true,
+            createdAt: true,
             coverAsset: {
               select: {
                 publicUrl: true,
+                storageKey: true,
               },
             },
           },
-          take: 1,
         },
       },
     });
+  }
+
+  private pickBestPlantAsset(plant: PlantCatalogItem): PlantAsset | null {
+    const sortedProducts = [...plant.products].sort((left, right) => {
+      const typeDelta =
+        (PRODUCT_TYPE_PRIORITY[left.type] ?? Number.MAX_SAFE_INTEGER) -
+        (PRODUCT_TYPE_PRIORITY[right.type] ?? Number.MAX_SAFE_INTEGER);
+
+      if (typeDelta !== 0) {
+        return typeDelta;
+      }
+
+      return right.createdAt.getTime() - left.createdAt.getTime();
+    });
+
+    const bestProduct = sortedProducts.find((product) => product.coverAsset);
+    if (!bestProduct?.coverAsset) {
+      return null;
+    }
+
+    return {
+      publicUrl: bestProduct.coverAsset.publicUrl,
+      storageKey: bestProduct.coverAsset.storageKey,
+    };
+  }
+
+  private buildPlantAssetMap(plants: PlantCatalogItem[]) {
+    return new Map(
+      plants.map((plant) => [plant.id, this.pickBestPlantAsset(plant)]),
+    );
   }
 
   private buildPlantCatalogText(plants: PlantCatalogItem[]) {
@@ -302,36 +373,97 @@ export class AppService {
       .join('\n');
   }
 
+  private getRecommendationScore(recommendation: SpaceRecommendation) {
+    const rawScore = recommendation.matchScore;
+    if (typeof rawScore === 'number' && Number.isFinite(rawScore)) {
+      return rawScore;
+    }
+
+    if (typeof rawScore === 'string') {
+      const parsed = Number(rawScore);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+
+    return Number.NEGATIVE_INFINITY;
+  }
+
+  private selectTopRecommendation(recommendations: SpaceRecommendation[]) {
+    let topRecommendation: SpaceRecommendation | null = null;
+    let topScore = Number.NEGATIVE_INFINITY;
+
+    for (const recommendation of recommendations) {
+      const score = this.getRecommendationScore(recommendation);
+      if (score > topScore) {
+        topRecommendation = recommendation;
+        topScore = score;
+      }
+    }
+
+    return topRecommendation;
+  }
+
+  private normalizeBestLocation(
+    value: unknown,
+  ): [number, number, number, number] | null {
+    if (!Array.isArray(value) || value.length !== 4) {
+      return null;
+    }
+
+    const coordinates = value.map((entry) => Number(entry));
+    if (coordinates.some((entry) => !Number.isFinite(entry))) {
+      return null;
+    }
+
+    return [
+      Math.trunc(coordinates[0]),
+      Math.trunc(coordinates[1]),
+      Math.trunc(coordinates[2]),
+      Math.trunc(coordinates[3]),
+    ];
+  }
+
+  private async renderSpaceVisualization(
+    spaceImageBase64: string,
+    plantImageBase64: string,
+    bestLocation: [number, number, number, number],
+  ) {
+    const response = (await this.modelApiService.renderSpaceVisualization({
+      spaceImageBase64,
+      plantImageBase64,
+      bestLocation,
+    })) as SpaceVisualizationResponse;
+
+    return typeof response.visualizedImage === 'string'
+      ? response.visualizedImage
+      : '';
+  }
+
   async analyzeSpace(file: Express.Multer.File, plantCatalogText?: string) {
     const plants = await this.getPlantCatalog();
     const catalog = plantCatalogText || this.buildPlantCatalogText(plants);
     const imageBase64 = file.buffer.toString('base64');
 
-    const response = (await this.modelApiService.analyzeSpace({
+    const response = (await this.modelApiService.analyzeSpaceLayout({
       imageBase64,
       plantCatalogText: catalog,
-    })) as {
-      success?: boolean;
-      analysis?: unknown;
-      recommendations?: Array<Record<string, unknown>>;
-      visualizedImage?: string;
-    };
+    })) as SpaceLayoutResponse;
 
-    const imageByPlantId = new Map(
-      plants.map((plant) => [
-        plant.id,
-        plant.products[0]?.coverAsset?.publicUrl ?? null,
-      ]),
-    );
+    const plantAssetById = this.buildPlantAssetMap(plants);
+    const rawRecommendations = Array.isArray(response.recommendations)
+      ? response.recommendations
+      : [];
 
-    const recommendations = (response.recommendations ?? []).map(
+    const recommendations = rawRecommendations.map(
       (recommendation) => {
         const id =
           typeof recommendation.id === 'string' ? recommendation.id : '';
+        const plantAsset = id ? plantAssetById.get(id) : null;
         return {
           ...recommendation,
           imageUrl:
-            imageByPlantId.get(id) ??
+            plantAsset?.publicUrl ??
             (typeof recommendation.imageUrl === 'string'
               ? recommendation.imageUrl
               : ''),
@@ -339,14 +471,40 @@ export class AppService {
       },
     );
 
+    let visualizedImage = '';
+    const topRecommendation = this.selectTopRecommendation(rawRecommendations);
+    const topRecommendationId =
+      topRecommendation && typeof topRecommendation.id === 'string'
+        ? topRecommendation.id
+        : '';
+    const plantAsset = topRecommendationId
+      ? plantAssetById.get(topRecommendationId)
+      : null;
+    const bestLocation = this.normalizeBestLocation(response.best_location);
+
+    if (plantAsset?.storageKey && bestLocation) {
+      try {
+        const plantImageBuffer = await this.storageService.downloadFile(
+          plantAsset.storageKey,
+        );
+        visualizedImage = await this.renderSpaceVisualization(
+          imageBase64,
+          plantImageBuffer.toString('base64'),
+          bestLocation,
+        );
+      } catch (error) {
+        console.error(
+          '[Space Analysis] Không thể tạo visualization từ ảnh cây thật:',
+          error,
+        );
+      }
+    }
+
     return {
       success: response.success ?? true,
       analysis: response.analysis ?? null,
       recommendations,
-      visualizedImage:
-        typeof response.visualizedImage === 'string'
-          ? response.visualizedImage
-          : '',
+      visualizedImage,
     };
   }
 }

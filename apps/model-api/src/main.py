@@ -11,6 +11,13 @@ import numpy as np
 import PIL.Image
 from werkzeug.exceptions import HTTPException
 
+try:
+    from rembg import remove as rembg_remove
+    rembg_import_error = None
+except Exception as exc:
+    rembg_remove = None
+    rembg_import_error = exc
+
 app = Flask("Model API")
 
 def load_local_env():
@@ -286,22 +293,68 @@ def overlay_transparent_plant(background_img, plant_img, xmin, ymin, xmax, ymax)
 
     return background_img
 
-def create_mock_plant_image():
-    """Tạo một ảnh màu đen có kênh alpha (trong suốt) để test ghép ảnh."""
-    # Tạo ảnh 200x400 RGBA, nền trong suốt
-    mock_img = np.zeros((400, 200, 4), dtype=np.uint8)
-    # Vẽ một hình chữ nhật đen (giả làm cây) ở giữa
-    cv2.rectangle(mock_img, (50, 50), (150, 350), (0, 0, 0, 255), -1) 
-    return mock_img
+def decode_base64_image(base64_string):
+    if not base64_string:
+        raise ValueError("Thiếu dữ liệu ảnh base64.")
 
-def base64_to_cv2(base64_string):
-    """Chuyển Base64 string thành ảnh OpenCV (BGR)"""
     if "base64," in base64_string:
         base64_string = base64_string.split("base64,")[1]
-    img_data = base64.b64decode(base64_string)
+
+    return base64.b64decode(base64_string)
+
+def ensure_bgra(img_cv2):
+    if img_cv2 is None:
+        raise ValueError("Không thể giải mã ảnh OpenCV.")
+
+    if len(img_cv2.shape) == 2:
+        return cv2.cvtColor(img_cv2, cv2.COLOR_GRAY2BGRA)
+
+    channels = img_cv2.shape[2]
+    if channels == 4:
+        return img_cv2
+    if channels == 3:
+        return cv2.cvtColor(img_cv2, cv2.COLOR_BGR2BGRA)
+    if channels == 1:
+        return cv2.cvtColor(img_cv2, cv2.COLOR_GRAY2BGRA)
+
+    raise ValueError("Định dạng ảnh không được hỗ trợ để ghép.")
+
+def base64_to_cv2(base64_string, preserve_alpha=False):
+    """Chuyển Base64 string thành ảnh OpenCV."""
+    img_data = decode_base64_image(base64_string)
     nparr = np.frombuffer(img_data, np.uint8)
-    img_cv2 = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    read_mode = cv2.IMREAD_UNCHANGED if preserve_alpha else cv2.IMREAD_COLOR
+    img_cv2 = cv2.imdecode(nparr, read_mode)
+    if img_cv2 is None:
+        raise ValueError("Không thể giải mã ảnh base64.")
     return img_cv2
+
+def has_meaningful_alpha(img_cv2):
+    if len(img_cv2.shape) != 3 or img_cv2.shape[2] != 4:
+        return False
+
+    alpha_channel = img_cv2[:, :, 3]
+    return bool(np.any(alpha_channel < 250))
+
+def prepare_plant_overlay_image(plant_image_base64):
+    original_image = ensure_bgra(base64_to_cv2(plant_image_base64, preserve_alpha=True))
+
+    if has_meaningful_alpha(original_image):
+        return original_image
+
+    if not rembg_remove:
+        if rembg_import_error:
+            print(f"[WARN] rembg chưa khả dụng, dùng ảnh cây gốc: {rembg_import_error}")
+        return original_image
+
+    try:
+        removed_bytes = rembg_remove(decode_base64_image(plant_image_base64))
+        removed_array = np.frombuffer(removed_bytes, np.uint8)
+        removed_image = cv2.imdecode(removed_array, cv2.IMREAD_UNCHANGED)
+        return ensure_bgra(removed_image)
+    except Exception as exc:
+        print(f"[WARN] Tách nền cây thất bại, fallback ảnh gốc: {exc}")
+        return original_image
 
 def cv2_to_base64(img_cv2, ext=".jpg"):
     """Chuyển ảnh OpenCV (BGR) thành Base64 string có nén để giảm tải payload"""
@@ -340,8 +393,7 @@ def load_pil_image_from_payload(image_base64=None, image_file=None):
     if not image_base64:
         raise ValueError("Thiếu dữ liệu ảnh để phân tích.")
 
-    clean_b64 = image_base64.split("base64,")[1] if "base64," in image_base64 else image_base64
-    img_bytes = base64.b64decode(clean_b64)
+    img_bytes = decode_base64_image(image_base64)
     return PIL.Image.open(io.BytesIO(img_bytes)).convert("RGB")
 
 
@@ -394,6 +446,38 @@ def parse_json_response_text(raw_text):
     if not cleaned:
         raise ValueError("AI không trả về dữ liệu.")
     return json.loads(cleaned)
+
+
+def normalize_best_location(value):
+    if not isinstance(value, list) or len(value) != 4:
+        raise ValueError("best_location phải là mảng gồm 4 phần tử.")
+
+    coordinates = []
+    for entry in value:
+        try:
+            coordinates.append(int(float(entry)))
+        except (TypeError, ValueError):
+            raise ValueError("best_location chứa giá trị không hợp lệ.")
+
+    ymin, xmin, ymax, xmax = [max(0, min(1000, point)) for point in coordinates]
+    if ymax <= ymin or xmax <= xmin:
+        raise ValueError("best_location không tạo thành bounding box hợp lệ.")
+
+    return [ymin, xmin, ymax, xmax]
+
+
+def normalized_box_to_pixels(best_location, img_width, img_height):
+    ymin_1000, xmin_1000, ymax_1000, xmax_1000 = normalize_best_location(best_location)
+
+    ymin = int((ymin_1000 / 1000.0) * img_height)
+    xmin = int((xmin_1000 / 1000.0) * img_width)
+    ymax = int((ymax_1000 / 1000.0) * img_height)
+    xmax = int((xmax_1000 / 1000.0) * img_width)
+
+    if ymax <= ymin or xmax <= xmin:
+        raise ValueError("Bounding box quy đổi sang pixel không hợp lệ.")
+
+    return ymin, xmin, ymax, xmax
 
 
 def normalize_confidence_score(value):
@@ -590,16 +674,8 @@ def analyze_space():
         if not image_base64 or not plant_catalog:
             return json_error("Thiếu dữ liệu ảnh hoặc danh mục cây", 400)
 
-        # 1. Chuyển đổi ảnh Base64 -> PIL Image (cho Gemini) và OpenCV (để ghép)
-        if "base64," in image_base64:
-            clean_b64 = image_base64.split("base64,")[1]
-        else:
-            clean_b64 = image_base64
-            
-        img_bytes = base64.b64decode(clean_b64)
-        img_pil = PIL.Image.open(io.BytesIO(img_bytes))
-        img_cv2_original = base64_to_cv2(clean_b64)
-        img_height, img_width = img_cv2_original.shape[:2]
+        # 1. Chuyển đổi ảnh Base64 -> PIL Image cho Gemini
+        img_pil = load_pil_image_from_payload(image_base64=image_base64)
 
         # 2. Xây dựng Prompt (Gộp cả phân tích, gợi ý và lấy tọa độ)
         prompt = f"""Bạn là một Kiến trúc sư Nông nghiệp Đô thị cấp cao. Hãy phân tích bức ảnh không gian ban công/sân thượng hoặc trong nhà này và đối chiếu với CƠ SỞ DỮ LIỆU CÂY TRỒNG để đưa ra đánh giá.
@@ -665,47 +741,59 @@ def analyze_space():
         )
 
         # 4. Parse JSON
-        raw_text = response.text.replace("```json", "").replace("```", "").strip()
-        result_json = json.loads(raw_text)
-        
-        box_1000 = result_json.get('best_location')
-        if not box_1000 or len(box_1000) != 4:
-            raise ValueError("AI không trả về Bounding Box hợp lệ.")
-            
-        ymin_1000, xmin_1000, ymax_1000, xmax_1000 = box_1000
+        result_json = parse_json_response_text(response.text)
+        best_location = normalize_best_location(result_json.get("best_location"))
 
-        # 5. Xử lý OpenCV (Ghép ảnh)
-        # Mapping Tọa Độ sang pixel thực tế
-        ymin = int((ymin_1000 / 1000.0) * img_height)
-        xmin = int((xmin_1000 / 1000.0) * img_width)
-        ymax = int((ymax_1000 / 1000.0) * img_height)
-        xmax = int((xmax_1000 / 1000.0) * img_width)
-
-        print(f"Tọa độ thực tế: [ymin:{ymin}, xmin:{xmin}, ymax:{ymax}, xmax:{xmax}]")
-
-        # Lấy ảnh giả lập (đen)
-        mock_plant_img = create_mock_plant_image()
-
-        # Thực hiện ghép cây vào bản sao ảnh gốc
-        img_final_result = overlay_transparent_plant(
-            background_img=img_cv2_original.copy(), 
-            plant_img=mock_plant_img, 
-            xmin=xmin, ymin=ymin, xmax=xmax, ymax=ymax
-        )
-
-        # Chuyển ảnh đã ghép thành Base64
-        visualized_image_base64 = cv2_to_base64(img_final_result)
-
-        # 6. Trả kết quả về cho NestJS
+        # 5. Trả kết quả phân tích về cho NestJS, bước render sẽ gọi route riêng
         return jsonify({
             "success": True,
             "analysis": result_json.get("analysis"),
             "recommendations": result_json.get("recommendations"),
-            "visualizedImage": visualized_image_base64
+            "best_location": best_location,
         }), 200
 
     except Exception as e:
         print(f"[ERROR] Space Analysis API Error: {str(e)}")
+        return json_error(str(e), 500)
+
+
+@app.route("/api/render-space-visualization", methods=["POST"])
+def render_space_visualization():
+    try:
+        data = parse_json_body()
+        space_image_base64 = data.get("space_image_base64")
+        plant_image_base64 = data.get("plant_image_base64")
+        best_location = data.get("best_location")
+
+        if not space_image_base64 or not plant_image_base64 or best_location is None:
+            return json_error("Thiếu ảnh không gian, ảnh cây hoặc best_location", 400)
+
+        background_img = base64_to_cv2(space_image_base64)
+        plant_img = prepare_plant_overlay_image(plant_image_base64)
+        img_height, img_width = background_img.shape[:2]
+        ymin, xmin, ymax, xmax = normalized_box_to_pixels(
+            best_location,
+            img_width,
+            img_height,
+        )
+
+        print(f"Tọa độ render: [ymin:{ymin}, xmin:{xmin}, ymax:{ymax}, xmax:{xmax}]")
+
+        img_final_result = overlay_transparent_plant(
+            background_img=background_img.copy(),
+            plant_img=plant_img,
+            xmin=xmin,
+            ymin=ymin,
+            xmax=xmax,
+            ymax=ymax,
+        )
+
+        return jsonify({
+            "success": True,
+            "visualizedImage": cv2_to_base64(img_final_result),
+        }), 200
+    except Exception as e:
+        print(f"[ERROR] Space Visualization API Error: {str(e)}")
         return json_error(str(e), 500)
 
 

@@ -13,9 +13,15 @@ type AnalyzePlantHealthPayload = {
   context?: PlantHealthContext;
 };
 
-type AnalyzeSpacePayload = {
+type AnalyzeSpaceLayoutPayload = {
   imageBase64: string;
   plantCatalogText: string;
+};
+
+type RenderSpaceVisualizationPayload = {
+  spaceImageBase64: string;
+  plantImageBase64: string;
+  bestLocation: [number, number, number, number];
 };
 
 const MODEL_API_TIMEOUT_MS = 120_000;
@@ -52,10 +58,18 @@ export class ModelApiService {
     });
   }
 
-  async analyzeSpace(payload: AnalyzeSpacePayload) {
+  async analyzeSpaceLayout(payload: AnalyzeSpaceLayoutPayload) {
     return this.postJson('/api/analyze-space', {
       image_base64: payload.imageBase64,
       plantCatalogText: payload.plantCatalogText,
+    });
+  }
+
+  async renderSpaceVisualization(payload: RenderSpaceVisualizationPayload) {
+    return this.postJson('/api/render-space-visualization', {
+      space_image_base64: payload.spaceImageBase64,
+      plant_image_base64: payload.plantImageBase64,
+      best_location: payload.bestLocation,
     });
   }
 
