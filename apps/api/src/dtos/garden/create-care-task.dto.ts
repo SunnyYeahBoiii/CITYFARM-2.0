@@ -1,7 +1,15 @@
 import { IsString, IsEnum, IsOptional, IsDateString } from 'class-validator';
 
 export class CreateCareTaskDto {
-  @IsEnum(['WATERING', 'FERTILIZING', 'PRUNING', 'ROTATING', 'PEST_CHECK', 'HARVEST', 'CUSTOM'])
+  @IsEnum([
+    'WATERING',
+    'FERTILIZING',
+    'PRUNING',
+    'ROTATING',
+    'PEST_CHECK',
+    'HARVEST',
+    'CUSTOM',
+  ])
   taskType: string;
 
   @IsString()

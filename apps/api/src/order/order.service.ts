@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from '../dtos/order/create-order.dto';
 import { CreateOrderFromCartDto } from '../dtos/order/create-order-from-cart.dto';
@@ -135,8 +139,9 @@ export class OrderService {
 
     return orders.map((order) => {
       // Find the first activation code in any item (usually orders are single-item for now)
-      const activationCode = order.items.find((i) => i.activationCodes.length > 0)
-        ?.activationCodes[0]?.code;
+      const activationCode = order.items.find(
+        (i) => i.activationCodes.length > 0,
+      )?.activationCodes[0]?.code;
 
       return {
         ...order,
@@ -166,10 +171,14 @@ export class OrderService {
     const validatedItems: any[] = [];
     for (const item of cart.items) {
       if (!item.product) {
-        throw new NotFoundException(`Product ${item.productId} no longer exists`);
+        throw new NotFoundException(
+          `Product ${item.productId} no longer exists`,
+        );
       }
       if (!item.product.isActive) {
-        throw new BadRequestException(`Product "${item.product.name}" is no longer available`);
+        throw new BadRequestException(
+          `Product "${item.product.name}" is no longer available`,
+        );
       }
       validatedItems.push({
         productId: item.product.id,
@@ -180,7 +189,10 @@ export class OrderService {
       });
     }
 
-    const subtotalAmount = validatedItems.reduce((sum, item) => sum + item.totalPriceAmount, 0);
+    const subtotalAmount = validatedItems.reduce(
+      (sum, item) => sum + item.totalPriceAmount,
+      0,
+    );
     const totalAmount = subtotalAmount;
     const orderCode = this.generateOrderCode();
 
@@ -233,7 +245,10 @@ export class OrderService {
       // Generate activation codes for KIT and SEED products
       const activationCodes: string[] = [];
       for (const orderItem of order.items) {
-        if (orderItem.product.type === 'KIT' || orderItem.product.type === 'SEED') {
+        if (
+          orderItem.product.type === 'KIT' ||
+          orderItem.product.type === 'SEED'
+        ) {
           const codeRecord = await tx.kitActivationCode.create({
             data: {
               code: this.generateActivationCode(),

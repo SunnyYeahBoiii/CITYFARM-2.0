@@ -21,10 +21,12 @@ export class AuthService {
   ) {}
 
   readCookie(req: Request, cookieName: string): string {
-    const cookieValue: unknown = (req as Request & {
-      cookies?: Record<string, unknown>;
-    }).cookies?.[cookieName];
-    return typeof cookieValue === "string" ? cookieValue : "";
+    const cookieValue: unknown = (
+      req as Request & {
+        cookies?: Record<string, unknown>;
+      }
+    ).cookies?.[cookieName];
+    return typeof cookieValue === 'string' ? cookieValue : '';
   }
 
   async extractUserIdFromCookies(req: Request): Promise<string | null> {
@@ -33,7 +35,9 @@ export class AuthService {
     const token = accessToken || refreshToken;
     if (!token) return null;
     try {
-      const secret = accessToken ? this.configService.get('JWT_ACCESS_SECRET') : this.configService.get('JWT_REFRESH_SECRET');
+      const secret = accessToken
+        ? this.configService.get('JWT_ACCESS_SECRET')
+        : this.configService.get('JWT_REFRESH_SECRET');
       const payload = await this.jwtService.verifyAsync(token, { secret });
       return payload.sub;
     } catch {

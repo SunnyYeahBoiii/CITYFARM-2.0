@@ -234,10 +234,7 @@ export class CommunityService {
           },
         },
       },
-      orderBy: [
-        { createdAt: 'desc' },
-        { id: 'desc' },
-      ],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: limit + 1,
       cursor: cursorObj ? cursorObj : undefined,
       skip: cursorObj ? 1 : 0,
@@ -246,13 +243,16 @@ export class CommunityService {
     const hasMore = posts.length > limit;
     const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
 
-    const data = postsToReturn.map((post) => this.mapFeedPostToDto(post, userId));
+    const data = postsToReturn.map((post) =>
+      this.mapFeedPostToDto(post, userId),
+    );
 
     // Generate next cursor from last post
     const lastPost = postsToReturn[postsToReturn.length - 1];
-    const nextCursor = lastPost && hasMore
-      ? `${lastPost.createdAt.toISOString()}_${lastPost.id}`
-      : null;
+    const nextCursor =
+      lastPost && hasMore
+        ? `${lastPost.createdAt.toISOString()}_${lastPost.id}`
+        : null;
 
     return {
       posts: data,
@@ -810,10 +810,17 @@ export class CommunityService {
       likes: post._count?.reactions || 0,
       comments: post._count?.comments || 0,
       isLiked: post.reactions?.length > 0,
-      gardenPlant: post.gardenPlant ? {
-        ...post.gardenPlant,
-        daysGrowing: Math.floor((new Date().getTime() - new Date(post.gardenPlant.plantedAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
-      } : undefined,
+      gardenPlant: post.gardenPlant
+        ? {
+            ...post.gardenPlant,
+            daysGrowing:
+              Math.floor(
+                (new Date().getTime() -
+                  new Date(post.gardenPlant.plantedAt).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              ) + 1,
+          }
+        : undefined,
     };
   }
 

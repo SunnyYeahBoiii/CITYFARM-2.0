@@ -127,6 +127,8 @@ def chat_with_assistant():
         tools = data.get("tools", [])
         tool_results = data.get("tool_results", [])
         plant_id = data.get("plantId", "")
+        request_mode = data.get("mode", "") or ""
+        journal_image_asset_id = data.get("journalImageAssetId", "") or ""
 
         # Trích xuất RAG Context siêu cấp từ NestJS
         user_info = ctx.get("user", {})
@@ -162,10 +164,57 @@ def chat_with_assistant():
         tool_instruction = ""
         if tools and len(tools) > 0:
             tools_json = json.dumps(tools, ensure_ascii=False, indent=2)
-            tool_instruction = f"""
+            if request_mode == "journal_upload":
+                tool_instruction = f"""
+[5. KHẢ NĂNG ĐIỀU CHỈNH TASK TỪ JOURNAL UPLOAD]
+Trong journal_upload, hệ thống đã tự tạo PlantJournalEntry sau khi phân tích ảnh.
+Nhiệm vụ của bạn là chỉ điều chỉnh care tasks đang chờ cho người dùng.
+
+Bạn có thể thao tác task chăm sóc bằng các function:
+- create_care_task: Tạo task đang chờ.
+- update_care_task: Chỉnh sửa task đang chờ (đổi tiêu đề, đổi lịch, đổi ghi chú, đổi loại task).
+- delete_care_task: Xoá task đang chờ.
+
+QUY TẮC BẮT BUỘC (journal_upload):
+1. KHÔNG gọi log_journal_entry (đã được ghi vào DB bởi endpoint journal upload).
+2. Sử dụng danh sách PENDING_TASKS trong tin nhắn (đã được hệ thống nhúng sẵn). KHÔNG gọi get_pending_tasks.
+3. Nếu phân tích cho thấy cần sâu bệnh/kiểm tra: dùng create_care_task (taskType PEST_CHECK hoặc CUSTOM) hoặc update_care_task nếu đã có task PENDING phù hợp (dùng đúng taskId lấy từ PENDING_TASKS).
+4. Nếu phân tích cho thấy không cần thiết: dùng delete_care_task (dùng đúng taskId lấy từ PENDING_TASKS).
+5. Khi gọi create_care_task/update_care_task/delete_care_task, hãy đặt journalImageAssetId (nếu có) để liên kết daily task history với đúng ảnh journal vừa upload.
+   journalImageAssetId hiện tại: {journal_image_asset_id or "(chưa có)"}
+
+Plant ID hiện tại: {plant_id}
+
+CÁC FUNCTION KHẢ DỤNG:
+{tools_json}
+
+ĐỊNH DẠNG TOOL CALL JSON (KHI CẦN GỌI TOOL):
+- Nếu cần gọi tool, trả về DUY NHẤT một JSON object, không thêm văn bản ngoài JSON:
+{{
+  "type": "tool_call",
+  "assistant_message": "câu thông báo ngắn cho người dùng",
+  "tool_calls": [
+    {{
+      "id": "tool-1",
+      "name": "create_care_task",
+      "arguments": {{
+        "plantId": "{plant_id}",
+        "taskType": "WATERING",
+        "title": "Tưới nước cho cây"
+      }}
+    }}
+  ]
+}}
+- Không bọc markdown.
+- Chỉ dùng đúng tool name và tham số đã khai báo.
+"""
+            else:
+                tool_instruction = f"""
 [5. KHẢ NĂNG TẠO TASK VÀ JOURNAL]
-Bạn có khả năng tạo task chăm sóc và ghi journal cho người dùng bằng các function:
+Bạn có khả năng thao tác task chăm sóc và ghi journal cho người dùng bằng các function:
 - create_care_task: Tạo task tưới, bón, tỉa, kiểm tra sâu bệnh, thu hoạch.
+- update_care_task: Chỉnh sửa task đang chờ (đổi tiêu đề, đổi lịch, đổi ghi chú, đổi loại task).
+- delete_care_task: Xoá task đang chờ.
 - log_journal_entry: Ghi nhật ký sức khỏe cây.
 - get_pending_tasks: Lấy danh sách task đang chờ.
 
@@ -174,9 +223,14 @@ Plant ID hiện tại: {plant_id}
 
 QUY TẮC SỬ DỤNG FUNCTION:
 1. Khi người dùng nói "tạo task", "lên lịch", "nhắc tôi tưới", "đặt lịch bón", hãy gọi create_care_task.
-2. Khi người dùng nói "ghi nhật ký", "cập nhật sức khỏe", "ghi chú tình trạng", hãy gọi log_journal_entry.
-3. Khi người dùng hỏi "task còn gì", "còn gì cần làm", hãy gọi get_pending_tasks.
-4. Sau khi gọi function, hãy trả lời ngắn gọn xác nhận đã thực hiện.
+2. Khi người dùng nói "đổi lịch task", "sửa task", "chỉnh task", hãy gọi update_care_task.
+3. Khi người dùng nói "xoá task", "hủy task", "xóa nhắc việc", hãy gọi delete_care_task.
+4. Khi người dùng nói "ghi nhật ký", "cập nhật sức khỏe", "ghi chú tình trạng", hãy gọi log_journal_entry.
+   Nếu nội dung journal có dấu hiệu sâu bệnh/thuốc cần xịt (ví dụ: "cây bị sâu", "cần xịt thuốc", "sâu bệnh", "côn trùng", "nấm"),
+   thì đồng thời hãy gọi create_care_task để tạo task PEST_CHECK hoặc CUSTOM (tùy ngữ cảnh).
+5. Khi người dùng hỏi "task còn gì", "còn gì cần làm", hãy gọi get_pending_tasks.
+6. Bạn có thể trả về NHIỀU tool_calls trong cùng 1 response khi cần (ví dụ: vừa log journal vừa tạo task).
+7. Sau khi gọi function, hãy trả lời ngắn gọn xác nhận đã thực hiện.
 
 CÁC FUNCTION KHẢ DỤNG:
 {tools_json}

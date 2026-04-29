@@ -72,7 +72,22 @@ export class GardenController {
     @Param('plantId') plantId: string,
     @Body() body: LogJournalDto,
   ) {
-    return this.gardenService.logJournal(userId, plantId, body);
+    const entry = await this.gardenService.logJournal(userId, plantId, body);
+
+    try {
+      // Fire journal-mode tool calling after the journal entry is committed.
+      await this.appService.processJournalUploadToolCalling(
+        userId,
+        plantId,
+        entry,
+        body,
+      );
+    } catch (err: unknown) {
+      // Journal upload should still succeed even if AI tool calling fails.
+      console.error('[JournalToolCalling] Failed:', err);
+    }
+
+    return entry;
   }
 
   @Post('plants/:plantId/tasks')

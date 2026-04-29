@@ -1,8 +1,4 @@
-import {
-  IsNotEmpty,
-  IsString,
-  IsOptional,
-} from 'class-validator';
+import { IsNotEmpty, IsString, IsOptional } from 'class-validator';
 
 export class CreateOrderFromCartDto {
   @IsNotEmpty({ message: 'Recipient name is required' })

@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { ModelApiService } from './ai/model-api.service';
 import { SupabaseStorageService } from './assets/supabase-storage.service';
@@ -73,6 +73,8 @@ const PRODUCT_TYPE_PRIORITY: Record<string, number> = {
 
 @Injectable()
 export class AppService {
+  private readonly logger = new Logger(AppService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly modelApiService: ModelApiService,
@@ -82,6 +84,14 @@ export class AppService {
 
   getHello(): string {
     return 'Hello World!';
+  }
+
+  private stringifyForLog(value: unknown): string {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch {
+      return String(value);
+    }
   }
 
   private extractJsonObjectFromText(
@@ -152,15 +162,13 @@ export class AppService {
     }
 
     return parsedReply.tool_calls
-      .filter(
-        (entry): entry is Record<string, unknown> => {
-          if (!entry || typeof entry !== 'object') {
-            return false;
-          }
-          const candidate = entry as Record<string, unknown>;
-          return typeof candidate.name === 'string';
-        },
-      )
+      .filter((entry): entry is Record<string, unknown> => {
+        if (!entry || typeof entry !== 'object') {
+          return false;
+        }
+        const candidate = entry as Record<string, unknown>;
+        return typeof candidate.name === 'string';
+      })
       .map((entry, index) => ({
         id:
           typeof entry.id === 'string' && entry.id.trim()
@@ -454,10 +462,17 @@ export class AppService {
       },
       TOOL_DEFINITIONS,
     );
+    this.logger.log(
+      `[Chatbot] Full first response for conversation ${conversation.id}: ${this.stringifyForLog(aiResponse)}`,
+    );
 
     // Tool calling loop
     const rawToolCalls = this.getParsedToolCalls(aiResponse);
     if (rawToolCalls.length > 0) {
+      this.logger.log(
+        `[ToolCall] Received ${rawToolCalls.length} tool call(s) for conversation ${conversation.id}: ${this.stringifyForLog(rawToolCalls)}`,
+      );
+
       // Execute each tool call
       const toolResults = await Promise.all(
         rawToolCalls.map(async (tc) => {
@@ -468,6 +483,9 @@ export class AppService {
           };
           return this.toolExecutorService.execute(toolCall, userId);
         }),
+      );
+      this.logger.log(
+        `[ToolCall] Execution results for conversation ${conversation.id}: ${this.stringifyForLog(toolResults)}`,
       );
 
       // Send tool results back to AI for final response
@@ -484,6 +502,9 @@ export class AppService {
           error: tr.error,
         })),
       });
+      this.logger.log(
+        `[Chatbot] Full final response for conversation ${conversation.id}: ${this.stringifyForLog(finalResponse)}`,
+      );
 
       // Update aiResponse with final reply
       if (
@@ -535,6 +556,185 @@ export class AppService {
         : {}),
       conversationId: conversation.id,
     };
+  }
+
+  /**
+   * Journal-upload tool calling:
+   * - Runs after `GardenService.logJournal()` has created the `PlantJournalEntry`.
+   * - Executes care task mutations via tool execution so daily task history is appended.
+   * - Supports multi-step tool calling (e.g. get_pending_tasks -> update/delete).
+   */
+  async processJournalUploadToolCalling(
+    userId: string,
+    plantId: string,
+    journalEntry: {
+      note?: string | null;
+      healthStatus?: string | null;
+      issueSummary?: string | null;
+      recommendationSummary?: string | null;
+      imageAssetId?: string | null;
+    },
+    dto?: { note?: string; imageAssetId?: string },
+  ) {
+    const journalImageAssetId =
+      typeof (journalEntry?.imageAssetId ?? dto?.imageAssetId) === 'string'
+        ? (journalEntry.imageAssetId ?? dto?.imageAssetId)!
+        : undefined;
+
+    const plantData = await this.prisma.gardenPlant.findUnique({
+      where: { id: plantId, userId },
+      include: {
+        user: { include: { profile: true } },
+        plantSpecies: { include: { careProfile: true } },
+        careTasks: {
+          where: { status: { in: ['COMPLETED', 'SKIPPED'] } },
+          orderBy: { completedAt: 'desc' },
+          take: 3,
+        },
+        journalEntries: {
+          orderBy: { capturedAt: 'desc' },
+          take: 2,
+        },
+      },
+    });
+
+    if (!plantData) {
+      this.logger.warn(
+        `[JournalToolCalling] Plant not found or no access: plantId=${plantId} userId=${userId}`,
+      );
+      return;
+    }
+
+    // Prefetch PENDING tasks so the model can update/delete without needing
+    // a multi-step tool loop.
+    const pendingTasks = await this.prisma.careTask.findMany({
+      where: { gardenPlantId: plantId, status: 'PENDING' },
+      orderBy: { dueAt: 'asc' },
+      select: {
+        id: true,
+        taskType: true,
+        title: true,
+        dueAt: true,
+        description: true,
+      },
+    });
+
+    const ragContext = {
+      user: {
+        displayName: plantData.user.profile?.displayName || 'Người dùng',
+        bio: plantData.user.profile?.bio || 'Không có bio',
+        location: `${plantData.user.profile?.district}, ${plantData.user.profile?.city}`,
+      },
+      species: {
+        commonName: plantData.plantSpecies.commonName,
+        scientificName: plantData.plantSpecies.scientificName,
+        difficulty: plantData.plantSpecies.difficulty,
+        lightRequirement: plantData.plantSpecies.lightRequirement,
+        careGuide: {
+          sunlight: plantData.plantSpecies.careProfile?.sunlightSummary,
+          watering: plantData.plantSpecies.careProfile?.wateringSummary,
+          pests: plantData.plantSpecies.careProfile?.commonPests,
+        },
+      },
+      currentPlant: {
+        nickname: plantData.nickname,
+        status: plantData.status,
+        health: journalEntry?.healthStatus ?? plantData.healthStatus,
+        growthStage: plantData.growthStage,
+        daysGrowing: Math.floor(
+          (Date.now() - plantData.plantedAt.getTime()) / (1000 * 3600 * 24),
+        ),
+        zoneName: plantData.zoneName,
+        notes: dto?.note ?? journalEntry?.note ?? plantData.notes,
+      },
+      history: {
+        recentTasks: plantData.careTasks.map(
+          (t) =>
+            `${t.taskType} - ${t.completedAt?.toISOString().split('T')[0]}`,
+        ),
+        recentJournals: plantData.journalEntries.map(
+          (j) =>
+            `Sức khỏe: ${j.healthStatus} - Ghi chú: ${j.issueSummary || 'Bình thường'}`,
+        ),
+      },
+    };
+
+    const healthStatus = (journalEntry?.healthStatus ?? 'UNKNOWN').toString();
+    const issueSummary = journalEntry?.issueSummary ?? '';
+    const recommendationSummary = journalEntry?.recommendationSummary ?? '';
+    const userNote = dto?.note ?? journalEntry?.note ?? '';
+
+    const pendingTasksText =
+      pendingTasks.length > 0
+        ? pendingTasks
+            .map((t) => {
+              const dueAtStr = t.dueAt?.toISOString() ?? 'null';
+              const notes = t.description ?? '';
+              return `- ${t.id} | taskType=${t.taskType} | title=${t.title} | dueAt=${dueAtStr} | notes=${notes}`;
+            })
+            .join('\n')
+        : '- (không có task PENDING nào)';
+
+    const message = `
+Hệ thống đã phân tích ảnh journal vừa upload cho cây của bạn và tạo PlantJournalEntry.
+
+[KẾT QUẢ PHÂN TÍCH TỪ ẢNH JOURNAL]
+- healthStatus: ${healthStatus}
+- issueSummary: ${issueSummary || 'Bình thường/không có ghi nhận'}
+- recommendationSummary: ${recommendationSummary || '(không có)'}
+- userNote: ${userNote || '(không có ghi chú)'}
+
+[DANH SÁCH TASK ĐANG CHỜ (PENDING_TASKS)]
+${pendingTasksText}
+
+[NHIỆM VỤ]
+Hãy điều chỉnh care tasks đang chờ (PENDING) dựa trên phân tích trên.
+
+HƯỚNG DẪN BẮT BUỘC:
+1) KHÔNG gọi get_pending_tasks. Hãy sử dụng danh sách PENDING_TASKS ở trên.
+2) Nếu cần một loại task mới thì gọi create_care_task.
+3) Nếu đã có task PENDING phù hợp thì gọi update_care_task để đổi lịch/tiêu đề/ghi chú (dùng đúng taskId).
+4) Nếu phân tích cho thấy không cần thiết thì gọi delete_care_task (dùng đúng taskId).
+5) KHÔNG gọi log_journal_entry (đã được ghi vào DB bởi endpoint journal upload).
+6) Khi gọi create_care_task/update_care_task/delete_care_task, liên kết daily task history với đúng ảnh journal bằng journalImageAssetId (nếu có).
+
+Trả về tool_calls JSON khi cần gọi tool.`;
+
+    const aiResponse = await this.modelApiService.getChatAdvice(
+      {
+        mode: 'journal_upload',
+        journalImageAssetId,
+        message,
+        context: ragContext,
+        history: [],
+        plantId,
+      },
+      TOOL_DEFINITIONS,
+    );
+
+    const rawToolCalls = this.getParsedToolCalls(aiResponse);
+    const relevantToolCalls = rawToolCalls.filter((tc) =>
+      ['create_care_task', 'update_care_task', 'delete_care_task'].includes(
+        tc.name,
+      ),
+    );
+
+    await Promise.all(
+      relevantToolCalls.map((tc) => {
+        const toolCall: ToolCall = {
+          id: tc.id,
+          name: tc.name,
+          arguments: { ...(tc.arguments ?? {}) },
+        };
+
+        // Phase 2: ensure the uploaded journal image is linked to the daily task history.
+        if (journalImageAssetId) {
+          toolCall.arguments.journalImageAssetId = journalImageAssetId;
+        }
+
+        return this.toolExecutorService.execute(toolCall, userId);
+      }),
+    );
   }
 
   async getPlantCatalog(): Promise<PlantCatalogItem[]> {

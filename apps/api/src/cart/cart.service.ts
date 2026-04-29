@@ -1,4 +1,8 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AddToCartDto } from '../dtos/cart/add-to-cart.dto';
 
@@ -68,7 +72,10 @@ export class CartService {
       totalPrice: item.product.priceAmount * item.quantity,
     }));
 
-    const subtotal = items.reduce((sum: number, item: any) => sum + item.totalPrice, 0);
+    const subtotal = items.reduce(
+      (sum: number, item: any) => sum + item.totalPrice,
+      0,
+    );
 
     return {
       id: cart.id,
@@ -92,7 +99,9 @@ export class CartService {
     });
 
     if (!product) {
-      throw new NotFoundException(`Product "${dto.productId}" not found or not available`);
+      throw new NotFoundException(
+        `Product "${dto.productId}" not found or not available`,
+      );
     }
 
     // Get or create cart
@@ -254,7 +263,10 @@ export class CartService {
       valid: errors.length === 0,
       errors,
       validatedItems,
-      subtotal: validatedItems.reduce((sum, item) => sum + item.totalPriceAmount, 0),
+      subtotal: validatedItems.reduce(
+        (sum, item) => sum + item.totalPriceAmount,
+        0,
+      ),
     };
   }
 }

@@ -84,9 +84,14 @@ export class AppController {
     @CurrentUser('id') userId: string,
     @Param('plantId') plantId: string,
   ) {
-    const context = await this.appService.buildEnhancedPlantContext(plantId, userId);
+    const context = await this.appService.buildEnhancedPlantContext(
+      plantId,
+      userId,
+    );
     if (!context) {
-      throw new BadRequestException('Không tìm thấy cây hoặc không có quyền truy cập');
+      throw new BadRequestException(
+        'Không tìm thấy cây hoặc không có quyền truy cập',
+      );
     }
     return context;
   }

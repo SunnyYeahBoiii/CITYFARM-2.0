@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
-  Req
+  Req,
 } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,7 +25,7 @@ import { AuthService } from 'src/auth/auth.service';
 export class CommunityController {
   constructor(
     private readonly communityService: CommunityService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
 
   // ============ POSTS ============
@@ -210,6 +210,10 @@ export class CommunityController {
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateMarketplaceListingDto,
   ) {
-    return this.communityService.updateMarketplaceListing(listingId, userId, dto);
+    return this.communityService.updateMarketplaceListing(
+      listingId,
+      userId,
+      dto,
+    );
   }
 }

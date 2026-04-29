@@ -18,6 +18,10 @@ export class ToolExecutorService {
         return this.executeLogJournal(toolCall, userId);
       case 'get_pending_tasks':
         return this.executeGetPendingTasks(toolCall, userId);
+      case 'update_care_task':
+        return this.executeUpdateTask(toolCall, userId);
+      case 'delete_care_task':
+        return this.executeDeleteTask(toolCall, userId);
       default:
         return {
           toolCallId: toolCall.id,
@@ -31,7 +35,8 @@ export class ToolExecutorService {
     toolCall: ToolCall,
     userId: string,
   ): Promise<ToolResult> {
-    const { plantId, taskType, title, dueAt, notes } = toolCall.arguments;
+    const { plantId, taskType, title, dueAt, notes, journalImageAssetId } =
+      toolCall.arguments;
 
     if (
       typeof plantId !== 'string' ||
@@ -53,6 +58,26 @@ export class ToolExecutorService {
         notes: typeof notes === 'string' ? notes : undefined,
       });
 
+      const dailyJournal =
+        await this.gardenService.appendTaskHistoryToDailyJournal(
+          userId,
+          plantId,
+          {
+            action: 'CREATED',
+            taskId: task.id,
+            title: task.title,
+            taskType: task.taskType,
+            changes: {
+              dueAt: task.dueAt?.toISOString() ?? null,
+              notes: task.description ?? null,
+            },
+            imageAssetId:
+              typeof journalImageAssetId === 'string'
+                ? journalImageAssetId
+                : undefined,
+          },
+        );
+
       return {
         toolCallId: toolCall.id,
         success: true,
@@ -63,6 +88,7 @@ export class ToolExecutorService {
           dueAt: task.dueAt,
           status: task.status,
           createdBy: task.createdBy,
+          dailyJournalId: dailyJournal.id,
         },
       };
     } catch (error) {
@@ -80,7 +106,8 @@ export class ToolExecutorService {
     toolCall: ToolCall,
     userId: string,
   ): Promise<ToolResult> {
-    const { plantId, note, healthStatus, issueSummary } = toolCall.arguments;
+    const { plantId, note, healthStatus, issueSummary, imageAssetId } =
+      toolCall.arguments;
 
     if (
       typeof plantId !== 'string' ||
@@ -98,7 +125,10 @@ export class ToolExecutorService {
       const entry = await this.gardenService.logJournalEntry(userId, plantId, {
         note,
         healthStatus,
-        issueSummary: typeof issueSummary === 'string' ? issueSummary : undefined,
+        issueSummary:
+          typeof issueSummary === 'string' ? issueSummary : undefined,
+        imageAssetId:
+          typeof imageAssetId === 'string' ? imageAssetId : undefined,
       });
 
       return {
@@ -179,6 +209,235 @@ export class ToolExecutorService {
     } catch (error) {
       const message =
         error instanceof Error ? error.message : 'Failed to get pending tasks';
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: message,
+      };
+    }
+  }
+
+  private async executeUpdateTask(
+    toolCall: ToolCall,
+    userId: string,
+  ): Promise<ToolResult> {
+    const { taskId, taskType, title, dueAt, notes, journalImageAssetId } =
+      toolCall.arguments;
+
+    if (typeof taskId !== 'string') {
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: 'Missing required parameter: taskId',
+      };
+    }
+
+    try {
+      const task = await this.prisma.careTask.findFirst({
+        where: {
+          id: taskId,
+          gardenPlant: { userId },
+        },
+        select: {
+          id: true,
+          gardenPlantId: true,
+          status: true,
+          taskType: true,
+          title: true,
+          description: true,
+          dueAt: true,
+        },
+      });
+
+      if (!task) {
+        return {
+          toolCallId: toolCall.id,
+          success: false,
+          error: 'Task not found or not owned by user',
+        };
+      }
+
+      if (task.status !== 'PENDING') {
+        return {
+          toolCallId: toolCall.id,
+          success: false,
+          error: 'Only PENDING tasks can be updated',
+        };
+      }
+
+      const data: Record<string, unknown> = {};
+      if (typeof taskType === 'string') data.taskType = taskType;
+      if (typeof title === 'string') data.title = title;
+      if (typeof notes === 'string') data.description = notes;
+      if (typeof dueAt === 'string') {
+        const parsedDueAt = new Date(dueAt);
+        if (Number.isNaN(parsedDueAt.getTime())) {
+          return {
+            toolCallId: toolCall.id,
+            success: false,
+            error: 'Invalid dueAt format. Expected ISO date-time string.',
+          };
+        }
+        data.dueAt = parsedDueAt;
+      }
+
+      if (Object.keys(data).length === 0) {
+        return {
+          toolCallId: toolCall.id,
+          success: false,
+          error: 'No updatable fields provided',
+        };
+      }
+
+      const updated = await this.prisma.careTask.update({
+        where: { id: taskId },
+        data,
+        select: {
+          id: true,
+          taskType: true,
+          title: true,
+          description: true,
+          dueAt: true,
+          status: true,
+        },
+      });
+
+      const linkedJournal =
+        await this.gardenService.appendTaskHistoryToDailyJournal(
+          userId,
+          task.gardenPlantId,
+          {
+            action: 'UPDATED',
+            taskId: updated.id,
+            title: updated.title,
+            taskType: updated.taskType,
+            changes: {
+              before: {
+                taskType: task.taskType,
+                title: task.title,
+                notes: task.description,
+                dueAt: task.dueAt?.toISOString() ?? null,
+              },
+              after: {
+                taskType: updated.taskType,
+                title: updated.title,
+                notes: updated.description,
+                dueAt: updated.dueAt?.toISOString() ?? null,
+              },
+            },
+            imageAssetId:
+              typeof journalImageAssetId === 'string'
+                ? journalImageAssetId
+                : undefined,
+          },
+        );
+
+      return {
+        toolCallId: toolCall.id,
+        success: true,
+        result: {
+          id: updated.id,
+          taskType: updated.taskType,
+          title: updated.title,
+          notes: updated.description,
+          dueAt: updated.dueAt?.toISOString() ?? null,
+          status: updated.status,
+          dailyJournalId: linkedJournal.id,
+        },
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to update task';
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: message,
+      };
+    }
+  }
+
+  private async executeDeleteTask(
+    toolCall: ToolCall,
+    userId: string,
+  ): Promise<ToolResult> {
+    const { taskId, journalImageAssetId } = toolCall.arguments;
+
+    if (typeof taskId !== 'string') {
+      return {
+        toolCallId: toolCall.id,
+        success: false,
+        error: 'Missing required parameter: taskId',
+      };
+    }
+
+    try {
+      const task = await this.prisma.careTask.findFirst({
+        where: {
+          id: taskId,
+          gardenPlant: { userId },
+        },
+        select: {
+          id: true,
+          gardenPlantId: true,
+          status: true,
+          title: true,
+          taskType: true,
+        },
+      });
+
+      if (!task) {
+        return {
+          toolCallId: toolCall.id,
+          success: false,
+          error: 'Task not found or not owned by user',
+        };
+      }
+
+      if (task.status !== 'PENDING') {
+        return {
+          toolCallId: toolCall.id,
+          success: false,
+          error: 'Only PENDING tasks can be deleted',
+        };
+      }
+
+      await this.prisma.careTask.delete({
+        where: { id: task.id },
+      });
+
+      const linkedJournal =
+        await this.gardenService.appendTaskHistoryToDailyJournal(
+          userId,
+          task.gardenPlantId,
+          {
+            action: 'DELETED',
+            taskId: task.id,
+            title: task.title,
+            taskType: task.taskType,
+            changes: {
+              status: 'PENDING',
+            },
+            imageAssetId:
+              typeof journalImageAssetId === 'string'
+                ? journalImageAssetId
+                : undefined,
+          },
+        );
+
+      return {
+        toolCallId: toolCall.id,
+        success: true,
+        result: {
+          deleted: true,
+          id: task.id,
+          title: task.title,
+          taskType: task.taskType,
+          dailyJournalId: linkedJournal.id,
+        },
+      };
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Failed to delete task';
       return {
         toolCallId: toolCall.id,
         success: false,
