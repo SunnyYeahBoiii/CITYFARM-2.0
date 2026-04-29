@@ -56,6 +56,12 @@ type SpaceVisualizationResponse = {
   visualizedImage?: unknown;
 };
 
+type ParsedToolCall = {
+  id: string;
+  name: string;
+  arguments: Record<string, unknown>;
+};
+
 const PRODUCT_TYPE_PRIORITY: Record<string, number> = {
   SEED: 0,
   KIT: 1,
@@ -76,6 +82,96 @@ export class AppService {
 
   getHello(): string {
     return 'Hello World!';
+  }
+
+  private extractJsonObjectFromText(
+    text: string,
+  ): Record<string, unknown> | null {
+    const trimmed = text.trim();
+    const candidates: string[] = [trimmed];
+
+    const fencedMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
+    if (fencedMatch?.[1]) {
+      candidates.push(fencedMatch[1].trim());
+    }
+
+    const firstBrace = trimmed.indexOf('{');
+    const lastBrace = trimmed.lastIndexOf('}');
+    if (firstBrace >= 0 && lastBrace > firstBrace) {
+      candidates.push(trimmed.slice(firstBrace, lastBrace + 1).trim());
+    }
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = JSON.parse(candidate) as unknown;
+        if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
+          return parsed as Record<string, unknown>;
+        }
+      } catch {
+        continue;
+      }
+    }
+
+    return null;
+  }
+
+  private getParsedToolCalls(aiResponse: unknown): ParsedToolCall[] {
+    if (!aiResponse || typeof aiResponse !== 'object') {
+      return [];
+    }
+
+    if (
+      'tool_calls' in aiResponse &&
+      Array.isArray((aiResponse as Record<string, unknown>).tool_calls)
+    ) {
+      const directToolCalls = (aiResponse as Record<string, unknown>)
+        .tool_calls as Array<Record<string, unknown>>;
+      return directToolCalls
+        .filter((entry) => typeof entry.name === 'string')
+        .map((entry, index) => ({
+          id:
+            typeof entry.id === 'string' && entry.id.trim()
+              ? entry.id
+              : `tool-${index + 1}`,
+          name: entry.name as string,
+          arguments:
+            entry.arguments && typeof entry.arguments === 'object'
+              ? (entry.arguments as Record<string, unknown>)
+              : {},
+        }));
+    }
+
+    const reply = (aiResponse as Record<string, unknown>).reply;
+    if (typeof reply !== 'string' || !reply.trim()) {
+      return [];
+    }
+
+    const parsedReply = this.extractJsonObjectFromText(reply);
+    if (!parsedReply || !Array.isArray(parsedReply.tool_calls)) {
+      return [];
+    }
+
+    return parsedReply.tool_calls
+      .filter(
+        (entry): entry is Record<string, unknown> => {
+          if (!entry || typeof entry !== 'object') {
+            return false;
+          }
+          const candidate = entry as Record<string, unknown>;
+          return typeof candidate.name === 'string';
+        },
+      )
+      .map((entry, index) => ({
+        id:
+          typeof entry.id === 'string' && entry.id.trim()
+            ? entry.id
+            : `tool-${index + 1}`,
+        name: entry.name as string,
+        arguments:
+          entry.arguments && typeof entry.arguments === 'object'
+            ? (entry.arguments as Record<string, unknown>)
+            : {},
+      }));
   }
 
   private isWebDemoContext(c: unknown): c is WebDemoContext {
@@ -134,7 +230,10 @@ export class AppService {
 
     if (this.isWebDemoContext(context)) {
       const ragContext = this.webDemoContextToRag(context);
-      return this.modelApiService.getChatAdvice({ message, context: ragContext });
+      return this.modelApiService.getChatAdvice({
+        message,
+        context: ragContext,
+      });
     }
 
     const ctx =
@@ -178,7 +277,8 @@ export class AppService {
       conversationId: conversation.id,
       messages: messages.map((m) => ({
         id: m.id,
-        role: m.senderType === 'USER' ? ('user' as const) : ('assistant' as const),
+        role:
+          m.senderType === 'USER' ? ('user' as const) : ('assistant' as const),
         content: m.body ?? '',
         createdAt: m.createdAt.toISOString(),
       })),
@@ -186,7 +286,7 @@ export class AppService {
   }
 
   async buildEnhancedPlantContext(plantId: string, userId: string) {
-    const plant = await this.prisma.gardenPlant.findUnique({
+    const plant = (await this.prisma.gardenPlant.findUnique({
       where: { id: plantId, userId },
       include: {
         plantSpecies: {
@@ -221,7 +321,7 @@ export class AppService {
           },
         },
       },
-    }) as any;
+    })) as any;
 
     if (!plant) {
       return null;
@@ -356,28 +456,8 @@ export class AppService {
     );
 
     // Tool calling loop
-    let toolCalls: Array<{
-      id: string;
-      name: string;
-      arguments: Record<string, unknown>;
-      result?: unknown;
-      success?: boolean;
-      error?: string;
-    }> = [];
-
-    if (
-      typeof aiResponse === 'object' &&
-      aiResponse !== null &&
-      'tool_calls' in aiResponse &&
-      Array.isArray(aiResponse.tool_calls) &&
-      aiResponse.tool_calls.length > 0
-    ) {
-      const rawToolCalls = aiResponse.tool_calls as Array<{
-        id: string;
-        name: string;
-        arguments: Record<string, unknown>;
-      }>;
-
+    const rawToolCalls = this.getParsedToolCalls(aiResponse);
+    if (rawToolCalls.length > 0) {
       // Execute each tool call
       const toolResults = await Promise.all(
         rawToolCalls.map(async (tc) => {
@@ -390,15 +470,6 @@ export class AppService {
         }),
       );
 
-      toolCalls = rawToolCalls.map((tc, idx) => ({
-        id: tc.id,
-        name: tc.name,
-        arguments: tc.arguments,
-        result: toolResults[idx].result,
-        success: toolResults[idx].success,
-        error: toolResults[idx].error,
-      }));
-
       // Send tool results back to AI for final response
       const finalResponse = await this.modelApiService.getChatAdvice({
         message,
@@ -407,6 +478,7 @@ export class AppService {
         plantId,
         tool_results: toolResults.map((tr) => ({
           tool_call_id: tr.toolCallId,
+          name: rawToolCalls.find((tc) => tc.id === tr.toolCallId)?.name ?? '',
           success: tr.success,
           result: tr.result,
           error: tr.error,
@@ -419,7 +491,9 @@ export class AppService {
         finalResponse !== null &&
         'reply' in finalResponse
       ) {
-        (aiResponse as Record<string, unknown>).reply = (finalResponse as Record<string, unknown>).reply;
+        (aiResponse as Record<string, unknown>).reply = (
+          finalResponse as Record<string, unknown>
+        ).reply;
       }
     }
 
@@ -456,9 +530,10 @@ export class AppService {
     }
 
     return {
-      ...(typeof aiResponse === 'object' && aiResponse !== null ? aiResponse : {}),
+      ...(typeof aiResponse === 'object' && aiResponse !== null
+        ? aiResponse
+        : {}),
       conversationId: conversation.id,
-      toolCalls,
     };
   }
 
@@ -535,19 +610,18 @@ export class AppService {
 
   private buildPlantCatalogText(plants: PlantCatalogItem[]) {
     return plants
-      .map(
-        (p) =>
-          [
-            `[ID: ${p.id}]`,
-            `Tên: ${p.commonName} (${p.scientificName})`,
-            `Loại: ${p.category}`,
-            `Độ khó: ${p.difficulty}`,
-            `Nắng: ${p.lightRequirement}`,
-            `Điểm sáng: ${p.minLightScore ?? 0}-${p.maxLightScore ?? 100}`,
-            `Diện tích min: ${p.recommendedMinAreaSqm ?? 'Không rõ'}m2`,
-            `Nhiệt độ: ${p.temperatureMinC ?? '?'}-${p.temperatureMaxC ?? '?'}°C`,
-            `Thu hoạch: ${p.harvestDaysMin ?? '?'}-${p.harvestDaysMax ?? '?'} ngày`,
-          ].join(' | '),
+      .map((p) =>
+        [
+          `[ID: ${p.id}]`,
+          `Tên: ${p.commonName} (${p.scientificName})`,
+          `Loại: ${p.category}`,
+          `Độ khó: ${p.difficulty}`,
+          `Nắng: ${p.lightRequirement}`,
+          `Điểm sáng: ${p.minLightScore ?? 0}-${p.maxLightScore ?? 100}`,
+          `Diện tích min: ${p.recommendedMinAreaSqm ?? 'Không rõ'}m2`,
+          `Nhiệt độ: ${p.temperatureMinC ?? '?'}-${p.temperatureMaxC ?? '?'}°C`,
+          `Thu hoạch: ${p.harvestDaysMin ?? '?'}-${p.harvestDaysMax ?? '?'} ngày`,
+        ].join(' | '),
       )
       .join('\n');
   }
@@ -634,21 +708,18 @@ export class AppService {
       ? response.recommendations
       : [];
 
-    const recommendations = rawRecommendations.map(
-      (recommendation) => {
-        const id =
-          typeof recommendation.id === 'string' ? recommendation.id : '';
-        const plantAsset = id ? plantAssetById.get(id) : null;
-        return {
-          ...recommendation,
-          imageUrl:
-            plantAsset?.publicUrl ??
-            (typeof recommendation.imageUrl === 'string'
-              ? recommendation.imageUrl
-              : ''),
-        };
-      },
-    );
+    const recommendations = rawRecommendations.map((recommendation) => {
+      const id = typeof recommendation.id === 'string' ? recommendation.id : '';
+      const plantAsset = id ? plantAssetById.get(id) : null;
+      return {
+        ...recommendation,
+        imageUrl:
+          plantAsset?.publicUrl ??
+          (typeof recommendation.imageUrl === 'string'
+            ? recommendation.imageUrl
+            : ''),
+      };
+    });
 
     let visualizedImage = '';
     const topRecommendation = this.selectTopRecommendation(rawRecommendations);
