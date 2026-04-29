@@ -10,7 +10,9 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, "../.."),
   },
-  allowedDevOrigins: ["ec2-54-151-135-60.ap-southeast-1.compute.amazonaws.com"],
+  ...(process.env.ALLOWED_DEV_ORIGINS && {
+    allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS.split(",").map((o) => o.trim()),
+  }),
 };
 
 export default nextConfig;

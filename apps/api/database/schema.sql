@@ -84,6 +84,7 @@ CREATE TABLE "PlantSpecies" (
     "humidityNotes" TEXT,
     "isHcmcSuitable" BOOLEAN NOT NULL DEFAULT true,
     "isMarketplaceEligible" BOOLEAN NOT NULL DEFAULT true,
+    "imageAssetId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
@@ -777,3 +778,6 @@ ALTER TABLE "ScanVisualization" ADD CONSTRAINT "ScanVisualization_sourceAssetId_
 
 -- AddForeignKey
 ALTER TABLE "ScanVisualization" ADD CONSTRAINT "ScanVisualization_outputAssetId_fkey" FOREIGN KEY ("outputAssetId") REFERENCES "MediaAsset"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PlantSpecies" ADD CONSTRAINT "PlantSpecies_imageAssetId_fkey" FOREIGN KEY ("imageAssetId") REFERENCES "MediaAsset"("id") ON DELETE SET NULL ON UPDATE CASCADE;

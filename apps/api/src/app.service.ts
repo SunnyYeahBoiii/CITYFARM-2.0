@@ -25,6 +25,10 @@ type PlantCatalogItem = {
   temperatureMaxC: number | null;
   harvestDaysMin: number | null;
   harvestDaysMax: number | null;
+  MediaAsset: {
+    publicUrl: string;
+    storageKey: string;
+  } | null;
   products: Array<{
     type: string;
     createdAt: Date;
@@ -302,6 +306,12 @@ export class AppService {
         temperatureMaxC: true,
         harvestDaysMin: true,
         harvestDaysMax: true,
+        MediaAsset: {
+          select: {
+            publicUrl: true,
+            storageKey: true,
+          },
+        },
         products: {
           where: {
             isActive: true,
@@ -325,6 +335,15 @@ export class AppService {
   }
 
   private pickBestPlantAsset(plant: PlantCatalogItem): PlantAsset | null {
+    // Ưu tiên 1: Ảnh đại diện trực tiếp của loài cây (imageAssetId)
+    if (plant.MediaAsset) {
+      return {
+        publicUrl: plant.MediaAsset.publicUrl,
+        storageKey: plant.MediaAsset.storageKey,
+      };
+    }
+
+    // Ưu tiên 2: Ảnh từ các sản phẩm liên quan (Hạt giống, v.v.)
     const sortedProducts = [...plant.products].sort((left, right) => {
       const typeDelta =
         (PRODUCT_TYPE_PRIORITY[left.type] ?? Number.MAX_SAFE_INTEGER) -
