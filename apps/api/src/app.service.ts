@@ -2,6 +2,8 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from './prisma/prisma.service';
 import { ModelApiService } from './ai/model-api.service';
 import { SupabaseStorageService } from './assets/supabase-storage.service';
+import { ToolExecutorService } from './ai/tool-executor.service';
+import { TOOL_DEFINITIONS, ToolCall } from './ai/tool-definitions';
 
 type WebDemoContext = {
   name: string;
@@ -69,6 +71,7 @@ export class AppService {
     private readonly prisma: PrismaService,
     private readonly modelApiService: ModelApiService,
     private readonly storageService: SupabaseStorageService,
+    private readonly toolExecutorService: ToolExecutorService,
   ) {}
 
   getHello(): string {
@@ -162,6 +165,109 @@ export class AppService {
     });
   }
 
+  async getConversationHistory(userId: string, plantId: string) {
+    const conversation = await this.findOrCreateAIConversation(userId, plantId);
+
+    const messages = await this.prisma.message.findMany({
+      where: { conversationId: conversation.id },
+      orderBy: { createdAt: 'asc' },
+      take: 50,
+    });
+
+    return {
+      conversationId: conversation.id,
+      messages: messages.map((m) => ({
+        id: m.id,
+        role: m.senderType === 'USER' ? ('user' as const) : ('assistant' as const),
+        content: m.body ?? '',
+        createdAt: m.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async buildEnhancedPlantContext(plantId: string, userId: string) {
+    const plant = await this.prisma.gardenPlant.findUnique({
+      where: { id: plantId, userId },
+      include: {
+        plantSpecies: {
+          include: {
+            careProfile: true,
+          },
+        },
+        journalEntries: {
+          orderBy: { capturedAt: 'desc' },
+          take: 10,
+          select: {
+            id: true,
+            capturedAt: true,
+            note: true,
+            healthStatus: true,
+            issueSummary: true,
+            recommendationSummary: true,
+            aiAnalysis: true,
+            leafColorNote: true,
+          },
+        },
+        careTasks: {
+          where: { status: 'PENDING' },
+          orderBy: { dueAt: 'asc' },
+          take: 5,
+          select: {
+            id: true,
+            taskType: true,
+            title: true,
+            dueAt: true,
+            description: true,
+          },
+        },
+      },
+    }) as any;
+
+    if (!plant) {
+      return null;
+    }
+
+    return {
+      species: {
+        commonName: plant.plantSpecies.commonName,
+        scientificName: plant.plantSpecies.scientificName,
+        difficulty: plant.plantSpecies.difficulty,
+        lightRequirement: plant.plantSpecies.lightRequirement,
+        careGuide: plant.plantSpecies.careProfile?.sunlightSummary ?? null,
+        wateringGuide: plant.plantSpecies.careProfile?.wateringSummary ?? null,
+        pestsGuide: plant.plantSpecies.careProfile?.commonPests ?? null,
+      },
+      currentPlant: {
+        nickname: plant.nickname,
+        status: plant.status,
+        health: plant.healthStatus,
+        growthStage: plant.growthStage,
+        daysGrowing: Math.floor(
+          (Date.now() - plant.plantedAt.getTime()) / (1000 * 60 * 60 * 24),
+        ),
+        zoneName: plant.zoneName,
+        notes: plant.notes,
+      },
+      recentJournals: plant.journalEntries.map((j) => ({
+        id: j.id,
+        date: j.capturedAt.toISOString(),
+        health: j.healthStatus,
+        issue: j.issueSummary,
+        recommendation: j.recommendationSummary,
+        note: j.note,
+        aiAnalysis: j.aiAnalysis,
+        leafColor: j.leafColorNote,
+      })),
+      pendingTasks: plant.careTasks.map((t) => ({
+        id: t.id,
+        type: t.taskType,
+        title: t.title,
+        due: t.dueAt?.toISOString() ?? null,
+        notes: t.description,
+      })),
+    };
+  }
+
   async processChatRequest(userId: string, plantId: string, message: string) {
     const plantData = await this.prisma.gardenPlant.findUnique({
       where: { id: plantId, userId },
@@ -239,11 +345,83 @@ export class AppService {
       },
     };
 
-    const aiResponse = await this.modelApiService.getChatAdvice({
-      message,
-      context: ragContext,
-      history: chatHistory,
-    });
+    const aiResponse = await this.modelApiService.getChatAdvice(
+      {
+        message,
+        context: ragContext,
+        history: chatHistory,
+        plantId,
+      },
+      TOOL_DEFINITIONS,
+    );
+
+    // Tool calling loop
+    let toolCalls: Array<{
+      id: string;
+      name: string;
+      arguments: Record<string, unknown>;
+      result?: unknown;
+      success?: boolean;
+      error?: string;
+    }> = [];
+
+    if (
+      typeof aiResponse === 'object' &&
+      aiResponse !== null &&
+      'tool_calls' in aiResponse &&
+      Array.isArray(aiResponse.tool_calls) &&
+      aiResponse.tool_calls.length > 0
+    ) {
+      const rawToolCalls = aiResponse.tool_calls as Array<{
+        id: string;
+        name: string;
+        arguments: Record<string, unknown>;
+      }>;
+
+      // Execute each tool call
+      const toolResults = await Promise.all(
+        rawToolCalls.map(async (tc) => {
+          const toolCall: ToolCall = {
+            id: tc.id,
+            name: tc.name,
+            arguments: tc.arguments,
+          };
+          return this.toolExecutorService.execute(toolCall, userId);
+        }),
+      );
+
+      toolCalls = rawToolCalls.map((tc, idx) => ({
+        id: tc.id,
+        name: tc.name,
+        arguments: tc.arguments,
+        result: toolResults[idx].result,
+        success: toolResults[idx].success,
+        error: toolResults[idx].error,
+      }));
+
+      // Send tool results back to AI for final response
+      const finalResponse = await this.modelApiService.getChatAdvice({
+        message,
+        context: ragContext,
+        history: chatHistory,
+        plantId,
+        tool_results: toolResults.map((tr) => ({
+          tool_call_id: tr.toolCallId,
+          success: tr.success,
+          result: tr.result,
+          error: tr.error,
+        })),
+      });
+
+      // Update aiResponse with final reply
+      if (
+        typeof finalResponse === 'object' &&
+        finalResponse !== null &&
+        'reply' in finalResponse
+      ) {
+        (aiResponse as Record<string, unknown>).reply = (finalResponse as Record<string, unknown>).reply;
+      }
+    }
 
     try {
       await this.prisma.message.create({
@@ -280,6 +458,7 @@ export class AppService {
     return {
       ...(typeof aiResponse === 'object' && aiResponse !== null ? aiResponse : {}),
       conversationId: conversation.id,
+      toolCalls,
     };
   }
 

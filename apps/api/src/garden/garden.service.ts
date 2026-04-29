@@ -17,6 +17,7 @@ import {
 } from './constants/plant-care-data';
 import { LogCareDto } from 'src/dtos/garden/log-care.dto';
 import { LogJournalDto } from 'src/dtos/garden/log-journal.dto';
+import { CreateCareTaskDto } from 'src/dtos/garden/create-care-task.dto';
 import { ModelApiService } from '../ai/model-api.service';
 import { SupabaseStorageService } from '../assets/supabase-storage.service';
 
@@ -517,6 +518,93 @@ export class GardenService {
     }
 
     return { success: true };
+  }
+
+  async createCareTask(
+    userId: string,
+    plantId: string,
+    dto: CreateCareTaskDto,
+  ) {
+    // Verify plant ownership
+    const plant = await this.prisma.gardenPlant.findUnique({
+      where: { id: plantId, userId },
+    });
+
+    if (!plant) {
+      throw new NotFoundException('Plant not found or not owned by user');
+    }
+
+    // Check for duplicate pending task
+    const existingTask = await this.prisma.careTask.findFirst({
+      where: {
+        gardenPlantId: plantId,
+        taskType: dto.taskType as CareTaskType,
+        status: CareTaskStatus.PENDING,
+        title: dto.title,
+      },
+    });
+
+    if (existingTask) {
+      return existingTask;
+    }
+
+    // Parse dueAt or default to today
+    const dueAt = dto.dueAt ? new Date(dto.dueAt) : new Date();
+
+    // Create new task
+    const task = await this.prisma.careTask.create({
+      data: {
+        gardenPlantId: plantId,
+        taskType: dto.taskType as CareTaskType,
+        title: dto.title,
+        description: dto.notes,
+        dueAt,
+        status: CareTaskStatus.PENDING,
+        createdBy: 'AI_ASSISTANT',
+      },
+    });
+
+    this._invalidateStatsCache(userId);
+
+    return task;
+  }
+
+  async logJournalEntry(
+    userId: string,
+    plantId: string,
+    dto: { note: string; healthStatus: string; issueSummary?: string },
+  ) {
+    // Verify plant ownership
+    const plant = await this.prisma.gardenPlant.findFirst({
+      where: { id: plantId, userId },
+    });
+
+    if (!plant) {
+      throw new NotFoundException('Plant not found');
+    }
+
+    const now = new Date();
+
+    const entry = await this.prisma.plantJournalEntry.create({
+      data: {
+        gardenPlantId: plantId,
+        capturedAt: now,
+        note: dto.note,
+        healthStatus: dto.healthStatus as PlantHealthStatus,
+        issueSummary: dto.issueSummary,
+      },
+    });
+
+    // Update plant health status and lastJournaledAt
+    await this.prisma.gardenPlant.update({
+      where: { id: plantId },
+      data: {
+        lastJournaledAt: now,
+        healthStatus: dto.healthStatus as PlantHealthStatus,
+      },
+    });
+
+    return entry;
   }
 
   private async _analyzeJournalImage(
