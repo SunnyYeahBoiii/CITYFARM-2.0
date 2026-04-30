@@ -52,6 +52,27 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Validate required build secrets
+        env:
+          WEB_NEXT_PUBLIC_API_URL: ${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
+          WEB_NEXT_PUBLIC_APP_URL: ${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
+          ADMIN_NEXT_PUBLIC_API_URL: ${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
+          ADMIN_NEXT_PUBLIC_WEB_URL: ${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
+        run: |
+          set -euo pipefail
+          required_vars=(
+            WEB_NEXT_PUBLIC_API_URL
+            WEB_NEXT_PUBLIC_APP_URL
+            ADMIN_NEXT_PUBLIC_API_URL
+            ADMIN_NEXT_PUBLIC_WEB_URL
+          )
+          for var in "${required_vars[@]}"; do
+            if [ -z "${!var:-}" ]; then
+              echo "Missing required GitHub secret: $var"
+              exit 1
+            fi
+          done
+
       - name: Set lowercase image owner
         run: echo "IMAGE_OWNER=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_ENV
 
@@ -127,6 +148,40 @@ jobs:
           script: |
             set -euo pipefail
             cd ${{ env.DEPLOY_PATH }}
+
+            if [ ! -f .env ]; then
+              echo "Missing ${PWD}/.env. Copy .env.example and configure production values before deploy."
+              exit 1
+            fi
+
+            required_env_vars=(
+              DATABASE_URL
+              DIRECT_URL
+              SUPABASE_URL
+              SUPABASE_SERVICE_ROLE_KEY
+              SUPABASE_BUCKET_NAME
+              SUPABASE_PUBLISHABLE_KEY
+              SUPABASE_SECRET_KEY
+              JWT_REFRESH_SECRET
+              JWT_ACCESS_SECRET
+              GOOGLE_CLIENT_ID
+              GOOGLE_CLIENT_SECRET
+              GOOGLE_CALLBACK_URL
+              FRONTEND_URL
+              WEB_ORIGINS
+              NEXT_PUBLIC_API_URL
+              NEXT_PUBLIC_APP_URL
+              NEXT_PUBLIC_WEB_URL
+              NEST_API_URL
+              MODEL_API_URL
+              GEMINI_API_KEY
+            )
+            for var in "${required_env_vars[@]}"; do
+              if ! grep -Eq "^${var}=.+" .env; then
+                echo "Missing or empty required deploy env in .env: $var"
+                exit 1
+              fi
+            done
 
             git fetch --prune origin main
             git checkout main

@@ -6,6 +6,7 @@ import 'dotenv/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const isProduction = process.env.NODE_ENV === 'production';
 
   const defaultWebOrigins = [
     'http://localhost:3000',
@@ -17,7 +18,12 @@ async function bootstrap() {
     process.env.WEB_ORIGINS?.split(',')
       .map((o) => o.trim())
       .filter(Boolean) ?? [];
-  const allowedOrigins = new Set([...defaultWebOrigins, ...envOrigins]);
+  if (isProduction && envOrigins.length === 0) {
+    throw new Error('[config] Missing required env: WEB_ORIGINS');
+  }
+  const allowedOrigins = new Set(
+    isProduction ? envOrigins : [...defaultWebOrigins, ...envOrigins],
+  );
 
   app.enableCors({
     origin: (origin, cb) => {

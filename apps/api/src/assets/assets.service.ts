@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { SupabaseStorageService } from './supabase-storage.service';
-import { MediaKind } from 'generated/prisma/enums';
 
 @Injectable()
 export class AssetsService {

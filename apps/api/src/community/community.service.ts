@@ -16,10 +16,7 @@ import {
   FeedCommentDto,
   FeedCommentsDto,
 } from '../dtos/feed/feed-comment.dto';
-import {
-  CreatePostReactionDto,
-  ReactionType,
-} from '../dtos/feed/post-reaction.dto';
+import { CreatePostReactionDto } from '../dtos/feed/post-reaction.dto';
 import { CreateMarketplaceListingDto } from '../dtos/marketplace/create-marketplace-listing.dto';
 import {
   MarketplaceListingDto,
@@ -125,7 +122,7 @@ export class CommunityService {
       this.prisma.feedPost.count({ where }),
     ]);
 
-    const data = posts.map((post) => this.mapFeedPostToDto(post, userId));
+    const data = posts.map((post) => this.mapFeedPostToDto(post));
 
     return {
       data,
@@ -243,9 +240,7 @@ export class CommunityService {
     const hasMore = posts.length > limit;
     const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
 
-    const data = postsToReturn.map((post) =>
-      this.mapFeedPostToDto(post, userId),
-    );
+    const data = postsToReturn.map((post) => this.mapFeedPostToDto(post));
 
     // Generate next cursor from last post
     const lastPost = postsToReturn[postsToReturn.length - 1];
@@ -335,7 +330,7 @@ export class CommunityService {
       },
     });
 
-    return this.mapFeedPostToDto(post, userId);
+    return this.mapFeedPostToDto(post);
   }
 
   async getFeedPostById(postId: string, userId: string): Promise<FeedPostDto> {
@@ -403,7 +398,7 @@ export class CommunityService {
       throw new NotFoundException('Post not found');
     }
 
-    return this.mapFeedPostToDto(post, userId);
+    return this.mapFeedPostToDto(post);
   }
 
   async deleteFeedPost(postId: string, userId: string): Promise<void> {
@@ -791,7 +786,7 @@ export class CommunityService {
 
   // ============ HELPERS ============
 
-  private mapFeedPostToDto(post: any, currentUserId: string): FeedPostDto {
+  private mapFeedPostToDto(post: any): FeedPostDto {
     return {
       id: post.id,
       postType: post.postType,

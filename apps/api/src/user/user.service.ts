@@ -20,7 +20,7 @@ export class UserService {
       include: { profile: true },
     });
     if (user) {
-      const { passwordHash, refreshToken, ...safeUser } = user;
+      const { passwordHash, ...safeUser } = user;
       return {
         ...safeUser,
         requiresPasswordSetup: !passwordHash,

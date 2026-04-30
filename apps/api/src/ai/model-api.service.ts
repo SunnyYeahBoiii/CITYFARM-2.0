@@ -37,14 +37,10 @@ export class ModelApiService {
     }
 
     if (process.env.NODE_ENV === 'production') {
-      return ['http://model-api:3003'];
+      throw new Error('[config] Missing required env: MODEL_API_URL');
     }
 
-    return [
-      'http://127.0.0.1:3003',
-      'http://localhost:3003',
-      'http://model-api:3003',
-    ];
+    return ['http://127.0.0.1:3003'];
   }
 
   async getChatAdvice(payload: Record<string, unknown>, tools?: unknown) {
