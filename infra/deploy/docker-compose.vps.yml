@@ -1,5 +1,25 @@
 # docker-compose.vps.yml
 services:
+  landing:
+    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-landing:latest
+    restart: unless-stopped
+    env_file: ../../.env
+    environment:
+      PORT: "3004"
+      HOSTNAME: "0.0.0.0"
+    expose:
+      - "3004"
+    ports:
+      - "127.0.0.1:3004:3004"
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3004/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+
   web:
     image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-web:latest
     restart: unless-stopped
