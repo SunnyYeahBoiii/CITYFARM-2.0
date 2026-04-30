@@ -322,6 +322,13 @@ jobs:
               fi
             done
 
+            # Canonicalize public URL envs so docker compose always receives
+            # ADMIN_*/WEB_* values even when operators still use legacy NEXT_PUBLIC_* keys.
+            export WEB_NEXT_PUBLIC_API_URL="$(get_env_value WEB_NEXT_PUBLIC_API_URL NEXT_PUBLIC_API_URL)"
+            export WEB_NEXT_PUBLIC_APP_URL="$(get_env_value WEB_NEXT_PUBLIC_APP_URL NEXT_PUBLIC_APP_URL)"
+            export ADMIN_NEXT_PUBLIC_API_URL="$(get_env_value ADMIN_NEXT_PUBLIC_API_URL NEXT_PUBLIC_API_URL)"
+            export ADMIN_NEXT_PUBLIC_WEB_URL="$(get_env_value ADMIN_NEXT_PUBLIC_WEB_URL NEXT_PUBLIC_WEB_URL)"
+
             git fetch --prune origin main
             git checkout main
             git pull --ff-only origin main
