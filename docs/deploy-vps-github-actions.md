@@ -82,6 +82,7 @@ Workflow **không** đọc các secret `API_*` riêng lẻ từ GitHub. Thay và
 - `NEST_API_URL`
 - `MODEL_API_URL`
 - `GEMINI_API_KEY`
+- `LETSENCRYPT_EMAIL` (khuyến nghị, dùng để đăng ký SSL cert; nếu bỏ trống sẽ fallback `admin@APP_DOMAIN`)
 
 ### URL format checks (deploy `.env`)
 
@@ -117,14 +118,21 @@ Nếu bạn muốn deploy từ branch khác, sửa `on.push.branches`.
 
 ## 5. Thiết lập Nginx + SSL
 
-Workflow hiện tự động apply Nginx HTTP config cho VPS IPv4 (không domain) ở mỗi lần deploy:
+Workflow hiện tự động apply Nginx theo domain app (`APP_DOMAIN`) ở mỗi lần deploy:
 
 - cài `nginx` nếu VPS chưa có (Ubuntu/Debian, qua `apt-get`)
-- copy `infra/nginx/cityfarm.ipv4.http.conf.template` vào `/etc/nginx/sites-available/cityfarm-ipv4.conf`
+- cài `certbot` + `python3-certbot-nginx` nếu VPS chưa có
+- copy `infra/nginx/cityfarm.http.conf.template` vào `/etc/nginx/sites-available/cityfarm.conf`
 - enable site + disable default site
 - `nginx -t` rồi reload/restart service
 
-Bạn không cần SSH để cấu hình reverse proxy thủ công cho flow IPv4 HTTP.
+Nếu `WEB_NEXT_PUBLIC_APP_URL` dùng `https://...`, workflow sẽ tự:
+
+- xin/gia hạn cert Let's Encrypt cho `APP_DOMAIN` bằng webroot challenge
+- apply `infra/nginx/cityfarm.https.conf.template`
+- bật redirect HTTP -> HTTPS
+
+Bạn không cần SSH để cấu hình reverse proxy thủ công cho flow HTTP.
 
 Nếu cần SSL + domain (Let's Encrypt), phần cert vẫn là bước riêng one-time trên VPS:
 
@@ -145,15 +153,15 @@ Script `setup-nginx.sh` sẽ:
 
 Map mặc định:
 
-- `app.example.com` -> `127.0.0.1:3000`
-- `admin.example.com` -> `127.0.0.1:3002`
-- `api.example.com` -> `127.0.0.1:3001`
+- `cityfarm.id.vn` -> `127.0.0.1:3000` (web)
+- `cityfarm.id.vn/admin` -> `127.0.0.1:3002` (admin)
+- `cityfarm.id.vn/api` -> `127.0.0.1:3001` (api)
 
 `model-api` không public trực tiếp.
 
-### Trường hợp chưa có domain (dùng VPS IPv4)
+### Trường hợp debug nhanh qua IP VPS
 
-Bạn có thể chạy ngay bằng HTTP qua địa chỉ IP VPS, chưa cần DNS/cert:
+Mặc định khuyến nghị dùng domain `cityfarm.id.vn`. Nếu cần debug nhanh có thể truy cập trực tiếp bằng IP VPS:
 
 1. `infra/deploy/docker-compose.vps.yml` đã bind localhost:
    - `127.0.0.1:3000 -> web:3000`
@@ -162,8 +170,8 @@ Bạn có thể chạy ngay bằng HTTP qua địa chỉ IP VPS, chưa cần DNS
 2. Copy template Nginx:
 
 ```bash
-sudo cp infra/nginx/cityfarm.ipv4.http.conf.template /etc/nginx/sites-available/cityfarm-ipv4.conf
-sudo ln -sf /etc/nginx/sites-available/cityfarm-ipv4.conf /etc/nginx/sites-enabled/cityfarm-ipv4.conf
+sudo cp infra/nginx/cityfarm.http.conf.template /etc/nginx/sites-available/cityfarm.conf
+sudo ln -sf /etc/nginx/sites-available/cityfarm.conf /etc/nginx/sites-enabled/cityfarm.conf
 sudo nginx -t
 sudo systemctl reload nginx
 ```
@@ -171,7 +179,7 @@ sudo systemctl reload nginx
 3. Truy cập landing page qua:
 
 ```text
-http://<VPS_IPV4>/
+http://<VPS_IP>/
 ```
 
 Template trên route sẵn landing page (`/`) và có comment sẵn block cho `/api/` + `/admin/` để bật khi cần.
@@ -192,4 +200,3 @@ Khi có domain, chuyển sang flow SSL ở trên (Certbot + server_name theo dom
 - `infra/deploy/deploy.sh`
 - `infra/nginx/cityfarm.http.conf.template`
 - `infra/nginx/cityfarm.https.conf.template`
-- `infra/nginx/cityfarm.ipv4.http.conf.template`
