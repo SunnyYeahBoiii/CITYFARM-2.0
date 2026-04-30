@@ -2,7 +2,7 @@
     "name": "model-api",
     "scripts": {
         "dev": "nodemon --exec python ./src/main.py --ext py,html,yaml",
-        "build": "exit 0",
+        "build": "poetry build",
         "start": "python ./src/main.py"
     },
     "devDependencies": {
