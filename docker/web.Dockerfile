@@ -24,16 +24,19 @@ FROM base AS builder
 
 ARG NEXT_PUBLIC_API_URL
 ARG NEXT_PUBLIC_APP_URL
+ARG NEST_API_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEST_API_URL=$NEST_API_URL
 
 COPY --from=deps /app/ /app/
 COPY . .
 
 RUN test -n "$NEXT_PUBLIC_API_URL" || (echo "Missing required build arg: NEXT_PUBLIC_API_URL" && exit 1)
 RUN test -n "$NEXT_PUBLIC_APP_URL" || (echo "Missing required build arg: NEXT_PUBLIC_APP_URL" && exit 1)
+RUN test -n "$NEST_API_URL" || (echo "Missing required build arg: NEST_API_URL" && exit 1)
 RUN pnpm --filter web build
 
 FROM node:20-bookworm-slim AS runner
