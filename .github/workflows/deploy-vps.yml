@@ -505,8 +505,8 @@ jobs:
 
             wait_for_http api http://127.0.0.1:3001/
             wait_for_http web http://127.0.0.1:3000/
-            wait_for_http landing http://127.0.0.1:3004/
-            wait_for_http admin http://127.0.0.1:3002/
+            wait_for_http landing http://127.0.0.1:3004/landing
+            wait_for_http admin http://127.0.0.1:3002/admin
             wait_for_http nginx http://127.0.0.1/ -H "Host: $APP_DOMAIN"
 
             docker image prune -f
