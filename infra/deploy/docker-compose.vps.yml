@@ -3,7 +3,7 @@ services:
   web:
     image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-web:latest
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
@@ -25,7 +25,7 @@ services:
   admin:
     image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-admin:latest
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
@@ -47,7 +47,7 @@ services:
   api:
     image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-api:latest
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     environment:
       PORT: "3001"
     expose:
@@ -68,7 +68,7 @@ services:
   model-api:
     image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-model-api:latest
     restart: unless-stopped
-    env_file: .env
+    env_file: ../../.env
     environment:
       PORT: "3003"
     expose:

@@ -323,9 +323,9 @@ jobs:
             docker compose -f infra/deploy/docker-compose.vps.yml config >/dev/null
             docker compose -f infra/deploy/docker-compose.vps.yml up -d --remove-orphans
 
-            # Prisma: pull schema from DB then generate client
+            # Prisma: generate client inside running api container
             docker compose -f infra/deploy/docker-compose.vps.yml exec -T \
-              api bash -c "DATABASE_URL=\$DIRECT_URL pnpm prisma db pull --schema prisma/schema.prisma && pnpm prisma:generate"
+              api bash -c "pnpm prisma:generate"
 
             wait_for_http() {
               service="$1"
