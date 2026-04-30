@@ -7,7 +7,7 @@ function readEnv(name: string): string | undefined {
     case "NEXT_PUBLIC_API_URL":
       return process.env.NEXT_PUBLIC_API_URL;
     case "NEST_API_URL":
-      return process.env.NEST_API_URL;
+      return typeof window === "undefined" ? process.env.NEST_API_URL : undefined;
     default:
       return undefined;
   }

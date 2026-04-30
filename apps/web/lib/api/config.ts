@@ -12,18 +12,17 @@ const API_BASE_URL = resolveRequiredBaseUrl(
   process.env.NEXT_PUBLIC_API_URL,
   DEFAULT_API_BASE_URL
 );
-const NEST_API_BASE_URL = resolveRequiredBaseUrl(
-  "NEST_API_URL",
-  process.env.NEST_API_URL,
-  DEFAULT_API_BASE_URL
-);
+
+function resolveNestApiBaseUrl(): string {
+  return resolveRequiredBaseUrl("NEST_API_URL", process.env.NEST_API_URL, DEFAULT_API_BASE_URL);
+}
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
 }
 
 export function getNestApiBaseUrl(): string {
-  return NEST_API_BASE_URL;
+  return resolveNestApiBaseUrl();
 }
 
 export function buildApiUrl(pathname: string): string {
@@ -33,7 +32,7 @@ export function buildApiUrl(pathname: string): string {
 
 export function buildNestApiUrl(pathname: string): string {
   const normalizedPath = pathname.startsWith("/") ? pathname : `/${pathname}`;
-  return `${NEST_API_BASE_URL}${normalizedPath}`;
+  return `${resolveNestApiBaseUrl()}${normalizedPath}`;
 }
 
 export function getGoogleAuthUrl(): string {
