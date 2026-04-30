@@ -169,9 +169,10 @@ jobs:
               GOOGLE_CALLBACK_URL
               FRONTEND_URL
               WEB_ORIGINS
-              NEXT_PUBLIC_API_URL
-              NEXT_PUBLIC_APP_URL
-              NEXT_PUBLIC_WEB_URL
+              WEB_NEXT_PUBLIC_API_URL
+              WEB_NEXT_PUBLIC_APP_URL
+              ADMIN_NEXT_PUBLIC_API_URL
+              ADMIN_NEXT_PUBLIC_WEB_URL
               NEST_API_URL
               MODEL_API_URL
               GEMINI_API_KEY
@@ -183,13 +184,52 @@ jobs:
               fi
             done
 
+            url_env_vars=(
+              GOOGLE_CALLBACK_URL
+              FRONTEND_URL
+              WEB_NEXT_PUBLIC_API_URL
+              WEB_NEXT_PUBLIC_APP_URL
+              ADMIN_NEXT_PUBLIC_API_URL
+              ADMIN_NEXT_PUBLIC_WEB_URL
+              NEST_API_URL
+              MODEL_API_URL
+            )
+            for var in "${url_env_vars[@]}"; do
+              value=$(grep -E "^${var}=.+" .env | tail -n1 | cut -d= -f2-)
+              if ! printf '%s' "$value" | grep -Eq '^https?://'; then
+                echo "Invalid URL format for $var. Expected http(s)://..."
+                exit 1
+              fi
+            done
+
             git fetch --prune origin main
             git checkout main
             git pull --ff-only origin main
 
+            # Ensure Nginx exists and reverse-proxy config is applied on every deploy.
+            if ! command -v nginx >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y nginx
+              else
+                echo "nginx is not installed and apt-get is unavailable. Install nginx manually once on VPS."
+                exit 1
+              fi
+            fi
+
+            sudo cp infra/nginx/cityfarm.ipv4.http.conf.template /etc/nginx/sites-available/cityfarm-ipv4.conf
+            sudo ln -sf /etc/nginx/sites-available/cityfarm-ipv4.conf /etc/nginx/sites-enabled/cityfarm-ipv4.conf
+            if [ -f /etc/nginx/sites-enabled/default ]; then
+              sudo rm -f /etc/nginx/sites-enabled/default
+            fi
+            sudo nginx -t
+            sudo systemctl enable nginx
+            sudo systemctl reload nginx || sudo systemctl restart nginx
+
             export COMPOSE_PARALLEL_LIMIT=1
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
             docker compose -f infra/deploy/docker-compose.vps.yml pull
+            docker compose -f infra/deploy/docker-compose.vps.yml config >/dev/null
             docker compose -f infra/deploy/docker-compose.vps.yml up -d --remove-orphans
 
             # Prisma: pull schema from DB then generate client
@@ -214,5 +254,6 @@ jobs:
             wait_for_http api http://127.0.0.1:3001/
             wait_for_http web http://127.0.0.1:3000/
             wait_for_http admin http://127.0.0.1:3002/
+            wait_for_http nginx http://127.0.0.1/
 
             docker image prune -f

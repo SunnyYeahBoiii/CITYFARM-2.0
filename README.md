@@ -118,7 +118,8 @@ cp apps/api/.env.example apps/api/.env
 | `GOOGLE_CLIENT_ID` | If using Google OAuth | Google OAuth client ID |
 | `GOOGLE_CLIENT_SECRET` | If using Google OAuth | Google OAuth client secret |
 | `GOOGLE_CALLBACK_URL` | If using Google OAuth | Google OAuth callback URL |
-| `FRONTEND_URL` | Yes | Frontend URL, e.g. `http://localhost:3000` |
+| `FRONTEND_URL` | Yes in production | Frontend URL, e.g. `http://localhost:3000` |
+| `WEB_ORIGINS` | Yes in production | Comma-separated allowed CORS origins |
 | `NODE_ENV` | No | `development` or `production` |
 
 **Model API (`apps/model-api/.env`):**
@@ -141,6 +142,7 @@ cp apps/web/.env.example apps/web/.env.local
 |----------|----------|-------------|
 | `NEXT_PUBLIC_API_URL` | Yes | API URL, e.g. `http://localhost:3001` |
 | `NEXT_PUBLIC_APP_URL` | Yes | Web app URL, e.g. `http://localhost:3000` |
+| `NEST_API_URL` | Yes in production | API URL used by server-side routes/proxy |
 
 **Admin (`apps/admin/.env.local`):**
 ```bash
@@ -185,6 +187,7 @@ This starts:
 - **Admin** — http://localhost:3002
 - **API** — http://localhost:3001
 - **Model API** — http://localhost:3003
+- **Landing** — http://localhost:3004
 
 **Run individual apps:**
 ```bash
@@ -359,7 +362,9 @@ CI/CD triggers on push to `main` branch:
 | `WEB_NEXT_PUBLIC_APP_URL` | Production web URL |
 | `ADMIN_NEXT_PUBLIC_API_URL` | Production API URL for admin |
 | `ADMIN_NEXT_PUBLIC_WEB_URL` | Production web URL for admin |
-| `GITHUB_TOKEN` | GitHub PAT for GHCR access |
+| `GITHUB_TOKEN` | Auto-provided by GitHub Actions for GHCR push/login |
+
+`deploy-vps.yml` also validates required runtime variables from VPS `.env` (database, auth, URL config, and `GEMINI_API_KEY`) before `docker compose up`.
 
 **Manual deploy on VPS:**
 ```bash
@@ -388,10 +393,11 @@ docker compose -f infra/deploy/docker-compose.vps.yml up -d
 
 **Web/Admin can't connect to API:**
 - Verify `NEXT_PUBLIC_API_URL` in `.env.local` files
+- In production, missing required URL envs fail build/startup with clear `[config] Missing required env: ...` errors
 - These are **build-time** variables — restart dev server after changing
 
 **Port already in use:**
-- Default ports: web=3000, api=3001, admin=3002, model-api=3003
+- Default ports: web=3000, api=3001, admin=3002, model-api=3003, landing=3004
 - Kill existing process: `lsof -ti :3000 | xargs kill`
 
 ---

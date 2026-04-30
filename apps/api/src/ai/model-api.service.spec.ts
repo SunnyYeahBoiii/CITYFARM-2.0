@@ -94,4 +94,38 @@ describe('ModelApiService', () => {
       );
     }
   });
+
+  it('uses deterministic development fallback when MODEL_API_URL is missing', async () => {
+    process.env = { ...originalEnv, NODE_ENV: 'development' };
+    modelApiService = new ModelApiService();
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ success: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await modelApiService.analyzeSpaceLayout({
+      imageBase64: 'space-b64',
+      plantCatalogText: 'catalog',
+    });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      'http://127.0.0.1:3003/api/analyze-space',
+      expect.any(Object),
+    );
+  });
+
+  it('throws in production when MODEL_API_URL is missing', async () => {
+    process.env = { ...originalEnv, NODE_ENV: 'production' };
+    delete process.env.MODEL_API_URL;
+    modelApiService = new ModelApiService();
+
+    await expect(
+      modelApiService.analyzeSpaceLayout({
+        imageBase64: 'space-b64',
+        plantCatalogText: 'catalog',
+      }),
+    ).rejects.toThrow('[config] Missing required env: MODEL_API_URL');
+  });
 });

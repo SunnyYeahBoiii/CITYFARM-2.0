@@ -89,7 +89,7 @@ function resolveRequiredBaseUrl(name: string, devFallback: string): string {
 
 #### Automated Verification:
 - [x] Type check passes for all packages: `pnpm check-types`
-- [ ] Lint passes for changed packages: `pnpm lint`
+- [x] Lint passes for changed packages: `pnpm lint`
 - [ ] API tests/build pass: `pnpm --filter api test` (or existing equivalent in repo)
 - [x] Web/admin builds succeed with explicit URL envs set:  
       `pnpm --filter web build` and `pnpm --filter admin build`
@@ -143,8 +143,8 @@ Ensure infra/deploy and CI pipeline use one explicit URL contract and remove amb
 #### Automated Verification:
 - [ ] CI workflow syntax is valid: `gh workflow view` / workflow lint step passes.
 - [ ] Docker images build successfully with required URL build args present.
-- [ ] Deploy script exits early with actionable errors when required env/secrets are missing.
-- [ ] Compose config resolves cleanly: `docker compose -f infra/deploy/docker-compose.vps.yml config`
+- [x] Deploy script exits early with actionable errors when required env/secrets are missing.
+- [x] Compose config resolves cleanly: `docker compose -f infra/deploy/docker-compose.vps.yml config`
 
 #### Manual Verification:
 - [ ] VPS deployment using `.env` completes without manual variable guesswork.
@@ -189,9 +189,9 @@ Capture the new URL/env contract in docs and add targeted tests/checks to preven
 ### Success Criteria:
 
 #### Automated Verification:
-- [ ] Config resolver unit tests pass for web/admin/api.
+- [x] Config resolver unit tests pass for web/admin/api.
 - [ ] Repo lint/typecheck/test suite passes after doc/config/test additions.
-- [ ] Static regression check catches intentional localhost literal reintroduction in protected files.
+- [x] Static regression check catches intentional localhost literal reintroduction in protected files.
 
 #### Manual Verification:
 - [ ] Onboarding flow for local setup is clear from docs alone.

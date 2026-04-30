@@ -3,26 +3,13 @@ import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import cookieParser from 'cookie-parser';
 import 'dotenv/config';
+import { resolveAllowedOrigins } from './config/url-config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
-  const isProduction = process.env.NODE_ENV === 'production';
-
-  const defaultWebOrigins = [
-    'http://localhost:3000',
-    'http://127.0.0.1:3000',
-    'http://localhost:3002',
-    'http://127.0.0.1:3002',
-  ];
-  const envOrigins =
-    process.env.WEB_ORIGINS?.split(',')
-      .map((o) => o.trim())
-      .filter(Boolean) ?? [];
-  if (isProduction && envOrigins.length === 0) {
-    throw new Error('[config] Missing required env: WEB_ORIGINS');
-  }
-  const allowedOrigins = new Set(
-    isProduction ? envOrigins : [...defaultWebOrigins, ...envOrigins],
+  const allowedOrigins = resolveAllowedOrigins(
+    process.env.NODE_ENV,
+    process.env.WEB_ORIGINS,
   );
 
   app.enableCors({

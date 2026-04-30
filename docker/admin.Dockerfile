@@ -22,8 +22,8 @@ RUN pnpm install --frozen-lockfile
 
 FROM base AS builder
 
-ARG NEXT_PUBLIC_API_URL=http://localhost:3001
-ARG NEXT_PUBLIC_WEB_URL=http://localhost:3000
+ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_WEB_URL
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
@@ -32,6 +32,8 @@ ENV NEXT_PUBLIC_WEB_URL=$NEXT_PUBLIC_WEB_URL
 COPY --from=deps /app/ /app/
 COPY . .
 
+RUN test -n "$NEXT_PUBLIC_API_URL" || (echo "Missing required build arg: NEXT_PUBLIC_API_URL" && exit 1)
+RUN test -n "$NEXT_PUBLIC_WEB_URL" || (echo "Missing required build arg: NEXT_PUBLIC_WEB_URL" && exit 1)
 RUN pnpm --filter admin build
 
 FROM node:20-bookworm-slim AS runner

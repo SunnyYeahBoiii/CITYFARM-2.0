@@ -10,6 +10,7 @@ Pipeline này build 4 image Docker từ monorepo rồi push lên GHCR:
 Sau đó workflow SSH vào VPS, cập nhật file `.env`, `docker-compose.vps.yml`, pull image mới và chạy `docker compose up -d`.
 
 `NEXT_PUBLIC_*` của Next.js được bake vào image lúc build, nên các secret public URL bên dưới phải được set đúng trước khi workflow chạy.
+Nếu thiếu URL bắt buộc, workflow và runtime sẽ fail-fast với message rõ ràng thay vì fallback ngầm về localhost.
 
 ## 1. Chuẩn bị VPS
 
@@ -43,14 +44,8 @@ Nếu muốn mở port trực tiếp ra internet, đổi `*_BIND_IP=0.0.0.0`.
 ### SSH / deploy
 
 - `VPS_HOST`
-- `VPS_PORT`
 - `VPS_USER`
 - `VPS_SSH_KEY`
-- `GHCR_USERNAME`
-- `GHCR_TOKEN`
-- `LETSENCRYPT_EMAIL`
-
-`GHCR_TOKEN` nên là GitHub PAT có ít nhất quyền `read:packages`.
 
 ### Web
 
@@ -62,51 +57,56 @@ Nếu muốn mở port trực tiếp ra internet, đổi `*_BIND_IP=0.0.0.0`.
 - `ADMIN_NEXT_PUBLIC_API_URL`
 - `ADMIN_NEXT_PUBLIC_WEB_URL`
 
-### API
+### Runtime env bắt buộc trong VPS `.env`
 
-- `API_DATABASE_URL`
-- `API_DIRECT_URL`
-- `API_SUPABASE_URL`
-- `API_SUPABASE_SERVICE_ROLE_KEY`
-- `API_SUPABASE_BUCKET_NAME`
-- `API_SUPABASE_PUBLISHABLE_KEY`
-- `API_SUPABASE_SECRET_KEY`
-- `API_JWT_REFRESH_SECRET`
-- `API_JWT_ACCESS_SECRET`
-- `API_GOOGLE_CLIENT_ID`
-- `API_GOOGLE_CLIENT_SECRET`
-- `API_GOOGLE_CALLBACK_URL`
-- `API_FRONTEND_URL`
-- `API_WEB_ORIGINS`
+Workflow **không** đọc các secret `API_*` riêng lẻ từ GitHub. Thay vào đó, nó SSH vào VPS và validate trực tiếp các key sau trong file `.env` tại `DEPLOY_PATH`:
 
-### Model API
+- `DATABASE_URL`
+- `DIRECT_URL`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_BUCKET_NAME`
+- `SUPABASE_PUBLISHABLE_KEY`
+- `SUPABASE_SECRET_KEY`
+- `JWT_REFRESH_SECRET`
+- `JWT_ACCESS_SECRET`
+- `GOOGLE_CLIENT_ID`
+- `GOOGLE_CLIENT_SECRET`
+- `GOOGLE_CALLBACK_URL`
+- `FRONTEND_URL`
+- `WEB_ORIGINS`
+- `WEB_NEXT_PUBLIC_API_URL`
+- `WEB_NEXT_PUBLIC_APP_URL`
+- `ADMIN_NEXT_PUBLIC_API_URL`
+- `ADMIN_NEXT_PUBLIC_WEB_URL`
+- `NEST_API_URL`
+- `MODEL_API_URL`
+- `GEMINI_API_KEY`
 
-- `MODEL_GEMINI_API_KEY`
+### URL format checks (deploy `.env`)
+
+- `NEST_API_URL`
+- `GOOGLE_CALLBACK_URL`
+- `FRONTEND_URL`
+- `WEB_NEXT_PUBLIC_API_URL`
+- `WEB_NEXT_PUBLIC_APP_URL`
+- `ADMIN_NEXT_PUBLIC_API_URL`
+- `ADMIN_NEXT_PUBLIC_WEB_URL`
+- `MODEL_API_URL`
 
 ## 3. GitHub Variables tùy chọn
 
 - `DEPLOY_PATH`
-- `APP_DOMAIN`
-- `ADMIN_DOMAIN`
-- `API_DOMAIN`
-- `NGINX_CLIENT_MAX_BODY_SIZE`
-- `WEB_UPSTREAM_HOST`
-- `ADMIN_UPSTREAM_HOST`
-- `API_UPSTREAM_HOST`
-- `WEB_BIND_IP`
-- `WEB_HOST_PORT`
-- `ADMIN_BIND_IP`
-- `ADMIN_HOST_PORT`
-- `API_BIND_IP`
-- `API_HOST_PORT`
-- `MODEL_BIND_IP`
-- `MODEL_HOST_PORT`
 
-Nếu không khai báo, workflow sẽ dùng mặc định trong file workflow.
+Hiện workflow chỉ dùng `DEPLOY_PATH` (mặc định `/home/ubuntu/CITYFARM-2.0`).
 
 ## 4. Trigger deploy
 
 Workflow nằm ở `.github/workflows/deploy-vps.yml`.
+Workflow có guard kiểm tra:
+- secret URL bắt buộc trước bước build image
+- biến `.env` bắt buộc trước `docker compose up`
+- định dạng URL (`http://` hoặc `https://`) cho các biến URL quan trọng
 
 Hiện tại pipeline tự chạy khi:
 
@@ -117,7 +117,16 @@ Nếu bạn muốn deploy từ branch khác, sửa `on.push.branches`.
 
 ## 5. Thiết lập Nginx + SSL
 
-Workflow chỉ upload bundle deploy. Phần cài Nginx/cấp cert là one-time trên VPS:
+Workflow hiện tự động apply Nginx HTTP config cho VPS IPv4 (không domain) ở mỗi lần deploy:
+
+- cài `nginx` nếu VPS chưa có (Ubuntu/Debian, qua `apt-get`)
+- copy `infra/nginx/cityfarm.ipv4.http.conf.template` vào `/etc/nginx/sites-available/cityfarm-ipv4.conf`
+- enable site + disable default site
+- `nginx -t` rồi reload/restart service
+
+Bạn không cần SSH để cấu hình reverse proxy thủ công cho flow IPv4 HTTP.
+
+Nếu cần SSL + domain (Let's Encrypt), phần cert vẫn là bước riêng one-time trên VPS:
 
 ```bash
 cd /home/deploy/apps/cityfarm
@@ -142,12 +151,38 @@ Map mặc định:
 
 `model-api` không public trực tiếp.
 
+### Trường hợp chưa có domain (dùng VPS IPv4)
+
+Bạn có thể chạy ngay bằng HTTP qua địa chỉ IP VPS, chưa cần DNS/cert:
+
+1. `infra/deploy/docker-compose.vps.yml` đã bind localhost:
+   - `127.0.0.1:3000 -> web:3000`
+   - `127.0.0.1:3002 -> admin:3000`
+   - `127.0.0.1:3001 -> api:3001`
+2. Copy template Nginx:
+
+```bash
+sudo cp infra/nginx/cityfarm.ipv4.http.conf.template /etc/nginx/sites-available/cityfarm-ipv4.conf
+sudo ln -sf /etc/nginx/sites-available/cityfarm-ipv4.conf /etc/nginx/sites-enabled/cityfarm-ipv4.conf
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+3. Truy cập landing page qua:
+
+```text
+http://<VPS_IPV4>/
+```
+
+Template trên route sẵn landing page (`/`) và có comment sẵn block cho `/api/` + `/admin/` để bật khi cần.
+Khi có domain, chuyển sang flow SSL ở trên (Certbot + server_name theo domain).
+
 ## 6. Trình tự deploy hoàn chỉnh
 
 1. Trỏ DNS `A record` của `APP_DOMAIN`, `ADMIN_DOMAIN`, `API_DOMAIN` về VPS.
-2. Chạy workflow một lần để upload bundle và file `.env` lên VPS.
-3. SSH vào VPS, chạy `bootstrap-ubuntu-vps.sh`.
-4. Chạy `setup-nginx.sh` để cấp SSL và bật reverse proxy.
+2. SSH vào VPS, clone repo vào `DEPLOY_PATH` và tạo file `.env` từ `infra/deploy/.env.vps.example`.
+3. Chạy workflow để build image, pull image mới, deploy app và auto-apply Nginx HTTP config.
+4. (Tùy chọn) Khi có domain, SSH vào VPS để chạy setup SSL/cert.
 5. Từ lần sau chỉ cần push `main`, GitHub Actions sẽ tự build và deploy container mới.
 
 ## 7. File tham khảo
@@ -155,7 +190,6 @@ Map mặc định:
 - `infra/deploy/.env.vps.example`
 - `infra/deploy/docker-compose.vps.yml`
 - `infra/deploy/deploy.sh`
-- `infra/deploy/bootstrap-ubuntu-vps.sh`
-- `infra/deploy/setup-nginx.sh`
 - `infra/nginx/cityfarm.http.conf.template`
 - `infra/nginx/cityfarm.https.conf.template`
+- `infra/nginx/cityfarm.ipv4.http.conf.template`

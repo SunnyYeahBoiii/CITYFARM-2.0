@@ -9,6 +9,8 @@ services:
       HOSTNAME: "0.0.0.0"
     expose:
       - "3000"
+    ports:
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
     networks:
@@ -29,6 +31,8 @@ services:
       HOSTNAME: "0.0.0.0"
     expose:
       - "3000"
+    ports:
+      - "127.0.0.1:3002:3000"
     depends_on:
       - api
     networks:
@@ -48,6 +52,8 @@ services:
       PORT: "3001"
     expose:
       - "3001"
+    ports:
+      - "127.0.0.1:3001:3001"
     depends_on:
       - model-api
     networks:
