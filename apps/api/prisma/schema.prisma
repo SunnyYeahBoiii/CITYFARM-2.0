@@ -398,7 +398,6 @@ model CareTask {
   createdBy     String?        @default("SYSTEM")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
-  createdBy     String?        @default("SYSTEM")
   gardenPlant   GardenPlant    @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
   schedule      CareSchedule?  @relation(fields: [scheduleId], references: [id])
 
