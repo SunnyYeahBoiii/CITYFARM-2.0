@@ -1,14 +1,22 @@
 const DEFAULT_API_BASE_URL = "http://localhost:3001";
 
-function resolveRequiredBaseUrl(name: string, devFallback: string): string {
-  const value = process.env[name]?.trim();
-  if (value) return value.replace(/\/+$/, "");
+function resolveRequiredBaseUrl(name: string, value: string | undefined, devFallback: string): string {
+  const trimmed = value?.trim();
+  if (trimmed) return trimmed.replace(/\/+$/, "");
   if (process.env.NODE_ENV !== "production") return devFallback;
   throw new Error(`[config] Missing required env: ${name}`);
 }
 
-const API_BASE_URL = resolveRequiredBaseUrl("NEXT_PUBLIC_API_URL", DEFAULT_API_BASE_URL);
-const NEST_API_BASE_URL = resolveRequiredBaseUrl("NEST_API_URL", DEFAULT_API_BASE_URL);
+const API_BASE_URL = resolveRequiredBaseUrl(
+  "NEXT_PUBLIC_API_URL",
+  process.env.NEXT_PUBLIC_API_URL,
+  DEFAULT_API_BASE_URL
+);
+const NEST_API_BASE_URL = resolveRequiredBaseUrl(
+  "NEST_API_URL",
+  process.env.NEST_API_URL,
+  DEFAULT_API_BASE_URL
+);
 
 export function getApiBaseUrl(): string {
   return API_BASE_URL;
