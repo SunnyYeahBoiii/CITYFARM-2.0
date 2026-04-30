@@ -20,7 +20,6 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ConfigService } from '@nestjs/config';
 import { SetupPasswordDto } from 'src/dtos/auth/setup-password.dto';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import {
   readAccessToken,
   readCookie,
@@ -97,16 +96,15 @@ export class AuthController {
         secret: this.configService.getOrThrow<string>('JWT_REFRESH_SECRET'),
       });
 
-      const user = await this.userService.findById(payload.sub);
-      if (
-        !user ||
-        !user.refreshToken ||
-        !(await bcrypt.compare(refreshToken, user.refreshToken))
-      ) {
+      const session = await this.authService.validateRefreshToken(
+        payload.sub,
+        refreshToken,
+      );
+      if (!session) {
         return null;
       }
 
-      return await this.userService.findByIdWithProfile(user.id);
+      return await this.userService.findByIdWithProfile(payload.sub);
     } catch {
       return null;
     }
@@ -154,7 +152,8 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Post('logout')
   async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    await this.authService.logout(req.user.id);
+    const refreshToken = readCookie(req as Request, 'refresh_token');
+    await this.authService.logout(req.user.id, refreshToken);
 
     res.clearCookie('access_token', {
       ...this.authService.getAccessTokenCookieOptions(),

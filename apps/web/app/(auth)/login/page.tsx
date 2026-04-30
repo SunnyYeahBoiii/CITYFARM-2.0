@@ -3,13 +3,14 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthBrand, AuthDivider, AuthShell } from "@/components/auth/AuthShell";
 import type { AuthSessionActionResult } from "@/context/AuthContext";
 import { getGoogleAuthUrl } from "@/lib/api/config";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
+import { toast } from "sonner";
 
 function resolveLoginDestination(
   result: Extract<AuthSessionActionResult, { ok: true }>,
@@ -46,6 +47,12 @@ function LoginPageContent() {
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const registrationNotice = searchParams.get("registered") === "1";
 
+  useEffect(() => {
+    if (registrationNotice) {
+      toast.success("Account created successfully. Please log in.");
+    }
+  }, [registrationNotice]);
+
   const emailError =
     touched.account && email.trim().length === 0
       ? "This field cannot be empty."
@@ -76,9 +83,11 @@ function LoginPageContent() {
 
     const authResult = await login(email.trim(), password.trim());
     if (!authResult.ok) {
+      toast.error("Invalid login credentials.");
       return;
     }
 
+    toast.success("Login successful.");
     router.replace(resolveLoginDestination(authResult));
   };
 
@@ -89,12 +98,6 @@ function LoginPageContent() {
   return (
     <AuthShell>
       <AuthBrand title="Log in" subtitle="Enter your account and password to login." />
-
-      {registrationNotice ? (
-        <div className="mb-4 rounded-2xl border border-[#d4e3c5] bg-[#f4faee] px-4 py-3 text-sm text-[#355b31]">
-          Account created successfully. Log in to continue.
-        </div>
-      ) : null}
 
       <div className="flex flex-col gap-3">
         <form className="w-full space-y-4 text-left" onSubmit={handleSubmit} noValidate>

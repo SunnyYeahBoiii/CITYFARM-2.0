@@ -4,6 +4,7 @@ import localFont from "next/font/local";
 import "./globals.css";
 import { Providers } from "./providers";
 import { getUser } from "@/lib/auth-server";
+import { Toaster } from "sonner";
 
 const beVietnamPro = Be_Vietnam_Pro({
   weight: ["100", "200", "300", "400", "500", "600", "700", "800", "900"],
@@ -41,7 +42,10 @@ export default async function RootLayout({
   return (
     <html suppressHydrationWarning lang="vi">
       <body className={`${beVietnamPro.variable} ${geistMono.variable}`}>
-        <Providers initialUser={user}>{children}</Providers>
+        <Providers initialUser={user}>
+          {children}
+          <Toaster richColors position="top-right" />
+        </Providers>
       </body>
     </html>
   );
