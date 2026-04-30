@@ -404,6 +404,7 @@ jobs:
               echo "Unable to derive APP_DOMAIN from WEB_NEXT_PUBLIC_APP_URL"
               exit 1
             fi
+            export APP_DOMAIN
 
             envsubst '${APP_DOMAIN}' < infra/nginx/cityfarm.ipv4.http.conf.template | sudo tee /etc/nginx/sites-available/cityfarm-ipv4.conf >/dev/null
             sudo ln -sf /etc/nginx/sites-available/cityfarm-ipv4.conf /etc/nginx/sites-enabled/cityfarm-ipv4.conf
@@ -423,8 +424,9 @@ jobs:
             wait_for_http() {
               service="$1"
               url="$2"
+              shift 2
               for attempt in $(seq 1 60); do
-                if curl -sf "$url" >/dev/null 2>&1; then
+                if curl -sf "$@" "$url" >/dev/null 2>&1; then
                   echo "Service $service is ready at $url"
                   return 0
                 fi
@@ -439,6 +441,6 @@ jobs:
             wait_for_http web http://127.0.0.1:3000/
             wait_for_http landing http://127.0.0.1:3004/
             wait_for_http admin http://127.0.0.1:3002/
-            wait_for_http nginx http://127.0.0.1/
+            wait_for_http nginx http://127.0.0.1/ -H "Host: $APP_DOMAIN"
 
             docker image prune -f
