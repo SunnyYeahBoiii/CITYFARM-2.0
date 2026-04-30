@@ -8,28 +8,6 @@ import { AuthBrand, AuthDivider, AuthShell } from "@/components/auth/AuthShell";
 import { getGoogleAuthUrl } from "@/lib/api/config";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
-import { toast } from "sonner";
-
-function getRegisterErrorMessage(error?: string): string {
-  const normalizedError = error?.toLowerCase() ?? "";
-
-  if (normalizedError.includes("email") && normalizedError.includes("exist")) {
-    return "Email already exists.";
-  }
-
-  if (
-    (normalizedError.includes("username") || normalizedError.includes("displayname") || normalizedError.includes("display name")) &&
-    normalizedError.includes("exist")
-  ) {
-    return "Username already exists.";
-  }
-
-  if (normalizedError.includes("unique constraint") && normalizedError.includes("displayname")) {
-    return "Username already exists.";
-  }
-
-  return "Registration failed. Please try again.";
-}
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -96,11 +74,9 @@ export default function RegisterPage() {
     });
 
     if (!registerResult.ok) {
-      toast.error(getRegisterErrorMessage(registerResult.error));
       return;
     }
 
-    toast.success("Account created successfully.");
     router.replace("/login?registered=1");
   };
 

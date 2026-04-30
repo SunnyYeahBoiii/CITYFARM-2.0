@@ -397,23 +397,13 @@ CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT,
+    "refreshToken" TEXT,
     "externalAuthId" TEXT,
     "role" "UserRole" NOT NULL DEFAULT 'USER',
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
-CREATE TABLE "UserSession" (
-    "id" TEXT NOT NULL,
-    "userId" TEXT NOT NULL,
-    "refreshTokenHash" TEXT NOT NULL,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
-
-    CONSTRAINT "UserSession_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -622,9 +612,6 @@ CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 CREATE UNIQUE INDEX "User_externalAuthId_key" ON "User"("externalAuthId");
 
 -- CreateIndex
-CREATE INDEX "UserSession_userId_idx" ON "UserSession"("userId");
-
--- CreateIndex
 CREATE UNIQUE INDEX "UserProfile_userId_key" ON "UserProfile"("userId");
 
 -- CreateIndex
@@ -761,9 +748,6 @@ ALTER TABLE "PlantJournalEntry" ADD CONSTRAINT "PlantJournalEntry_gardenPlantId_
 
 -- AddForeignKey
 ALTER TABLE "PlantJournalEntry" ADD CONSTRAINT "PlantJournalEntry_imageAssetId_fkey" FOREIGN KEY ("imageAssetId") REFERENCES "MediaAsset"("id") ON DELETE SET NULL ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "UserSession" ADD CONSTRAINT "UserSession_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "UserProfile" ADD CONSTRAINT "UserProfile_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

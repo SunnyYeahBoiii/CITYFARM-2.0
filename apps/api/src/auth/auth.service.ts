@@ -51,20 +51,12 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    const normalizedDisplayName = registerDto.displayName.trim();
-    const existingUsername = await this.userService.findByDisplayName(
-      normalizedDisplayName,
-    );
-    if (existingUsername) {
-      throw new ConflictException('Username already exists');
-    }
-
     const passwordHash = await bcrypt.hash(registerDto.password, 10);
 
     await this.userService.createWithProfile({
       email: registerDto.email,
       passwordHash,
-      displayName: normalizedDisplayName,
+      displayName: registerDto.displayName,
       bio: registerDto.bio,
       city: registerDto.city,
       district: registerDto.district,
@@ -86,10 +78,10 @@ export class AuthService {
     throw new UnauthorizedException('Invalid credentials');
   }
 
-  private async createTokens(user: any) {
+  async login(user: any) {
     const payload = { sub: user.id, email: user.email, role: user.role };
 
-    return Promise.all([
+    const [access_token, refresh_token] = await Promise.all([
       this.jwtService.signAsync(payload, {
         secret: this.configService.getOrThrow<string>('JWT_ACCESS_SECRET'),
         expiresIn: '15m',
@@ -99,24 +91,9 @@ export class AuthService {
         expiresIn: '7d',
       }),
     ]);
-  }
-
-  private async resolveMatchingSession(userId: string, refreshToken: string) {
-    const sessions = await this.userService.findSessionsByUserId(userId);
-    for (const session of sessions) {
-      const matches = await bcrypt.compare(refreshToken, session.refreshTokenHash);
-      if (matches) {
-        return session;
-      }
-    }
-    return null;
-  }
-
-  async login(user: any) {
-    const [access_token, refresh_token] = await this.createTokens(user);
 
     const hashedRefreshToken = await bcrypt.hash(refresh_token, 10);
-    await this.userService.createSession(user.id, hashedRefreshToken);
+    await this.userService.updateRefreshToken(user.id, hashedRefreshToken);
 
     return {
       access_token,
@@ -143,34 +120,24 @@ export class AuthService {
 
   async refreshTokens(userId: string, refreshToken: string) {
     const user = await this.userService.findById(userId);
-    if (!user) {
+    if (!user || !user.refreshToken) {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const matchingSession = await this.resolveMatchingSession(userId, refreshToken);
-    if (!matchingSession) {
+    const refreshTokenMatches = await bcrypt.compare(
+      refreshToken,
+      user.refreshToken,
+    );
+    if (!refreshTokenMatches) {
       throw new UnauthorizedException('Access Denied');
     }
 
-    const [access_token, refresh_token] = await this.createTokens(user);
-    const hashedRefreshToken = await bcrypt.hash(refresh_token, 10);
-
-    await this.userService.deleteSessionById(matchingSession.id);
-    await this.userService.createSession(user.id, hashedRefreshToken);
-
-    return { access_token, refresh_token };
+    return this.login(user);
   }
 
-  async logout(userId: string, refreshToken: string) {
-    const matchingSession = await this.resolveMatchingSession(userId, refreshToken);
-    if (matchingSession) {
-      await this.userService.deleteSessionById(matchingSession.id);
-    }
+  async logout(userId: string) {
+    await this.userService.updateRefreshToken(userId, null);
     return { message: 'Logged out successfully' };
-  }
-
-  async validateRefreshToken(userId: string, refreshToken: string) {
-    return this.resolveMatchingSession(userId, refreshToken);
   }
 
   getAccessTokenCookieOptions() {
