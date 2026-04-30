@@ -7,6 +7,9 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      NEXT_PUBLIC_API_URL: "${WEB_NEXT_PUBLIC_API_URL}"
+      NEXT_PUBLIC_APP_URL: "${WEB_NEXT_PUBLIC_APP_URL}"
+      NEST_API_URL: "${NEST_API_URL}"
     expose:
       - "3000"
     ports:
@@ -29,6 +32,8 @@ services:
     environment:
       PORT: "3000"
       HOSTNAME: "0.0.0.0"
+      NEXT_PUBLIC_API_URL: "${ADMIN_NEXT_PUBLIC_API_URL}"
+      NEXT_PUBLIC_WEB_URL: "${ADMIN_NEXT_PUBLIC_WEB_URL}"
     expose:
       - "3000"
     ports:

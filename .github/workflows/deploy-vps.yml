@@ -245,50 +245,79 @@ jobs:
               exit 1
             fi
 
-            required_env_vars=(
-              DATABASE_URL
-              DIRECT_URL
-              SUPABASE_URL
-              SUPABASE_SERVICE_ROLE_KEY
-              SUPABASE_BUCKET_NAME
-              SUPABASE_PUBLISHABLE_KEY
-              SUPABASE_SECRET_KEY
-              JWT_REFRESH_SECRET
-              JWT_ACCESS_SECRET
-              GOOGLE_CLIENT_ID
-              GOOGLE_CLIENT_SECRET
-              GOOGLE_CALLBACK_URL
-              FRONTEND_URL
-              WEB_ORIGINS
-              WEB_NEXT_PUBLIC_API_URL
-              WEB_NEXT_PUBLIC_APP_URL
-              ADMIN_NEXT_PUBLIC_API_URL
-              ADMIN_NEXT_PUBLIC_WEB_URL
-              NEST_API_URL
-              MODEL_API_URL
-              GEMINI_API_KEY
+            get_env_value() {
+              primary="$1"
+              fallback="${2:-}"
+              value=$(grep -E "^${primary}=.+" .env | tail -n1 | cut -d= -f2- || true)
+              if [ -z "$value" ] && [ -n "$fallback" ]; then
+                value=$(grep -E "^${fallback}=.+" .env | tail -n1 | cut -d= -f2- || true)
+              fi
+              printf '%s' "$value"
+            }
+
+            required_env_pairs=(
+              "DATABASE_URL"
+              "DIRECT_URL"
+              "SUPABASE_URL"
+              "SUPABASE_SERVICE_ROLE_KEY"
+              "SUPABASE_BUCKET_NAME"
+              "SUPABASE_PUBLISHABLE_KEY"
+              "SUPABASE_SECRET_KEY"
+              "JWT_REFRESH_SECRET"
+              "JWT_ACCESS_SECRET"
+              "GOOGLE_CLIENT_ID"
+              "GOOGLE_CLIENT_SECRET"
+              "GOOGLE_CALLBACK_URL"
+              "FRONTEND_URL"
+              "WEB_ORIGINS"
+              "WEB_NEXT_PUBLIC_API_URL:NEXT_PUBLIC_API_URL"
+              "WEB_NEXT_PUBLIC_APP_URL:NEXT_PUBLIC_APP_URL"
+              "ADMIN_NEXT_PUBLIC_API_URL:NEXT_PUBLIC_API_URL"
+              "ADMIN_NEXT_PUBLIC_WEB_URL:NEXT_PUBLIC_WEB_URL"
+              "NEST_API_URL"
+              "MODEL_API_URL"
+              "GEMINI_API_KEY"
             )
-            for var in "${required_env_vars[@]}"; do
-              if ! grep -Eq "^${var}=.+" .env; then
-                echo "Missing or empty required deploy env in .env: $var"
+            for pair in "${required_env_pairs[@]}"; do
+              primary="${pair%%:*}"
+              fallback=""
+              if [ "$pair" != "$primary" ]; then
+                fallback="${pair#*:}"
+              fi
+              value=$(get_env_value "$primary" "$fallback")
+              if [ -z "$value" ]; then
+                if [ -n "$fallback" ]; then
+                  echo "Missing or empty required deploy env in .env: $primary (or fallback $fallback)"
+                else
+                  echo "Missing or empty required deploy env in .env: $primary"
+                fi
                 exit 1
               fi
             done
 
-            url_env_vars=(
-              GOOGLE_CALLBACK_URL
-              FRONTEND_URL
-              WEB_NEXT_PUBLIC_API_URL
-              WEB_NEXT_PUBLIC_APP_URL
-              ADMIN_NEXT_PUBLIC_API_URL
-              ADMIN_NEXT_PUBLIC_WEB_URL
-              NEST_API_URL
-              MODEL_API_URL
+            url_env_pairs=(
+              "GOOGLE_CALLBACK_URL"
+              "FRONTEND_URL"
+              "WEB_NEXT_PUBLIC_API_URL:NEXT_PUBLIC_API_URL"
+              "WEB_NEXT_PUBLIC_APP_URL:NEXT_PUBLIC_APP_URL"
+              "ADMIN_NEXT_PUBLIC_API_URL:NEXT_PUBLIC_API_URL"
+              "ADMIN_NEXT_PUBLIC_WEB_URL:NEXT_PUBLIC_WEB_URL"
+              "NEST_API_URL"
+              "MODEL_API_URL"
             )
-            for var in "${url_env_vars[@]}"; do
-              value=$(grep -E "^${var}=.+" .env | tail -n1 | cut -d= -f2-)
+            for pair in "${url_env_pairs[@]}"; do
+              primary="${pair%%:*}"
+              fallback=""
+              if [ "$pair" != "$primary" ]; then
+                fallback="${pair#*:}"
+              fi
+              value=$(get_env_value "$primary" "$fallback")
               if ! printf '%s' "$value" | grep -Eq '^https?://'; then
-                echo "Invalid URL format for $var. Expected http(s)://..."
+                if [ -n "$fallback" ]; then
+                  echo "Invalid URL format for $primary (or fallback $fallback). Expected http(s)://..."
+                else
+                  echo "Invalid URL format for $primary. Expected http(s)://..."
+                fi
                 exit 1
               fi
             done
