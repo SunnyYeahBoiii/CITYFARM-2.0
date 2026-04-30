@@ -32,60 +32,39 @@ def load_local_env():
         os.environ.setdefault(key, value)
 
 
-# Load env trước khi đọc bất kỳ biến nào
 load_local_env()
 
 
 # ────────────────────────────────────────────────
-# 1. Gemini Client (dùng cho Chat và Plant Health)
-# ────────────────────────────────────────────────
-api_key = os.environ.get("GEMINI_API_KEY")
-
-if api_key:
-    print(f"[DEBUG-SYSTEM] GEMINI_API_KEY found, prefix: {api_key[:5]}***")
-else:
-    print("[DEBUG-SYSTEM] WARNING: GEMINI_API_KEY not found. Check your env or apps/model-api/.env!")
-
-try:
-    if api_key:
-        client = genai.Client(api_key=api_key)
-        ai_configured = True
-    else:
-        raise ValueError("Thiếu API Key")
-except Exception as e:
-    print(f"[SYSTEM WARNING] Không thể khởi tạo Gemini Client: {e}")
-    client = None
-    ai_configured = False
-
-
-# ────────────────────────────────────────────────
-# 2. Vertex AI / Gen AI Client (dùng cho Render/ Tính năng Scan không gian và ghép ảnh cây)
+# 1. Google Gen AI Client (Vertex AI)
 # ────────────────────────────────────────────────
 gcp_project = os.environ.get("GCP_PROJECT_ID")
 gcp_location = os.environ.get("GCP_LOCATION")
 gcp_key_path = os.environ.get("GCP_KEY_PATH")
-gcp_api_key = os.environ.get("GCP_API_KEY")  # API Key mới thiết lập
+gcp_api_key = os.environ.get("GCP_API_KEY")
 
 if gcp_key_path:
     key_abs_path = str(Path(__file__).resolve().parent.parent / gcp_key_path)
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_abs_path
 
+client = None
+ai_configured = False
 vertex_configured = False
+
 try:
     if gcp_project:
-        # Ưu tiên dùng API Key nếu có, nếu không sẽ tự dùng ADC/Service Account Key qua biến môi trường
-        genai_client = genai.Client(
+        client = genai.Client(
             api_key=gcp_api_key,
             vertexai=True,
             project=gcp_project,
             location=gcp_location
         )
+        ai_configured = True
         vertex_configured = True
-        auth_method = "API Key" if gcp_api_key else "Service Account"
-        print(f"[SYSTEM] Google Gen AI initialized using {auth_method}: {gcp_project} in {gcp_location}")
+        auth_method = "API Key" if gcp_api_key else "Service Account/ADC"
+        print(f"[SYSTEM] Unified Vertex AI Client initialized using {auth_method}: {gcp_project} in {gcp_location}")
     else:
         print("[SYSTEM WARNING] Missing GCP_PROJECT_ID. Vertex AI features disabled.")
-        genai_client = None
 except Exception as e:
-    print(f"[SYSTEM ERROR] Failed to initialize Google Gen AI Client: {e}")
-    genai_client = None
+    print(f"[SYSTEM ERROR] Failed to initialize Unified Vertex AI Client: {e}")
+

@@ -21,7 +21,7 @@ type AnalyzeSpaceLayoutPayload = {
 type RenderSpaceVisualizationPayload = {
   spaceImageBase64: string;
   plantImageBase64: string;
-  bestLocation: [number, number, number, number];
+  placementDescription: string;
 };
 
 const MODEL_API_TIMEOUT_MS = 120_000;
@@ -65,7 +65,7 @@ export class ModelApiService {
     return this.postJson('/api/render-space-visualization', {
       space_image_base64: payload.spaceImageBase64,
       plant_image_base64: payload.plantImageBase64,
-      best_location: payload.bestLocation,
+      placement_description: payload.placementDescription,
     });
   }
 

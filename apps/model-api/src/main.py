@@ -11,7 +11,10 @@ from utils.http_utils import register_error_handler
 # Import handlers
 from handlers.chat import chat_with_assistant as _chat_handler
 from handlers.plant_health import analyze_plant_health as _plant_health_handler
-from handlers.space import analyze_space as _space_handler, render_space_visualization as _render_handler
+from handlers.space import (
+    analyze_space as _space_handler,
+    render_space_visualization as _render_handler,
+)
 
 app = Flask("Model API")
 
@@ -50,7 +53,7 @@ def analyze_space():
 
 @app.route("/api/render-space-visualization", methods=["POST"])
 def render_space_visualization():
-    return _render_handler()
+    return _render_handler(client)
 
 
 # ────────────────────────────────────────────────

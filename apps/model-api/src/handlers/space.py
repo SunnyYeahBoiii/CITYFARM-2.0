@@ -1,3 +1,4 @@
+import base64
 from flask import jsonify
 from google.genai import types
 
@@ -8,6 +9,7 @@ from utils.image_utils import (
     cv2_to_base64,
     prepare_plant_overlay_image,
     overlay_transparent_plant,
+    decode_base64_image,
 )
 from utils.normalize import (
     parse_json_response_text,
@@ -31,7 +33,7 @@ def analyze_space(client):
         # 1. Chuyển đổi ảnh Base64 -> PIL Image cho Gemini
         img_pil = load_pil_image_from_payload(image_base64=image_base64)
 
-        # 2. Xây dựng Prompt (Gộp cả phân tích, gợi ý và lấy tọa độ)
+        # 2. Xây dựng Prompt (Gộp cả phân tích, gợi ý và lấy tọa độ + mô tả vị trí)
         prompt = f"""Bạn là một Kiến trúc sư Nông nghiệp Đô thị cấp cao. Hãy phân tích bức ảnh không gian ban công/sân thượng hoặc trong nhà này và đối chiếu với CƠ SỞ DỮ LIỆU CÂY TRỒNG để đưa ra đánh giá.
 
         [BƯỚC 1: PHÂN TÍCH KHÔNG GIAN QUA ẢNH]
@@ -48,8 +50,9 @@ def analyze_space(client):
 
         [BƯỚC 3: ĐỊNH VỊ CHẬU CÂY TOP 1]
         Hãy tìm MỘT vị trí tốt nhất trong ảnh (trên mặt sàn trống, kệ, hoặc lan can) để đặt chậu cây Top 1 vừa gợi ý. Vị trí này phải có ánh sáng và không cản lối đi.
-        Xác định Bounding Box (khung bao) cho vị trí này. 
-        Lưu ý: Các giá trị [ymin, xmin, ymax, xmax] PHẢI là số nguyên nằm trong hệ tọa độ chuẩn hóa từ 0 đến 1000.
+        Viết một mô tả ngắn gọn (placement_description) bằng tiếng Việt để hướng dẫn AI sinh ảnh ghép chậu cây vào đúng vị trí đó.
+        LƯU Ý: Câu mô tả PHẢI bao gồm tên cây của Top 1.
+        Ví dụ: "Đặt một chậu cây Thai Basil ở góc phải lan can, cạnh chiếc ghế gỗ, đảm bảo hứng được ánh sáng từ cửa sổ."
 
         [CƠ SỞ DỮ LIỆU CÂY TRỒNG]
         {plant_catalog}
@@ -78,7 +81,7 @@ def analyze_space(client):
               "climate": "<Sự tương thích nhiệt độ>" 
             }} 
           ],
-          "best_location": [ymin, xmin, ymax, xmax]
+          "placement_description": "<Mô tả vị trí đặt cây bằng tiếng Việt>"
         }}"""
 
         # 3. Gọi Gemini API
@@ -89,62 +92,78 @@ def analyze_space(client):
         )
 
         response = client.models.generate_content(
-            model='gemini-3.1-flash-lite-preview',  # Dùng model flash-lite cho tốc độ
+            model='gemini-3.1-flash-lite-preview',
             contents=[img_pil, prompt],
             config=config
         )
 
         # 4. Parse JSON
         result_json = parse_json_response_text(response.text)
-        best_location = normalize_best_location(result_json.get("best_location"))
+        placement_desc = result_json.get("placement_description") or "Đặt cây tại vị trí phù hợp trong không gian."
 
         # 5. Trả kết quả phân tích về cho NestJS, bước render sẽ gọi route riêng
         return jsonify({
             "success": True,
             "analysis": result_json.get("analysis"),
             "recommendations": result_json.get("recommendations"),
-            "best_location": best_location,
+            "placement_description": placement_desc,
         }), 200
+
 
     except Exception as e:
         print(f"[ERROR] Space Analysis API Error: {str(e)}")
         return json_error(str(e), 500)
 
 
-def render_space_visualization():
+def render_space_visualization(client):
+    if not client:
+        return json_error("Gemini Client chưa sẵn sàng")
+
     try:
         data = parse_json_body()
         space_image_base64 = data.get("space_image_base64")
         plant_image_base64 = data.get("plant_image_base64")
-        best_location = data.get("best_location")
+        placement_description = data.get("placement_description")
 
-        if not space_image_base64 or not plant_image_base64 or best_location is None:
-            return json_error("Thiếu ảnh không gian, ảnh cây hoặc best_location", 400)
+        if not space_image_base64 or not plant_image_base64:
+            return json_error("Thiếu ảnh không gian hoặc ảnh cây", 400)
 
-        background_img = base64_to_cv2(space_image_base64)
-        plant_img = prepare_plant_overlay_image(plant_image_base64)
-        img_height, img_width = background_img.shape[:2]
-        ymin, xmin, ymax, xmax = normalized_box_to_pixels(
-            best_location,
-            img_width,
-            img_height,
+        # 1. Chuẩn bị dữ liệu cho Nano Banana (Image-to-Image)
+        # Gemini 3.1 Flash Image Preview yêu cầu bytes
+        space_bytes = decode_base64_image(space_image_base64)
+        plant_bytes = decode_base64_image(plant_image_base64)
+
+        prompt = f"Hãy đặt chậu cây này vào không gian một cách chân thực nhất. Vị trí: {placement_description or 'vị trí phù hợp'}. YÊU CẦU QUAN TRỌNG: Hãy tự động điều chỉnh kích thước (scale) chậu cây sao cho tỉ lệ hài hòa và thực tế với các đồ vật xung quanh trong không gian. Giữ nguyên hình dạng chậu cây, xử lý ánh sáng và bóng đổ photorealistic."
+
+        print(f"Đang gọi Nano Banana Image Preview để render: {placement_description[:50]}...")
+        
+        contents = [
+            prompt,
+            types.Part.from_bytes(data=space_bytes, mime_type="image/jpeg"),
+            types.Part.from_bytes(data=plant_bytes, mime_type="image/png")
+        ]
+
+        # 2. Gọi model đặc biệt hỗ trợ Image Output
+        response = client.models.generate_content(
+            model='gemini-3.1-flash-image-preview',
+            contents=contents
         )
 
-        print(f"Tọa độ render: [ymin:{ymin}, xmin:{xmin}, ymax:{ymax}, xmax:{xmax}]")
+        # 3. Trích xuất ảnh từ Part.inline_data
+        for part in response.candidates[0].content.parts:
+            if part.inline_data:
+                # Chuyển bytes ảnh trực tiếp thành base64 string
+                img_data = part.inline_data.data
+                base64_str = base64.b64encode(img_data).decode("utf-8")
+                visualized_image = f"data:image/png;base64,{base64_str}"
+                
+                return jsonify({
+                    "success": True,
+                    "visualizedImage": visualized_image,
+                }), 200
 
-        img_final_result = overlay_transparent_plant(
-            background_img=background_img.copy(),
-            plant_img=plant_img,
-            xmin=xmin,
-            ymin=ymin,
-            xmax=xmax,
-            ymax=ymax,
-        )
+        return json_error("AI không trả về dữ liệu ảnh. Hãy kiểm tra lại prompt.", 500)
 
-        return jsonify({
-            "success": True,
-            "visualizedImage": cv2_to_base64(img_final_result),
-        }), 200
     except Exception as e:
         print(f"[ERROR] Space Visualization API Error: {str(e)}")
         return json_error(str(e), 500)
