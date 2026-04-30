@@ -10,6 +10,17 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async findByDisplayName(displayName: string) {
+    return this.prisma.userProfile.findFirst({
+      where: {
+        displayName: {
+          equals: displayName,
+          mode: 'insensitive',
+        },
+      },
+    });
+  }
+
   async findById(id: string): Promise<User | null> {
     return this.prisma.user.findUnique({ where: { id } });
   }
@@ -29,10 +40,28 @@ export class UserService {
     return null;
   }
 
-  async updateRefreshToken(id: string, refreshToken: string | null) {
-    return this.prisma.user.update({
+  async createSession(userId: string, refreshTokenHash: string) {
+    return this.prisma.userSession.create({
+      data: { userId, refreshTokenHash },
+    });
+  }
+
+  async findSessionsByUserId(userId: string) {
+    return this.prisma.userSession.findMany({
+      where: { userId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async deleteSessionById(id: string) {
+    return this.prisma.userSession.delete({
       where: { id },
-      data: { refreshToken },
+    });
+  }
+
+  async deleteSessionsByUserId(userId: string) {
+    return this.prisma.userSession.deleteMany({
+      where: { userId },
     });
   }
 
