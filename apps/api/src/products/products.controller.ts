@@ -11,10 +11,12 @@ export class ProductsController {
     if (!type) {
       throw new BadRequestException('Product type query parameter is required');
     }
-    
+
     const upperType = type.toUpperCase();
     if (!Object.values(ProductType).includes(upperType as ProductType)) {
-      throw new BadRequestException(`Invalid product type. Must be one of: ${Object.values(ProductType).join(', ')}`);
+      throw new BadRequestException(
+        `Invalid product type. Must be one of: ${Object.values(ProductType).join(', ')}`,
+      );
     }
 
     return this.productsService.getProductsByType(upperType as ProductType);

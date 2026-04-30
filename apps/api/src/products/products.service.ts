@@ -19,7 +19,7 @@ export class ProductsService {
             quantity: true,
             componentName: true,
             unit: true,
-          }
+          },
         },
       },
     });
@@ -48,8 +48,10 @@ export class ProductsService {
           return {
             ...base,
             image: base.image || '/cityfarm/img/kit/standing.jpg',
-            components: product.components.map(c => {
-               return c.quantity > 1 ? `${c.quantity}x ${c.componentName}` : c.componentName;
+            components: product.components.map((c) => {
+              return c.quantity > 1
+                ? `${c.quantity}x ${c.componentName}`
+                : c.componentName;
             }),
             allowedSeeds: [],
           };
@@ -61,12 +63,18 @@ export class ProductsService {
         case 'SOIL':
           return {
             ...base,
-            quantity: metadata.volumeLiters ? `${metadata.volumeLiters}L` : '1kg',
+            quantity: metadata.volumeLiters
+              ? `${metadata.volumeLiters}L`
+              : '1kg',
           };
         case 'POT':
           return {
             ...base,
-            size: metadata.volumeLiters ? `${metadata.volumeLiters}L` : metadata.diameterCm ? `${metadata.diameterCm}cm` : '1L',
+            size: metadata.volumeLiters
+              ? `${metadata.volumeLiters}L`
+              : metadata.diameterCm
+                ? `${metadata.diameterCm}cm`
+                : '1L',
             decoration: this.getDecorationForPot(product.slug),
           };
         default:
@@ -82,7 +90,12 @@ export class ProductsService {
     if (slug.includes('onion') || slug.includes('chive')) return '🧅';
     if (slug.includes('chili') || slug.includes('pepper')) return '🌶️';
     if (slug.includes('cucumber')) return '🥒';
-    if (slug.includes('spinach') || slug.includes('kale') || slug.includes('bok-choy')) return '🥬';
+    if (
+      slug.includes('spinach') ||
+      slug.includes('kale') ||
+      slug.includes('bok-choy')
+    )
+      return '🥬';
     return '🌱';
   }
 

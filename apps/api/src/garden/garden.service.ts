@@ -12,14 +12,12 @@ import {
   PlantGrowthStage,
   PlantHealthStatus,
 } from 'generated/prisma/enums';
-import {
-  getCareScheduleForSpecies,
-} from './constants/plant-care-data';
+import { getCareScheduleForSpecies } from './constants/plant-care-data';
 import { LogCareDto } from 'src/dtos/garden/log-care.dto';
 import { LogJournalDto } from 'src/dtos/garden/log-journal.dto';
+import { CreateCareTaskDto } from 'src/dtos/garden/create-care-task.dto';
 import { ModelApiService } from '../ai/model-api.service';
 import { SupabaseStorageService } from '../assets/supabase-storage.service';
-
 
 export interface GardenStats {
   totalPlants: number;
@@ -28,9 +26,23 @@ export interface GardenStats {
   careRate: number;
 }
 
+type TaskHistoryEvent = {
+  action: 'CREATED' | 'UPDATED' | 'DELETED';
+  taskId: string;
+  title?: string;
+  taskType?: string;
+  changes?: Record<string, unknown>;
+  imageAssetId?: string;
+  source: 'AI_TOOL';
+  timestamp: string;
+};
+
 @Injectable()
 export class GardenService {
-  private _statsCache = new Map<string, { stats: GardenStats; expiresAt: number }>();
+  private _statsCache = new Map<
+    string,
+    { stats: GardenStats; expiresAt: number }
+  >();
 
   constructor(
     private readonly prisma: PrismaService,
@@ -49,7 +61,7 @@ export class GardenService {
     }
 
     const now = new Date();
-    
+
     const [plants, completedTasks, dueTasks] = await Promise.all([
       this.prisma.gardenPlant.findMany({
         where: { userId, status: GardenPlantStatus.ACTIVE },
@@ -72,13 +84,16 @@ export class GardenService {
 
     const stats: GardenStats = {
       totalPlants: plants.length,
-      healthyPlants: plants.filter((p) => p.healthStatus === PlantHealthStatus.HEALTHY).length,
+      healthyPlants: plants.filter(
+        (p) => p.healthStatus === PlantHealthStatus.HEALTHY,
+      ).length,
       needsAttention: plants.filter(
         (p) =>
           p.healthStatus === PlantHealthStatus.WARNING ||
           p.healthStatus === PlantHealthStatus.CRITICAL,
       ).length,
-      careRate: dueTasks > 0 ? Math.round((completedTasks / dueTasks) * 100) : 100,
+      careRate:
+        dueTasks > 0 ? Math.round((completedTasks / dueTasks) * 100) : 100,
     };
 
     this._statsCache.set(userId, {
@@ -91,9 +106,14 @@ export class GardenService {
 
   private async _syncGrowthStage(
     tx: any,
-    plant: { id: string; growthStage: PlantGrowthStage; plantedAt: Date; growthTimeline: any },
+    plant: {
+      id: string;
+      growthStage: PlantGrowthStage;
+      plantedAt: Date;
+      growthTimeline: any;
+    },
   ) {
-    const timeline = plant.growthTimeline as any;
+    const timeline = plant.growthTimeline;
     if (!timeline) return plant.growthStage;
 
     const stages: PlantGrowthStage[] = [
@@ -108,15 +128,21 @@ export class GardenService {
 
     const now = new Date();
     const daysElapsed = Math.floor(
-      (now.getTime() - new Date(plant.plantedAt).getTime()) / (24 * 60 * 60 * 1000),
+      (now.getTime() - new Date(plant.plantedAt).getTime()) /
+        (24 * 60 * 60 * 1000),
     );
 
     let targetStage: PlantGrowthStage = PlantGrowthStage.SEEDED;
-    if (daysElapsed >= timeline.harvestReady) targetStage = PlantGrowthStage.HARVEST_READY;
-    else if (timeline.fruiting && daysElapsed >= timeline.fruiting) targetStage = PlantGrowthStage.FRUITING;
-    else if (timeline.flowering && daysElapsed >= timeline.flowering) targetStage = PlantGrowthStage.FLOWERING;
-    else if (daysElapsed >= timeline.vegetative) targetStage = PlantGrowthStage.VEGETATIVE;
-    else if (daysElapsed >= timeline.sprouting) targetStage = PlantGrowthStage.SPROUTING;
+    if (daysElapsed >= timeline.harvestReady)
+      targetStage = PlantGrowthStage.HARVEST_READY;
+    else if (timeline.fruiting && daysElapsed >= timeline.fruiting)
+      targetStage = PlantGrowthStage.FRUITING;
+    else if (timeline.flowering && daysElapsed >= timeline.flowering)
+      targetStage = PlantGrowthStage.FLOWERING;
+    else if (daysElapsed >= timeline.vegetative)
+      targetStage = PlantGrowthStage.VEGETATIVE;
+    else if (daysElapsed >= timeline.sprouting)
+      targetStage = PlantGrowthStage.SPROUTING;
 
     const currentIdx = stages.indexOf(plant.growthStage);
     const targetIdx = stages.indexOf(targetStage);
@@ -168,7 +194,9 @@ export class GardenService {
       },
     });
 
-    for (const plant of plants.filter(p => p.status === GardenPlantStatus.ACTIVE)) {
+    for (const plant of plants.filter(
+      (p) => p.status === GardenPlantStatus.ACTIVE,
+    )) {
       await this._syncGrowthStage(this.prisma, {
         id: plant.id,
         growthStage: plant.growthStage,
@@ -181,7 +209,7 @@ export class GardenService {
   }
 
   async getPlantDetail(userId: string, plantId: string) {
-    let plant = await this.prisma.gardenPlant.findFirst({
+    const plant = await this.prisma.gardenPlant.findFirst({
       where: { id: plantId, userId },
       include: {
         plantSpecies: {
@@ -260,7 +288,9 @@ export class GardenService {
 
     const plantSpecies = activationRecord.product.plantSpecies;
     if (!plantSpecies) {
-      throw new BadRequestException('This product is not linked to a specific plant species');
+      throw new BadRequestException(
+        'This product is not linked to a specific plant species',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -279,7 +309,12 @@ export class GardenService {
         },
       });
 
-      await this._seedCareSchedulesAndTasks(tx, gardenPlant.id, plantSpecies.slug, now);
+      await this._seedCareSchedulesAndTasks(
+        tx,
+        gardenPlant.id,
+        plantSpecies.slug,
+        now,
+      );
 
       await tx.kitActivationCode.update({
         where: { id: activationRecord.id },
@@ -294,7 +329,11 @@ export class GardenService {
 
   async logCare(userId: string, plantId: string, dto: LogCareDto) {
     const task = await this.prisma.careTask.findFirst({
-      where: { id: dto.taskId, gardenPlantId: plantId, gardenPlant: { userId } },
+      where: {
+        id: dto.taskId,
+        gardenPlantId: plantId,
+        gardenPlant: { userId },
+      },
       include: { schedule: true },
     });
 
@@ -308,12 +347,16 @@ export class GardenService {
 
     const now = new Date();
     const taskDueAt = new Date(task.dueAt);
-    const formatter = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+    });
     const todayStr = formatter.format(now);
     const taskDueStr = formatter.format(taskDueAt);
 
     if (now < taskDueAt && todayStr !== taskDueStr) {
-      throw new BadRequestException(`Task is not due yet. This task is scheduled for ${taskDueStr}.`);
+      throw new BadRequestException(
+        `Task is not due yet. This task is scheduled for ${taskDueStr}.`,
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -360,7 +403,11 @@ export class GardenService {
         return { success: true, harvested: true };
       }
 
-      if (task.schedule && task.schedule.isActive && task.schedule.cadenceDays) {
+      if (
+        task.schedule &&
+        task.schedule.isActive &&
+        task.schedule.cadenceDays
+      ) {
         const nextDueAt = new Date(
           now.getTime() + task.schedule.cadenceDays * 24 * 60 * 60 * 1000,
         );
@@ -381,7 +428,6 @@ export class GardenService {
       return { success: true, harvested: false };
     });
   }
-
 
   async logJournal(userId: string, plantId: string, dto: LogJournalDto) {
     const plant = await this.prisma.gardenPlant.findFirst({
@@ -413,7 +459,9 @@ export class GardenService {
       : null;
 
     if (dto.imageAssetId && !asset) {
-      throw new BadRequestException('Journal image asset is invalid or not owned by this user.');
+      throw new BadRequestException(
+        'Journal image asset is invalid or not owned by this user.',
+      );
     }
 
     const aiData = asset
@@ -432,12 +480,10 @@ export class GardenService {
           gardenPlantId: plantId,
           capturedAt: now,
           note: dto.note,
-          healthStatus:
-            dto.healthStatus || aiData?.healthStatus || undefined,
+          healthStatus: dto.healthStatus || aiData?.healthStatus || undefined,
           leafColorNote:
             dto.leafColorNote || aiData?.leafColorNote || undefined,
-          issueSummary:
-            dto.issueSummary || aiData?.issueSummary || undefined,
+          issueSummary: dto.issueSummary || aiData?.issueSummary || undefined,
           recommendationSummary: aiData?.recommendationSummary || undefined,
           aiAnalysis: aiData?.raw
             ? (JSON.parse(JSON.stringify(aiData.raw)) as Prisma.InputJsonValue)
@@ -496,7 +542,8 @@ export class GardenService {
         where: { id: plantId },
         data: {
           lastJournaledAt: latestRemaining?.capturedAt ?? null,
-          healthStatus: latestRemaining?.healthStatus ?? PlantHealthStatus.UNKNOWN,
+          healthStatus:
+            latestRemaining?.healthStatus ?? PlantHealthStatus.UNKNOWN,
         },
       });
     });
@@ -508,15 +555,200 @@ export class GardenService {
 
       if (remainingReferences === 0 && entry.imageAsset?.storageKey) {
         await this.storageService.deleteFile(entry.imageAsset.storageKey);
-        await this.prisma.mediaAsset.delete({
-          where: { id: entry.imageAssetId },
-        }).catch((error) => {
-          console.error('Failed to delete orphaned journal media asset:', error);
-        });
+        await this.prisma.mediaAsset
+          .delete({
+            where: { id: entry.imageAssetId },
+          })
+          .catch((error) => {
+            console.error(
+              'Failed to delete orphaned journal media asset:',
+              error,
+            );
+          });
       }
     }
 
     return { success: true };
+  }
+
+  async createCareTask(
+    userId: string,
+    plantId: string,
+    dto: CreateCareTaskDto,
+  ) {
+    // Verify plant ownership
+    const plant = await this.prisma.gardenPlant.findUnique({
+      where: { id: plantId, userId },
+    });
+
+    if (!plant) {
+      throw new NotFoundException('Plant not found or not owned by user');
+    }
+
+    // Check for duplicate pending task
+    const existingTask = await this.prisma.careTask.findFirst({
+      where: {
+        gardenPlantId: plantId,
+        taskType: dto.taskType as CareTaskType,
+        status: CareTaskStatus.PENDING,
+        title: dto.title,
+      },
+    });
+
+    if (existingTask) {
+      return existingTask;
+    }
+
+    // Parse dueAt or default to today
+    const dueAt = dto.dueAt ? new Date(dto.dueAt) : new Date();
+
+    // Create new task
+    const task = await this.prisma.careTask.create({
+      data: {
+        gardenPlantId: plantId,
+        taskType: dto.taskType as CareTaskType,
+        title: dto.title,
+        description: dto.notes,
+        dueAt,
+        status: CareTaskStatus.PENDING,
+        createdBy: 'AI_ASSISTANT',
+      },
+    });
+
+    this._invalidateStatsCache(userId);
+
+    return task;
+  }
+
+  async logJournalEntry(
+    userId: string,
+    plantId: string,
+    dto: {
+      note: string;
+      healthStatus: string;
+      issueSummary?: string;
+      imageAssetId?: string;
+    },
+  ) {
+    // Verify plant ownership
+    const plant = await this.prisma.gardenPlant.findFirst({
+      where: { id: plantId, userId },
+    });
+
+    if (!plant) {
+      throw new NotFoundException('Plant not found');
+    }
+
+    const now = new Date();
+
+    const entry = await this.prisma.plantJournalEntry.create({
+      data: {
+        gardenPlantId: plantId,
+        capturedAt: now,
+        note: dto.note,
+        healthStatus: dto.healthStatus as PlantHealthStatus,
+        issueSummary: dto.issueSummary,
+        imageAssetId: dto.imageAssetId,
+      },
+    });
+
+    // Update plant health status and lastJournaledAt
+    await this.prisma.gardenPlant.update({
+      where: { id: plantId },
+      data: {
+        lastJournaledAt: now,
+        healthStatus: dto.healthStatus as PlantHealthStatus,
+      },
+    });
+
+    return entry;
+  }
+
+  async appendTaskHistoryToDailyJournal(
+    userId: string,
+    plantId: string,
+    event: Omit<TaskHistoryEvent, 'timestamp' | 'source'>,
+  ) {
+    const plant = await this.prisma.gardenPlant.findFirst({
+      where: { id: plantId, userId },
+      select: { id: true, healthStatus: true },
+    });
+
+    if (!plant) {
+      throw new NotFoundException('Plant not found');
+    }
+
+    const now = new Date();
+    const dailyLabel = new Intl.DateTimeFormat('vi-VN', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+      dateStyle: 'short',
+    }).format(now);
+    const dayKey = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Asia/Ho_Chi_Minh',
+    }).format(now);
+
+    const dayStart = new Date(`${dayKey}T00:00:00+07:00`);
+    const dayEnd = new Date(`${dayKey}T23:59:59.999+07:00`);
+
+    const fullEvent: TaskHistoryEvent = {
+      ...event,
+      source: 'AI_TOOL',
+      timestamp: now.toISOString(),
+    };
+
+    const existingDailyJournal = await this.prisma.plantJournalEntry.findFirst({
+      where: {
+        gardenPlantId: plantId,
+        capturedAt: {
+          gte: dayStart,
+          lte: dayEnd,
+        },
+        note: {
+          startsWith: '[TASK_HISTORY_DAILY]',
+        },
+      },
+      orderBy: { capturedAt: 'desc' },
+    });
+
+    const previousHistory =
+      existingDailyJournal?.aiAnalysis &&
+      typeof existingDailyJournal.aiAnalysis === 'object' &&
+      !Array.isArray(existingDailyJournal.aiAnalysis)
+        ? ((existingDailyJournal.aiAnalysis as Record<string, unknown>)
+            .taskHistory as unknown[])
+        : [];
+
+    const nextHistory = [...(previousHistory || []), fullEvent];
+    const note = `[TASK_HISTORY_DAILY] Cập nhật lịch sử task ngày ${dailyLabel}`;
+
+    if (existingDailyJournal) {
+      return this.prisma.plantJournalEntry.update({
+        where: { id: existingDailyJournal.id },
+        data: {
+          capturedAt: now,
+          note,
+          imageAssetId: event.imageAssetId ?? existingDailyJournal.imageAssetId,
+          aiAnalysis: {
+            day: dayKey,
+            taskHistory: nextHistory,
+          } as Prisma.InputJsonValue,
+        },
+      });
+    }
+
+    return this.prisma.plantJournalEntry.create({
+      data: {
+        gardenPlantId: plantId,
+        capturedAt: now,
+        note,
+        healthStatus: plant.healthStatus,
+        imageAssetId: event.imageAssetId,
+        aiAnalysis: {
+          day: dayKey,
+          taskHistory: nextHistory,
+        } as Prisma.InputJsonValue,
+      },
+    });
   }
 
   private async _analyzeJournalImage(
@@ -588,8 +820,7 @@ export class GardenService {
       healthStatus,
       leafColorNote:
         typeof leafColorNote === 'string' ? leafColorNote : undefined,
-      issueSummary:
-        typeof issueSummary === 'string' ? issueSummary : undefined,
+      issueSummary: typeof issueSummary === 'string' ? issueSummary : undefined,
       recommendationSummary:
         typeof recommendationSummary === 'string'
           ? recommendationSummary
@@ -603,7 +834,6 @@ export class GardenService {
     };
   }
 
-
   private async _seedCareSchedulesAndTasks(
     tx: any,
     plantId: string,
@@ -614,7 +844,9 @@ export class GardenService {
 
     for (const def of scheduleData) {
       const startsAt = plantedAt;
-      const firstDueAt = new Date(plantedAt.getTime() + def.cadenceDays * 24 * 60 * 60 * 1000);
+      const firstDueAt = new Date(
+        plantedAt.getTime() + def.cadenceDays * 24 * 60 * 60 * 1000,
+      );
 
       const schedule = await tx.careSchedule.create({
         data: {
@@ -643,5 +875,4 @@ export class GardenService {
       });
     }
   }
-
 }

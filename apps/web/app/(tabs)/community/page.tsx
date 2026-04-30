@@ -2,7 +2,7 @@ import { CommunityScreen } from "../../../components/cityfarm/features/Community
 import { getCommunityData } from "../../../lib/community-server";
 
 export default async function CommunityPage() {
-  const { posts, listings } = await getCommunityData();
+  const { listings } = await getCommunityData();
 
-  return <CommunityScreen initialPosts={posts} initialListings={listings} />;
+  return <CommunityScreen initialListings={listings} />;
 }

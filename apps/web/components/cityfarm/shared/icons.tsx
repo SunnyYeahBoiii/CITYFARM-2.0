@@ -148,6 +148,10 @@ export function PlusIcon(props: IconProps) {
   );
 }
 
+export function MinusIcon(props: IconProps) {
+  return baseIcon(<path d="M5 12h14" />, props);
+}
+
 export function SearchIcon(props: IconProps) {
   return baseIcon(
     <>

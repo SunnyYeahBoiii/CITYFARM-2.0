@@ -72,6 +72,7 @@ model Product {
   updatedAt       DateTime            @updatedAt
   activationCodes KitActivationCode[]
   orderItems      OrderItem[]
+  cartItems       CartItem[]
   coverAsset      MediaAsset?         @relation("ProductImageAsset", fields: [coverAssetId], references: [id])
   plantSpecies    PlantSpecies?       @relation(fields: [plantSpeciesId], references: [id])
   usedInKits      ProductComponent[]  @relation("ComponentProductComponents")
@@ -124,6 +125,32 @@ model Order {
   items             OrderItem[]
 
   @@index([buyerId, status, createdAt])
+}
+
+model Cart {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  items     CartItem[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+
+  @@unique([userId])
+}
+
+model CartItem {
+  id                 String  @id @default(cuid())
+  cartId             String
+  cart               Cart    @relation(fields: [cartId], references: [id], onDelete: Cascade)
+  productId          String
+  product            Product @relation(fields: [productId], references: [id])
+  quantity           Int     @default(1)
+  selectedComponentId String?
+  createdAt          DateTime @default(now())
+
+  @@unique([cartId, productId, selectedComponentId])
+  @@index([cartId])
+  @@index([productId])
 }
 
 model OrderItem {
@@ -184,6 +211,7 @@ model FeedPost {
 
   @@index([userId, createdAt])
   @@index([visibilityDistrict, createdAt])
+  @@index([createdAt(desc), id(desc)])
 }
 
 model FeedComment {
@@ -367,6 +395,7 @@ model CareTask {
   skippedAt     DateTime?
   aiSummary     String?
   metadata      Json?
+  createdBy     String?        @default("SYSTEM")
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   createdBy     String?        @default("SYSTEM")
@@ -413,6 +442,7 @@ model User {
   ownedMedia         MediaAsset[]
   messages           Message[]                 @relation("UserMessages")
   orders             Order[]
+  cart               Cart?
   postReactions      PostReaction[]
   scans              SpaceScan[]
   profile            UserProfile?

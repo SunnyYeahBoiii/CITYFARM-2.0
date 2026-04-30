@@ -36,3 +36,9 @@ export class FeedPostsPaginatedDto {
   limit: number;
   hasMore: boolean;
 }
+
+export class FeedPostsCursorDto {
+  posts: FeedPostDto[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}

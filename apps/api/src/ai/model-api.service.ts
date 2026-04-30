@@ -47,8 +47,8 @@ export class ModelApiService {
     ];
   }
 
-  async getChatAdvice(payload: unknown) {
-    return this.postJson('/api/chat', payload);
+  async getChatAdvice(payload: Record<string, unknown>, tools?: unknown) {
+    return this.postJson('/api/chat', { ...payload, tools });
   }
 
   async analyzePlantHealth(payload: AnalyzePlantHealthPayload) {

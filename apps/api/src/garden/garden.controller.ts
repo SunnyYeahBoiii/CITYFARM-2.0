@@ -10,13 +10,18 @@ import {
 import { GardenService } from './garden.service';
 import { LogCareDto } from 'src/dtos/garden/log-care.dto';
 import { LogJournalDto } from 'src/dtos/garden/log-journal.dto';
+import { CreateCareTaskDto } from 'src/dtos/garden/create-care-task.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { AppService } from 'src/app.service';
 
 @Controller('garden')
 @UseGuards(JwtAuthGuard)
 export class GardenController {
-  constructor(private readonly gardenService: GardenService) {}
+  constructor(
+    private readonly gardenService: GardenService,
+    private readonly appService: AppService,
+  ) {}
 
   @Get()
   async getMyGarden(@CurrentUser('id') userId: string) {
@@ -26,6 +31,14 @@ export class GardenController {
   @Get('stats')
   async getGardenStats(@CurrentUser('id') userId: string) {
     return this.gardenService.getGardenStats(userId);
+  }
+
+  @Get('plants/:plantId/chat-context')
+  async getChatContext(
+    @CurrentUser('id') userId: string,
+    @Param('plantId') plantId: string,
+  ) {
+    return this.appService.buildEnhancedPlantContext(plantId, userId);
   }
 
   @Get(':plantId')
@@ -59,7 +72,31 @@ export class GardenController {
     @Param('plantId') plantId: string,
     @Body() body: LogJournalDto,
   ) {
-    return this.gardenService.logJournal(userId, plantId, body);
+    const entry = await this.gardenService.logJournal(userId, plantId, body);
+
+    try {
+      // Fire journal-mode tool calling after the journal entry is committed.
+      await this.appService.processJournalUploadToolCalling(
+        userId,
+        plantId,
+        entry,
+        body,
+      );
+    } catch (err: unknown) {
+      // Journal upload should still succeed even if AI tool calling fails.
+      console.error('[JournalToolCalling] Failed:', err);
+    }
+
+    return entry;
+  }
+
+  @Post('plants/:plantId/tasks')
+  async createTask(
+    @CurrentUser('id') userId: string,
+    @Param('plantId') plantId: string,
+    @Body() body: CreateCareTaskDto,
+  ) {
+    return this.gardenService.createCareTask(userId, plantId, body);
   }
 
   @Delete(':plantId/journal/:journalId')

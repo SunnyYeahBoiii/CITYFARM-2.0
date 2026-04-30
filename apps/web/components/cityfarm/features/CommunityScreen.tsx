@@ -1,12 +1,12 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getPlantById, getPlants } from "@/lib/cityfarm";
+import { useEffect, useRef, useState, type ReactNode, useCallback } from "react";
+import { useInfiniteFeed, useReactionMutation } from "@/lib/useInfiniteFeed";
+import { getPlants } from "@/lib/cityfarm";
 import { getHarvestDays } from "@/lib/cityfarm/utils";
 import { uploadAsset } from "@/lib/api/assets.api";
 import { gardenApi } from "@/lib/api/garden.api";
-import { createComment, createPost, deleteComment, deletePost, getPostComments, loadCommunityData, toggleReaction, deleteMarketplaceListing, updateMarketplaceListing } from "@/lib/api/community.api";
+import { createComment, createPost, deleteComment, deletePost, getPostComments, deleteMarketplaceListing, updateMarketplaceListing } from "@/lib/api/community.api";
 import { PostType, type FeedPost, type MarketListing, type FeedComment } from "@/lib/types/community";
 import { useAuth } from "@/context/AuthContext";
 import styles from "../cityfarm.module.css";
@@ -32,19 +32,40 @@ type CommunityTab = "feed" | "market";
 type ComposerType = "caption" | "image" | "plant";
 
 type CommunityScreenProps = {
-  initialPosts?: FeedPost[];
   initialListings?: MarketListing[];
 };
 
-export function CommunityScreen({ initialPosts, initialListings }: CommunityScreenProps) {
-  const hasInitialData = initialPosts !== undefined || initialListings !== undefined;
+export function CommunityScreen({ initialListings }: CommunityScreenProps) {
   const [gardenPlants, setGardenPlants] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState<CommunityTab>("feed");
   const [feedFilter, setFeedFilter] = useState<PostType | "all">("all");
-  const [posts, setPosts] = useState<FeedPost[]>(initialPosts ?? []);
+
+  // Infinite scroll for feed
+  const {
+    data: infiniteData,
+    isLoading: isFeedLoading,
+    isError: isFeedError,
+    error: feedError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    refetch: refetchFeed,
+  } = useInfiniteFeed({
+    postType: feedFilter,
+    limit: 20,
+  });
+
+  // Flatten pages to get all posts
+  const posts = infiniteData?.pages.flatMap((page) => page.posts) ?? [];
+
+  // Reaction mutation with optimistic updates
+  const reactionMutation = useReactionMutation();
+
+  // IntersectionObserver sentinel
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+
   const [listings, setListings] = useState<MarketListing[]>(initialListings ?? []);
-  const [isCommunityLoading, setIsCommunityLoading] = useState(!hasInitialData);
   const [isCreating, setIsCreating] = useState(false);
   const [postType, setPostType] = useState<ComposerType>("caption");
   const [caption, setCaption] = useState("");
@@ -84,14 +105,6 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
   });
   
   const { user } = useAuth();
-
-  useEffect(() => {
-    if (hasInitialData) {
-      setPosts(initialPosts ?? []);
-      setListings(initialListings ?? []);
-      setIsCommunityLoading(false);
-    }
-  }, [hasInitialData, initialListings, initialPosts]);
 
   useEffect(() => {
     const fetchGarden = async () => {
@@ -135,23 +148,26 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
     }
   }, [currentPlantIndex, gardenPlants]);
 
+  // IntersectionObserver for infinite scroll
   useEffect(() => {
-    if (hasInitialData) {
-      return;
-    }
+    const sentinel = loadMoreRef.current;
+    if (!sentinel || !hasNextPage || isFetchingNextPage) return;
 
-    const activeRef = { current: true };
-    void reloadCommunityData({
-      activeRef,
-      setIsCommunityLoading,
-      setPosts,
-      setListings,
-    });
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.at(0)!.isIntersecting && hasNextPage && !isFetchingNextPage) {
+          fetchNextPage();
+        }
+      },
+      {
+        rootMargin: "200px",
+        threshold: 0.1,
+      }
+    );
 
-    return () => {
-      activeRef.current = false;
-    };
-  }, [hasInitialData]);
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   const filteredPosts = feedFilter === "all" ? posts : posts.filter((post) => post.postType === feedFilter);
 
@@ -179,63 +195,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
   };
 
   const handleLike = async (postId: string) => {
-    const currentPost = posts.find((post) => post.id === postId);
-    if (!currentPost) {
-      return;
-    }
-
-    const wasLiked = Boolean(currentPost.isLiked);
-    const optimisticLiked = !wasLiked;
-    const baseLikes = currentPost.likes;
-    const likesForState = (liked: boolean) => {
-      if (liked === wasLiked) {
-        return baseLikes;
-      }
-      return liked ? baseLikes + 1 : Math.max(baseLikes - 1, 0);
-    };
-
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              isLiked: optimisticLiked,
-              likes: likesForState(optimisticLiked),
-            }
-          : post,
-      ),
-    );
-
-    try {
-      const actualLiked = await toggleReaction(postId);
-      if (actualLiked === optimisticLiked) {
-        return;
-      }
-
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                isLiked: actualLiked,
-                likes: likesForState(actualLiked),
-              }
-            : post,
-        ),
-      );
-    } catch {
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                isLiked: wasLiked,
-                likes: likesForState(wasLiked),
-              }
-            : post,
-        ),
-      );
-    }
+    await reactionMutation.mutateAsync(postId);
   };
 
   const handleCreatePost = async () => {
@@ -264,11 +224,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
     });
 
     resetComposer();
-    await reloadCommunityData({
-      setIsCommunityLoading,
-      setPosts,
-      setListings,
-    });
+    await refetchFeed();
   };
 
   const handleDeletePost = async (postId: string) => {
@@ -278,11 +234,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
 
     try {
       await deletePost(postId);
-      await reloadCommunityData({
-        setIsCommunityLoading,
-        setPosts,
-        setListings,
-      });
+      await refetchFeed();
     } catch (error) {
       console.error("Failed to delete post:", error);
       alert("Co loi khi xoa bai. Vui long thu lai.");
@@ -315,16 +267,12 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
       await createComment(activeCommentPost.id, trimmedBody, replyingToId || undefined);
       setNewCommentText("");
       setReplyingToId(null);
-      
+
       // Refresh comments and the main feed to update counts
       const data = await getPostComments(activeCommentPost.id);
       setComments(data);
-      
-      await reloadCommunityData({
-        setIsCommunityLoading,
-        setPosts,
-        setListings,
-      });
+
+      await refetchFeed();
     } catch (error) {
       console.error("Failed to create comment:", error);
       alert("Khong the gui binh luan. Vui long thu lai.");
@@ -339,12 +287,8 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
       if (activeCommentPost) {
         const data = await getPostComments(activeCommentPost.id);
         setComments(data);
-        
-        await reloadCommunityData({
-          setIsCommunityLoading,
-          setPosts,
-          setListings,
-        });
+
+        await refetchFeed();
       }
     } catch (error) {
       console.error("Failed to delete comment:", error);
@@ -496,8 +440,57 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
             </div>
 
             <div className={styles.postFeed}>
-              {isCommunityLoading ? <div className={styles.metaText}>Loading community...</div> : null}
-              {!isCommunityLoading && filteredPosts.length === 0 ? <div className={styles.metaText}>No posts available yet.</div> : null}
+              {/* Skeleton screens for initial load */}
+              {isFeedLoading && posts.length === 0 && (
+                <>
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className={styles.postCard}>
+                      <div className={styles.postHeader}>
+                        <div className={styles.avatarRow}>
+                          <div className="w-10 h-10 rounded-full bg-gray-200 animate-pulse" />
+                          <div className="flex-1">
+                            <div className="h-4 w-24 bg-gray-200 rounded animate-pulse mb-2" />
+                            <div className="h-3 w-32 bg-gray-200 rounded animate-pulse" />
+                          </div>
+                        </div>
+                      </div>
+                      <div className={styles.postBody}>
+                        <div className="h-4 w-full bg-gray-200 rounded animate-pulse mb-2" />
+                        <div className="h-4 w-3/4 bg-gray-200 rounded animate-pulse" />
+                      </div>
+                      <div className="h-48 bg-gray-200 animate-pulse" />
+                      <div className={styles.postBody}>
+                        <div className="flex gap-4">
+                          <div className="h-6 w-16 bg-gray-200 rounded animate-pulse" />
+                          <div className="h-6 w-16 bg-gray-200 rounded animate-pulse" />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
+
+              {/* Error state with retry */}
+              {isFeedError && (
+                <div className={styles.postCard}>
+                  <div className="flex flex-col items-center justify-center py-8 text-center">
+                    <div className="text-red-500 mb-2">Failed to load feed</div>
+                    <button
+                      type="button"
+                      className={styles.buttonPrimary}
+                      onClick={() => refetchFeed()}
+                      style={{ padding: "0.5rem 1rem" }}
+                    >
+                      Try Again
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Empty state */}
+              {!isFeedLoading && !isFeedError && filteredPosts.length === 0 && (
+                <div className={styles.metaText}>No posts available yet.</div>
+              )}
 
               {filteredPosts.map((post) => {
 
@@ -645,6 +638,22 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
                   </div>
                 );
               })}
+              {/* IntersectionObserver sentinel */}
+              <div ref={loadMoreRef} className="h-4" />
+
+              {/* Loading more spinner */}
+              {isFetchingNextPage && (
+                <div className="flex justify-center py-4">
+                  <div className="w-8 h-8 border-4 border-[#355b31] border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+
+              {/* End of feed indicator */}
+              {!hasNextPage && posts.length > 0 && !isFetchingNextPage && (
+                <div className={styles.metaText} style={{ textAlign: "center", opacity: 0.6 }}>
+                  You've reached the end of the feed
+                </div>
+              )}
             </div>
           </section>
         ) : (
@@ -666,7 +675,7 @@ export function CommunityScreen({ initialPosts, initialListings }: CommunityScre
               </button>
             </div>
             <div className={styles.listingFeed}>
-              {!isCommunityLoading && listings.length === 0 ? <div className={styles.metaText}>No marketplace listings available.</div> : null}
+              {listings.length === 0 ? <div className={styles.metaText}>No marketplace listings available.</div> : null}
               {listings
                 .filter(l => marketFilter === "all" || l.seller.id === user.id)
                 .map((listing) => (
@@ -1319,32 +1328,4 @@ function PlantSharePicker({
       </div>
     </div>
   );
-}
-
-async function reloadCommunityData({
-  activeRef,
-  setIsCommunityLoading,
-  setPosts,
-  setListings,
-}: {
-  activeRef?: { current: boolean };
-  setIsCommunityLoading: (value: boolean) => void;
-  setPosts: React.Dispatch<React.SetStateAction<FeedPost[]>>;
-  setListings: React.Dispatch<React.SetStateAction<MarketListing[]>>;
-}) {
-  try {
-    setIsCommunityLoading(true);
-    const result = await loadCommunityData();
-
-    if (activeRef && !activeRef.current) {
-      return;
-    }
-
-    setPosts(result.posts ?? []);
-    setListings(result.listings ?? []);
-  } finally {
-    if (!activeRef || activeRef.current) {
-      setIsCommunityLoading(false);
-    }
-  }
 }

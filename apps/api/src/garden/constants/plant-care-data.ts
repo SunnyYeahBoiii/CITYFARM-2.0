@@ -16,7 +16,6 @@ export interface GrowthThresholds {
   harvestReady: number;
 }
 
-
 export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
   'cherry-tomato': [
     {
@@ -36,7 +35,8 @@ export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
     {
       taskType: CareTaskType.PEST_CHECK,
       title: 'Pest & disease check',
-      description: 'Inspect leaves and stems for whitefly, spider mites, or blight.',
+      description:
+        'Inspect leaves and stems for whitefly, spider mites, or blight.',
       cadenceDays: 7,
       preferredHour: 9,
     },
@@ -46,14 +46,16 @@ export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
     {
       taskType: CareTaskType.WATERING,
       title: 'Water cucumber',
-      description: 'Cucumbers need consistent moisture. Water deeply every 2 days.',
+      description:
+        'Cucumbers need consistent moisture. Water deeply every 2 days.',
       cadenceDays: 2,
       preferredHour: 7,
     },
     {
       taskType: CareTaskType.FERTILIZING,
       title: 'Fertilize cucumber',
-      description: 'Feed with nitrogen-rich fertilizer during vegetative stage.',
+      description:
+        'Feed with nitrogen-rich fertilizer during vegetative stage.',
       cadenceDays: 10,
       preferredHour: 8,
     },
@@ -87,7 +89,8 @@ export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
     {
       taskType: CareTaskType.PRUNING,
       title: 'Pinch basil tops',
-      description: 'Remove flower buds and pinch tips to keep leaves flavourful.',
+      description:
+        'Remove flower buds and pinch tips to keep leaves flavourful.',
       cadenceDays: 14,
       preferredHour: 9,
     },
@@ -97,7 +100,8 @@ export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
     {
       taskType: CareTaskType.WATERING,
       title: 'Water Thai basil',
-      description: 'Keep moist. Thai basil prefers slightly wetter conditions than sweet basil.',
+      description:
+        'Keep moist. Thai basil prefers slightly wetter conditions than sweet basil.',
       cadenceDays: 2,
       preferredHour: 7,
     },
@@ -121,7 +125,8 @@ export const PLANT_CARE_SCHEDULES: Record<string, DefaultCareSchedule[]> = {
     {
       taskType: CareTaskType.PRUNING,
       title: 'Trim mint runners',
-      description: 'Cut back runners to prevent mint from spreading aggressively.',
+      description:
+        'Cut back runners to prevent mint from spreading aggressively.',
       cadenceDays: 14,
       preferredHour: 9,
     },
@@ -139,7 +144,8 @@ export const DEFAULT_CARE_SCHEDULE: DefaultCareSchedule[] = [
   {
     taskType: CareTaskType.PEST_CHECK,
     title: 'Pest & health check',
-    description: 'Inspect the plant for any unusual spots, pests, or signs of stress.',
+    description:
+      'Inspect the plant for any unusual spots, pests, or signs of stress.',
     cadenceDays: 7,
     preferredHour: 9,
   },

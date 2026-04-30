@@ -9,6 +9,7 @@ import {
   FeedPostDto,
   UserMinimalDto,
   FeedPostsPaginatedDto,
+  FeedPostsCursorDto,
 } from '../dtos/feed/feed-post.dto';
 import {
   CreateFeedCommentDto,
@@ -132,6 +133,131 @@ export class CommunityService {
       page,
       limit,
       hasMore: skip + limit < total,
+    };
+  }
+
+  async getFeedPostsCursor(
+    userId: string,
+    cursor?: string,
+    postType?: PostType,
+    district?: string,
+    limit: number = 20,
+  ): Promise<FeedPostsCursorDto> {
+    const where: any = {
+      isPublished: true,
+    };
+
+    if (postType) {
+      where.postType = postType;
+    }
+
+    if (district) {
+      where.visibilityDistrict = district;
+    }
+
+    // Parse compound cursor: createdAt_id
+    let cursorObj: { createdAt: Date; id: string } | undefined;
+    if (cursor) {
+      const parts = cursor.split('_');
+      if (parts.length === 2) {
+        cursorObj = {
+          createdAt: new Date(parts[0]),
+          id: parts[1],
+        };
+      }
+    }
+
+    // Fetch limit + 1 to determine hasMore
+    const posts = await this.prisma.feedPost.findMany({
+      where,
+      include: {
+        user: {
+          select: {
+            id: true,
+            email: true,
+            profile: {
+              select: {
+                displayName: true,
+                avatarAssetId: true,
+                avatarAsset: {
+                  select: { publicUrl: true },
+                },
+                district: true,
+                growerVerificationStatus: true,
+              },
+            },
+          },
+        },
+        reactions: {
+          where: { userId: userId || '' },
+          select: { id: true },
+        },
+        imageAsset: {
+          select: {
+            publicUrl: true,
+          },
+        },
+        _count: {
+          select: {
+            reactions: true,
+            comments: true,
+          },
+        },
+        gardenPlant: {
+          include: {
+            plantSpecies: {
+              select: {
+                commonName: true,
+                category: true,
+                harvestDaysMin: true,
+                careProfile: {
+                  select: {
+                    growthTimeline: true,
+                  },
+                },
+                products: {
+                  take: 1,
+                  select: {
+                    name: true,
+                    coverAsset: { select: { publicUrl: true } },
+                  },
+                },
+              },
+            },
+            journalEntries: {
+              take: 1,
+              orderBy: { createdAt: 'desc' },
+              include: {
+                imageAsset: { select: { publicUrl: true } },
+              },
+            },
+          },
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      take: limit + 1,
+      cursor: cursorObj ? cursorObj : undefined,
+      skip: cursorObj ? 1 : 0,
+    });
+
+    const hasMore = posts.length > limit;
+    const postsToReturn = hasMore ? posts.slice(0, limit) : posts;
+
+    const data = postsToReturn.map((post) =>
+      this.mapFeedPostToDto(post, userId),
+    );
+
+    // Generate next cursor from last post
+    const lastPost = postsToReturn[postsToReturn.length - 1];
+    const nextCursor =
+      lastPost && hasMore
+        ? `${lastPost.createdAt.toISOString()}_${lastPost.id}`
+        : null;
+
+    return {
+      posts: data,
+      nextCursor,
+      hasMore,
     };
   }
 
@@ -684,10 +810,17 @@ export class CommunityService {
       likes: post._count?.reactions || 0,
       comments: post._count?.comments || 0,
       isLiked: post.reactions?.length > 0,
-      gardenPlant: post.gardenPlant ? {
-        ...post.gardenPlant,
-        daysGrowing: Math.floor((new Date().getTime() - new Date(post.gardenPlant.plantedAt).getTime()) / (1000 * 60 * 60 * 24)) + 1,
-      } : undefined,
+      gardenPlant: post.gardenPlant
+        ? {
+            ...post.gardenPlant,
+            daysGrowing:
+              Math.floor(
+                (new Date().getTime() -
+                  new Date(post.gardenPlant.plantedAt).getTime()) /
+                  (1000 * 60 * 60 * 24),
+              ) + 1,
+          }
+        : undefined,
     };
   }
 

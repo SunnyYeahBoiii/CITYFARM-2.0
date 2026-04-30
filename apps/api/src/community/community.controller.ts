@@ -9,7 +9,7 @@ import {
   Query,
   UseGuards,
   BadRequestException,
-  Req
+  Req,
 } from '@nestjs/common';
 import { CommunityService } from './community.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -25,10 +25,34 @@ import { AuthService } from 'src/auth/auth.service';
 export class CommunityController {
   constructor(
     private readonly communityService: CommunityService,
-    private readonly authService: AuthService
+    private readonly authService: AuthService,
   ) {}
 
   // ============ POSTS ============
+
+  @Get('feed/cursor')
+  async getFeedPostsCursor(
+    @Req() req: any,
+    @Query('cursor') cursor?: string,
+    @Query('postType') postType?: PostType,
+    @Query('district') district?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const userId = (await this.authService.extractUserIdFromCookies(req)) ?? '';
+    const limitNum = limit ? parseInt(limit, 10) : 20;
+
+    if (limitNum < 1 || limitNum > 100) {
+      throw new BadRequestException('Limit must be between 1 and 100');
+    }
+
+    return this.communityService.getFeedPostsCursor(
+      userId,
+      cursor,
+      postType,
+      district,
+      limitNum,
+    );
+  }
 
   @Get('feed')
   async getFeedPosts(
@@ -92,7 +116,7 @@ export class CommunityController {
     @Query('limit') limit: string = '20',
   ) {
     const pageNum = parseInt(page, 10) || 1;
-    const limitNum = parseInt(limit, 10) || 20;
+    const limitNum = limit ? parseInt(limit, 10) : 20;
 
     if (pageNum < 1 || limitNum < 1) {
       throw new BadRequestException('Page and limit must be positive integers');
@@ -186,6 +210,10 @@ export class CommunityController {
     @CurrentUser('id') userId: string,
     @Body() dto: UpdateMarketplaceListingDto,
   ) {
-    return this.communityService.updateMarketplaceListing(listingId, userId, dto);
+    return this.communityService.updateMarketplaceListing(
+      listingId,
+      userId,
+      dto,
+    );
   }
 }

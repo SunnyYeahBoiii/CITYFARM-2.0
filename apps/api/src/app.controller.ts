@@ -3,15 +3,17 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Req,
+  UseGuards,
 } from '@nestjs/common';
 import type { Request } from 'express';
 import { AppService } from './app.service';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UseGuards } from '@nestjs/common';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
+import { CurrentUser } from 'src/common/decorators/current-user.decorator';
 
 type ChatBody = {
   message?: string;
@@ -65,6 +67,33 @@ export class AppController {
   @Get('api/plants/catalog')
   async getPlantCatalog() {
     return this.appService.getPlantCatalog();
+  }
+
+  @Get('api/chat/conversation/:plantId')
+  @UseGuards(JwtAuthGuard)
+  async getConversation(
+    @CurrentUser('id') userId: string,
+    @Param('plantId') plantId: string,
+  ) {
+    return this.appService.getConversationHistory(userId, plantId);
+  }
+
+  @Get('api/chat/plants/:plantId/context')
+  @UseGuards(JwtAuthGuard)
+  async getChatContext(
+    @CurrentUser('id') userId: string,
+    @Param('plantId') plantId: string,
+  ) {
+    const context = await this.appService.buildEnhancedPlantContext(
+      plantId,
+      userId,
+    );
+    if (!context) {
+      throw new BadRequestException(
+        'Không tìm thấy cây hoặc không có quyền truy cập',
+      );
+    }
+    return context;
   }
 
   @Post('api/scan/analyze')

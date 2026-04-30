@@ -68,11 +68,7 @@ export class AuthController {
     );
   }
 
-  private buildAuthResponse(
-    req: Request,
-    message: string,
-    tokens: AuthTokens,
-  ) {
+  private buildAuthResponse(req: Request, message: string, tokens: AuthTokens) {
     if (shouldExposeTokensInBody(req)) {
       return {
         message,
@@ -139,10 +135,7 @@ export class AuthController {
   @UseGuards(JwtRefreshAuthGuard)
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
-  async refresh(
-    @Req() req: any,
-    @Res({ passthrough: true }) res: Response,
-  ) {
+  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
     const userId = req.user.sub;
     const refreshToken = req.user.refreshToken;
 
@@ -221,7 +214,8 @@ export class AuthController {
   async getProfile(@Req() req: Request) {
     const accessToken = readAccessToken(req);
     if (accessToken) {
-      const accessProfile = await this.resolveProfileFromAccessToken(accessToken);
+      const accessProfile =
+        await this.resolveProfileFromAccessToken(accessToken);
       if (accessProfile) {
         return accessProfile;
       }
