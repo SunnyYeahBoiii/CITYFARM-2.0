@@ -4,5 +4,8 @@
         "dev": "nodemon --exec python ./src/main.py --ext py,html,yaml",
         "build": "poetry build",
         "start": "python ./src/main.py"
+    },
+    "devDependencies": {
+        "nodemon": "^3.1.14"
     }
 }

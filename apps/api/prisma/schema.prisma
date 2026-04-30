@@ -29,8 +29,10 @@ model PlantSpecies {
   isMarketplaceEligible Boolean              @default(true)
   createdAt             DateTime             @default(now())
   updatedAt             DateTime             @updatedAt
+  imageAssetId          String?
   gardenPlants          GardenPlant[]
   careProfile           PlantCareProfile?
+  MediaAsset            MediaAsset?          @relation(fields: [imageAssetId], references: [id])
   products              Product[]
   scanRecommendations   ScanRecommendation[]
 
@@ -106,18 +108,18 @@ model Order {
   pickupDistrict    String?
   pickupAddressNote String?
   customerNote      String?
-  recipientName     String?
-  recipientPhone    String?
-  deliveryAddress   String?
-  deliveryCity      String?
-  deliveryDistrict  String?
-  deliveryWard      String?
   confirmedAt       DateTime?
   readyForPickupAt  DateTime?
   completedAt       DateTime?
   cancelledAt       DateTime?
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
+  recipientName     String?
+  recipientPhone    String?
+  deliveryAddress   String?
+  deliveryCity      String?
+  deliveryDistrict  String?
+  deliveryWard      String?
   buyer             User          @relation(fields: [buyerId], references: [id], onDelete: Cascade)
   items             OrderItem[]
 
@@ -367,6 +369,7 @@ model CareTask {
   metadata      Json?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  createdBy     String?        @default("SYSTEM")
   gardenPlant   GardenPlant    @relation(fields: [gardenPlantId], references: [id], onDelete: Cascade)
   schedule      CareSchedule?  @relation(fields: [scheduleId], references: [id])
 
@@ -396,12 +399,12 @@ model PlantJournalEntry {
 model User {
   id                 String                    @id @default(uuid())
   email              String                    @unique
-  passwordHash       String?
-  refreshToken       String?
   externalAuthId     String?                   @unique
   role               UserRole                  @default(USER)
   createdAt          DateTime                  @default(now())
   updatedAt          DateTime                  @updatedAt
+  passwordHash       String?
+  refreshToken       String?
   conversations      ConversationParticipant[]
   comments           FeedComment[]
   posts              FeedPost[]
@@ -454,6 +457,7 @@ model MediaAsset {
   owner                User?                @relation(fields: [ownerId], references: [id])
   messageAttachments   Message[]            @relation("MessageAttachmentAsset")
   journalEntries       PlantJournalEntry[]  @relation("JournalImageAsset")
+  PlantSpecies         PlantSpecies[]
   productImages        Product[]            @relation("ProductImageAsset")
   outputVisualizations ScanVisualization[]  @relation("VisualizationOutputAsset")
   sourceVisualizations ScanVisualization[]  @relation("VisualizationSourceAsset")

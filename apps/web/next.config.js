@@ -10,6 +10,9 @@ const nextConfig = {
   turbopack: {
     root: path.join(__dirname, "../.."),
   },
+  ...(process.env.ALLOWED_DEV_ORIGINS && {
+    allowedDevOrigins: process.env.ALLOWED_DEV_ORIGINS.split(",").map((o) => o.trim()),
+  }),
 };
 
 export default nextConfig;
