@@ -5,6 +5,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  basePath: "/landing",
   output: "standalone",
   outputFileTracingRoot: path.join(__dirname, "../.."),
   turbopack: {

@@ -390,6 +390,16 @@ jobs:
               fi
             fi
 
+            if ! command -v certbot >/dev/null 2>&1; then
+              if command -v apt-get >/dev/null 2>&1; then
+                sudo apt-get update
+                sudo apt-get install -y certbot python3-certbot-nginx
+              else
+                echo "certbot is missing and apt-get is unavailable. Install certbot manually once on VPS."
+                exit 1
+              fi
+            fi
+
             extract_host_from_url() {
               value="$1"
               value="${value#http://}"
@@ -406,14 +416,70 @@ jobs:
             fi
             export APP_DOMAIN
 
-            envsubst '${APP_DOMAIN}' < infra/nginx/cityfarm.ipv4.http.conf.template | sudo tee /etc/nginx/sites-available/cityfarm-ipv4.conf >/dev/null
-            sudo ln -sf /etc/nginx/sites-available/cityfarm-ipv4.conf /etc/nginx/sites-enabled/cityfarm-ipv4.conf
-            if [ -f /etc/nginx/sites-enabled/default ]; then
-              sudo rm -f /etc/nginx/sites-enabled/default
+            APP_SCHEME="${WEB_NEXT_PUBLIC_APP_URL%%://*}"
+            case "$APP_SCHEME" in
+              http|https) ;;
+              *)
+                echo "Unsupported WEB_NEXT_PUBLIC_APP_URL scheme: $APP_SCHEME"
+                exit 1
+                ;;
+            esac
+
+            configure_http_site() {
+              envsubst '${APP_DOMAIN}' < infra/nginx/cityfarm.http.conf.template | sudo tee /etc/nginx/sites-available/cityfarm.conf >/dev/null
+              sudo ln -sf /etc/nginx/sites-available/cityfarm.conf /etc/nginx/sites-enabled/cityfarm.conf
+              if [ -f /etc/nginx/sites-enabled/default ]; then
+                sudo rm -f /etc/nginx/sites-enabled/default
+              fi
+              sudo nginx -t
+              sudo systemctl enable nginx
+              sudo systemctl reload nginx || sudo systemctl restart nginx
+            }
+
+            configure_https_site() {
+              export CERT_FULLCHAIN_PATH="/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem"
+              export CERT_PRIVKEY_PATH="/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem"
+              envsubst '${APP_DOMAIN} ${CERT_FULLCHAIN_PATH} ${CERT_PRIVKEY_PATH}' < infra/nginx/cityfarm.https.conf.template | sudo tee /etc/nginx/sites-available/cityfarm.conf >/dev/null
+              sudo ln -sf /etc/nginx/sites-available/cityfarm.conf /etc/nginx/sites-enabled/cityfarm.conf
+              if [ -f /etc/nginx/sites-enabled/default ]; then
+                sudo rm -f /etc/nginx/sites-enabled/default
+              fi
+              sudo nginx -t
+              sudo systemctl enable nginx
+              sudo systemctl reload nginx || sudo systemctl restart nginx
+            }
+
+            # Apply HTTP config first so ACME challenge can be served.
+            configure_http_site
+
+            SHOULD_TRY_HTTPS=false
+            if [ "$APP_SCHEME" = "https" ]; then
+              SHOULD_TRY_HTTPS=true
             fi
-            sudo nginx -t
-            sudo systemctl enable nginx
-            sudo systemctl reload nginx || sudo systemctl restart nginx
+
+            if [ "$SHOULD_TRY_HTTPS" = true ]; then
+              LETSENCRYPT_EMAIL="$(get_env_value LETSENCRYPT_EMAIL)"
+              if [ -z "$LETSENCRYPT_EMAIL" ]; then
+                LETSENCRYPT_EMAIL="admin@${APP_DOMAIN}"
+              fi
+              sudo mkdir -p /var/www/certbot
+
+              sudo certbot certonly \
+                --webroot \
+                -w /var/www/certbot \
+                -d "$APP_DOMAIN" \
+                --non-interactive \
+                --agree-tos \
+                --email "$LETSENCRYPT_EMAIL" \
+                --keep-until-expiring
+
+              if [ -f "/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem" ]; then
+                configure_https_site
+              else
+                echo "HTTPS requested but TLS certificate files are missing for domain: $APP_DOMAIN"
+                exit 1
+              fi
+            fi
 
             export COMPOSE_PARALLEL_LIMIT=1
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
@@ -439,8 +505,8 @@ jobs:
 
             wait_for_http api http://127.0.0.1:3001/
             wait_for_http web http://127.0.0.1:3000/
-            wait_for_http landing http://127.0.0.1:3004/
-            wait_for_http admin http://127.0.0.1:3002/
+            wait_for_http landing http://127.0.0.1:3004/landing
+            wait_for_http admin http://127.0.0.1:3002/admin
             wait_for_http nginx http://127.0.0.1/ -H "Host: $APP_DOMAIN"
 
             docker image prune -f
