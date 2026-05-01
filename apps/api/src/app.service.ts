@@ -52,7 +52,7 @@ type SpaceLayoutResponse = {
   success?: boolean;
   analysis?: unknown;
   recommendations?: SpaceRecommendation[];
-  best_location?: unknown;
+  placement_description?: string;
 };
 
 type SpaceVisualizationResponse = {
@@ -899,12 +899,12 @@ Trả về tool_calls JSON khi cần gọi tool.`;
   private async renderSpaceVisualization(
     spaceImageBase64: string,
     plantImageBase64: string,
-    bestLocation: [number, number, number, number],
+    placementDescription: string,
   ) {
     const response = (await this.modelApiService.renderSpaceVisualization({
-      spaceImageBase64,
-      plantImageBase64,
-      bestLocation,
+      spaceImageBase64: spaceImageBase64,
+      plantImageBase64: plantImageBase64,
+      placementDescription: placementDescription,
     })) as SpaceVisualizationResponse;
 
     return typeof response.visualizedImage === 'string'
@@ -949,9 +949,11 @@ Trả về tool_calls JSON khi cần gọi tool.`;
     const plantAsset = topRecommendationId
       ? plantAssetById.get(topRecommendationId)
       : null;
-    const bestLocation = this.normalizeBestLocation(response.best_location);
+    const placementDescription =
+      response.placement_description ||
+      'Đặt chậu cây tại vị trí phù hợp nhất trong phòng.';
 
-    if (plantAsset?.storageKey && bestLocation) {
+    if (plantAsset?.storageKey) {
       try {
         const plantImageBuffer = await this.storageService.downloadFile(
           plantAsset.storageKey,
@@ -959,7 +961,7 @@ Trả về tool_calls JSON khi cần gọi tool.`;
         visualizedImage = await this.renderSpaceVisualization(
           imageBase64,
           plantImageBuffer.toString('base64'),
-          bestLocation,
+          placementDescription,
         );
       } catch (error) {
         console.error(

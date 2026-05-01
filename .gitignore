@@ -49,3 +49,8 @@ secret.py
 docker-compose.yml
 Dockerfile.node.dev
 Dockerfile.dev
+
+# GCP Key
+*-key.json
+*credentials.json
+*.json
