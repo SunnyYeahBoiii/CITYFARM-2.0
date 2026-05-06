@@ -17,6 +17,8 @@ import {
 } from "../shared/icons";
 import { Avatar, CityImage, HealthBadge, cn } from "../shared/ui";
 
+type HomeTaskIcon = HomeData["careTasks"][number]["icon"];
+
 function diffInDays(isoDate: string): number {
   return Math.floor((Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24));
 }
@@ -100,15 +102,20 @@ function buildPlantCards(plants: GardenPlantSummary[]): HomeData["plants"] {
 function buildTaskCards(plants: GardenPlantSummary[]): HomeData["careTasks"] {
   return plants
     .flatMap((plant) =>
-      plant.careTasks.map((task) => ({
+      plant.careTasks.map((task) => {
+        const icon: HomeTaskIcon =
+          task.taskType === "WATERING" ? "water" : task.taskType === "PEST_CHECK" ? "sun" : "check";
+
+        return {
         id: task.id,
         gardenPlantId: plant.id,
         plantName: plant.nickname || plant.plantSpecies.commonName,
         action: task.title,
         timeLabel: formatRelativeDay(task.dueAt),
         dueAt: new Date(task.dueAt).getTime(),
-        icon: task.taskType === "WATERING" ? "water" : task.taskType === "PEST_CHECK" ? "sun" : "check",
-      })),
+        icon,
+      };
+      }),
     )
     .filter((task) => {
       const now = new Date();
