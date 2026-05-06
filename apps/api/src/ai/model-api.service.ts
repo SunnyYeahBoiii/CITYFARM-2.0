@@ -26,8 +26,8 @@ type RenderSpaceVisualizationPayload = {
 
 const MODEL_API_TIMEOUT_MS = 120_000;
 const MODEL_API_BODY_PREVIEW_LIMIT = 220;
-const MODEL_API_DOCKER_URL = 'http://localhost:3103';
-const MODEL_API_LOCAL_URL = 'http://localhost:3103';
+const MODEL_API_DOCKER_URL = 'http://model-api:3003';
+const MODEL_API_LOCAL_URL = 'http://localhost:3003';
 
 @Injectable()
 export class ModelApiService {
@@ -41,8 +41,8 @@ export class ModelApiService {
       // If operators accidentally use localhost in containerized env,
       // keep the internal Docker hostname as a fallback target.
       if (
-        normalizedConfiguredUrl.includes('127.0.0.1:3103') ||
-        normalizedConfiguredUrl.includes('localhost:3103')
+        normalizedConfiguredUrl.includes('127.0.0.1:3003') ||
+        normalizedConfiguredUrl.includes('localhost:3003')
       ) {
         urls.push(MODEL_API_DOCKER_URL);
       }
