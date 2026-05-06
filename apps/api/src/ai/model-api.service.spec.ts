@@ -116,28 +116,17 @@ describe('ModelApiService', () => {
     );
   });
 
-  it('retries Docker hostname when MODEL_API_URL points to localhost', async () => {
+  it('does not add implicit fallback when MODEL_API_URL points to loopback', async () => {
     process.env = { ...originalEnv, MODEL_API_URL: 'http://127.0.0.1:3003' };
     modelApiService = new ModelApiService();
-    fetchMock
-      .mockRejectedValueOnce(new TypeError('fetch failed'))
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ success: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+    fetchMock.mockRejectedValueOnce(new TypeError('fetch failed'));
 
-    await modelApiService.getChatAdvice({ message: 'hello' });
-
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      1,
+    await expect(
+      modelApiService.getChatAdvice({ message: 'hello' }),
+    ).rejects.toBeInstanceOf(InternalServerErrorException);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
       'http://127.0.0.1:3003/api/chat',
-      expect.any(Object),
-    );
-    expect(fetchMock).toHaveBeenNthCalledWith(
-      2,
-      'http://model-api:3003/api/chat',
       expect.any(Object),
     );
   });
