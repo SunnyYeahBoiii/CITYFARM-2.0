@@ -38,13 +38,15 @@ poetry install
 # Copy file môi trường mẫu
 cp .env.example .env
 
-# Mở .env và điền Gemini API key
+# Mở .env và điền Vertex AI project/service-account config
 # PORT=3003
 # FLASK_DEBUG=false
-# GEMINI_API_KEY=AIza...
+# GCP_PROJECT_ID=cityfarm-494909
+# GCP_LOCATION=global
+# MODEL_API_SECRET_KEY_JSON={"type":"service_account","project_id":"..."}
 ```
 
-Lấy Gemini API key tại: https://aistudio.google.com/apikey
+Model API ưu tiên đọc service-account trực tiếp từ `.env` qua `MODEL_API_SECRET_KEY_JSON` (hoặc `MODEL_API_SECRET_KEY_JSON_B64`). Trong môi trường Docker/VPS, vẫn có thể dùng `GOOGLE_APPLICATION_CREDENTIALS` nếu credentials được mount sẵn.
 
 ## Chạy server
 
@@ -63,6 +65,9 @@ Server chạy tại `http://localhost:3003`
 ```bash
 curl http://localhost:3003/
 # {"ai_configured":true,"status":"Model API is running"}
+
+curl http://localhost:3003/ready
+# 200 khi Vertex AI credential đã sẵn sàng, 503 nếu thiếu/sai credential
 ```
 
 ## API Endpoints
@@ -70,6 +75,7 @@ curl http://localhost:3003/
 | Method | Path | Mô tả |
 |--------|------|-------|
 | GET | `/` | Health check |
+| GET | `/ready` | Readiness check cho Vertex AI credential |
 | POST | `/api/chat` | AI chat với RAG context |
 | POST | `/api/analyze-plant-health` | Phân tích sức khỏe cây (JSON hoặc multipart) |
 | POST | `/api/analyze-plant` | Alias của analyze-plant-health |
@@ -78,6 +84,6 @@ curl http://localhost:3003/
 
 ## Troubleshooting
 
-- **`GEMINI_API_KEY` không có** → Server vẫn chạy nhưng AI không hoạt động
+- **`/ready` trả 503** → Kiểm tra `GCP_PROJECT_ID`, `GCP_LOCATION` và biến `MODEL_API_SECRET_KEY_JSON`/`GOOGLE_APPLICATION_CREDENTIALS`
 - **rembg import error** → Cài `onnxruntime` và đảm bảo có mạng lần đầu chạy
 - **Port 3003 đã dùng** → Đổi `PORT` trong `.env`

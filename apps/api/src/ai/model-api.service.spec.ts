@@ -56,7 +56,7 @@ describe('ModelApiService', () => {
     await modelApiService.renderSpaceVisualization({
       spaceImageBase64: 'space-b64',
       plantImageBase64: 'plant-b64',
-      bestLocation: [10, 20, 30, 40],
+      placementDescription: 'Place the plant near the brightest wall.',
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -67,7 +67,7 @@ describe('ModelApiService', () => {
         body: JSON.stringify({
           space_image_base64: 'space-b64',
           plant_image_base64: 'plant-b64',
-          best_location: [10, 20, 30, 40],
+          placement_description: 'Place the plant near the brightest wall.',
         }),
       }),
     );

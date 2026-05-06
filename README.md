@@ -131,7 +131,12 @@ cp apps/model-api/.env.example apps/model-api/.env
 |----------|----------|-------------|
 | `PORT` | No | Model API port (default: 3003) |
 | `FLASK_DEBUG` | No | Flask debug mode (`true` or `false`) |
-| `GEMINI_API_KEY` | Yes | Google Gemini API key |
+| `GCP_PROJECT_ID` | Yes | Google Cloud project ID for Vertex AI |
+| `GCP_LOCATION` | Yes | Vertex AI location, e.g. `global` |
+| `MODEL_API_SECRET_KEY_JSON` | Local/.env | Service-account JSON as one-line env value |
+| `MODEL_API_SECRET_KEY_JSON_B64` | Optional | Base64 service-account JSON (alternative to plain JSON) |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Deploy/container | Absolute service-account JSON path when credentials are mounted |
+| `GCP_API_KEY` | No | Optional API key, normally unused when service-account auth is mounted |
 
 **Web (`apps/web/.env.local`):**
 ```bash
@@ -362,9 +367,15 @@ CI/CD triggers on push to `main` branch:
 | `WEB_NEXT_PUBLIC_APP_URL` | Production web URL |
 | `ADMIN_NEXT_PUBLIC_API_URL` | Production API URL for admin |
 | `ADMIN_NEXT_PUBLIC_WEB_URL` | Production web URL for admin |
+| `NEST_API_URL` | Internal API URL used by web server routes |
+| `MODEL_API_GCP_PROJECT_ID` | Google Cloud project ID for model-api |
+| `MODEL_API_GCP_LOCATION` | Vertex AI location |
+| `MODEL_API_SECRET_KEY_JSON_B64` | Base64 service-account JSON for model-api deploy |
+| `MODEL_API_SECRET_KEY_JSON` | Raw service-account JSON fallback |
+| `MODEL_API_GCP_KEY_FILE_ON_VPS` | Optional VPS key file path, default `/etc/cityfarm/model-api/gcp-service-account.json` |
 | `GITHUB_TOKEN` | Auto-provided by GitHub Actions for GHCR push/login |
 
-`deploy-vps.yml` also validates required runtime variables from VPS `.env` (database, auth, URL config, and `GEMINI_API_KEY`) before `docker compose up`.
+`deploy-vps.yml` uploads deploy files, writes exact SHA image refs into VPS `.env`, validates runtime variables, mounts the model-api service-account key outside the repo, and checks readiness before reporting success.
 
 **Manual deploy on VPS:**
 ```bash
@@ -378,9 +389,9 @@ docker compose -f infra/deploy/docker-compose.vps.yml up -d
 ## Troubleshooting
 
 **Model API fails to start:**
-- Ensure Poetry is installed: `pip install poetry`
-- Run `poetry install` inside `apps/model-api/`
-- Verify `GEMINI_API_KEY` is set in `.env`
+- Verify `GCP_PROJECT_ID` and `GCP_LOCATION` are set
+- Verify the service-account JSON exists at `GOOGLE_APPLICATION_CREDENTIALS` in the container
+- Check `http://127.0.0.1:3003/ready` on the VPS
 
 **Prisma migration errors:**
 - `DATABASE_URL` must use Supabase **pooled** connection (port 6543)

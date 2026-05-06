@@ -1,13 +1,14 @@
 # Deploy lên VPS bằng GitHub Actions
 
-Pipeline này build 4 image Docker từ monorepo rồi push lên GHCR:
+Pipeline này build 5 image Docker từ monorepo rồi push lên GHCR:
 
+- `landing`
 - `web`
 - `admin`
 - `api`
 - `model-api`
 
-Sau đó workflow SSH vào VPS, cập nhật file `.env`, `docker-compose.vps.yml`, pull image mới và chạy `docker compose up -d`.
+Sau đó workflow upload `docker-compose.vps.yml` + Nginx templates lên VPS, cập nhật file `.env`, ghi exact SHA image refs, pull image mới và chạy `docker compose up -d`.
 
 `NEXT_PUBLIC_*` của Next.js được bake vào image lúc build, nên các secret public URL bên dưới phải được set đúng trước khi workflow chạy.
 Nếu thiếu URL bắt buộc, workflow và runtime sẽ fail-fast với message rõ ràng thay vì fallback ngầm về localhost.
@@ -21,6 +22,7 @@ Cài sẵn:
 - Nginx
 - Certbot + plugin `python3-certbot-nginx`
 - user deploy có quyền chạy Docker
+- passwordless `sudo` nếu workflow được phép cài/reload Nginx và ghi key vào `/etc/cityfarm`
 
 Tạo thư mục deploy, ví dụ:
 
@@ -28,13 +30,7 @@ Tạo thư mục deploy, ví dụ:
 mkdir -p /home/deploy/apps/cityfarm
 ```
 
-Repo đã có sẵn script bootstrap Ubuntu để cài toàn bộ stack host:
-
-```bash
-sudo bash /home/deploy/apps/cityfarm/bootstrap-ubuntu-vps.sh deploy
-```
-
-Trong đó `deploy` là user chạy workflow/deploy trên VPS.
+Tạo file `.env` tại `DEPLOY_PATH` từ `infra/deploy/.env.vps.example`. Workflow sẽ tự tạo các thư mục con và upload deploy files, nên VPS không cần clone repo để deploy container.
 
 Nếu bạn dùng Nginx hoặc Caddy trên host để reverse proxy, giữ `*_BIND_IP=127.0.0.1`.
 Nếu muốn mở port trực tiếp ra internet, đổi `*_BIND_IP=0.0.0.0`.
@@ -59,8 +55,13 @@ Nếu muốn mở port trực tiếp ra internet, đổi `*_BIND_IP=0.0.0.0`.
 
 ### Runtime env bắt buộc trong VPS `.env`
 
-Workflow **không** đọc các secret `API_*` riêng lẻ từ GitHub. Thay vào đó, nó SSH vào VPS và validate trực tiếp các key sau trong file `.env` tại `DEPLOY_PATH`:
+Workflow sẽ SSH vào VPS, tự upsert các biến `GCP_*` cho `model-api` từ GitHub Secrets, sau đó validate các key bắt buộc trong file `.env` tại `DEPLOY_PATH`:
 
+- `LANDING_IMAGE`
+- `WEB_IMAGE`
+- `ADMIN_IMAGE`
+- `API_IMAGE`
+- `MODEL_API_IMAGE`
 - `DATABASE_URL`
 - `DIRECT_URL`
 - `SUPABASE_URL`
@@ -81,8 +82,22 @@ Workflow **không** đọc các secret `API_*` riêng lẻ từ GitHub. Thay và
 - `ADMIN_NEXT_PUBLIC_WEB_URL`
 - `NEST_API_URL`
 - `MODEL_API_URL`
-- `GEMINI_API_KEY`
+- `GCP_PROJECT_ID`
+- `GCP_LOCATION`
+- `MODEL_API_GCP_KEY_FILE_ON_VPS`
+- `MODEL_API_GOOGLE_APPLICATION_CREDENTIALS`
 - `LETSENCRYPT_EMAIL` (khuyến nghị, dùng để đăng ký SSL cert; nếu bỏ trống sẽ fallback `admin@APP_DOMAIN`)
+
+### GitHub Secrets bổ sung cho Model API (Vertex AI)
+
+- `MODEL_API_GCP_PROJECT_ID`
+- `MODEL_API_GCP_LOCATION`
+- `MODEL_API_GCP_API_KEY` (tuỳ chọn)
+- `MODEL_API_SECRET_KEY_JSON_B64` (khuyến nghị: base64 service-account JSON)
+- `MODEL_API_SECRET_KEY_JSON` (fallback raw JSON, kém bền hơn với multiline env)
+- `MODEL_API_GCP_KEY_FILE_ON_VPS` (tuỳ chọn; default `/etc/cityfarm/model-api/gcp-service-account.json`)
+
+Nếu không truyền `MODEL_API_SECRET_KEY_JSON_B64` hoặc `MODEL_API_SECRET_KEY_JSON`, workflow sẽ dùng file đã provision sẵn tại `MODEL_API_GCP_KEY_FILE_ON_VPS` trên VPS.
 
 ### URL format checks (deploy `.env`)
 
@@ -99,7 +114,7 @@ Workflow **không** đọc các secret `API_*` riêng lẻ từ GitHub. Thay và
 
 - `DEPLOY_PATH`
 
-Hiện workflow chỉ dùng `DEPLOY_PATH` (mặc định `/home/ubuntu/CITYFARM-2.0`).
+Workflow dùng `DEPLOY_PATH` (mặc định `/root/CITYFARM-2.0`). Nếu deploy bằng non-root user, set GitHub Variable này thành path user ghi được, ví dụ `/home/deploy/apps/cityfarm`.
 
 ## 4. Trigger deploy
 
@@ -108,6 +123,10 @@ Workflow có guard kiểm tra:
 - secret URL bắt buộc trước bước build image
 - biến `.env` bắt buộc trước `docker compose up`
 - định dạng URL (`http://` hoặc `https://`) cho các biến URL quan trọng
+- exact image tag `${GITHUB_SHA}` thay vì deploy bằng mutable `latest`
+- model-api readiness qua `/ready`
+- API readiness qua `/ready`
+- `prisma:migrate:deploy` nếu API image có committed migration directories
 
 Hiện tại pipeline tự chạy khi:
 
@@ -132,24 +151,7 @@ Nếu `WEB_NEXT_PUBLIC_APP_URL` dùng `https://...`, workflow sẽ tự:
 - apply `infra/nginx/cityfarm.https.conf.template`
 - bật redirect HTTP -> HTTPS
 
-Bạn không cần SSH để cấu hình reverse proxy thủ công cho flow HTTP.
-
-Nếu cần SSL + domain (Let's Encrypt), phần cert vẫn là bước riêng one-time trên VPS:
-
-```bash
-cd /home/deploy/apps/cityfarm
-chmod +x bootstrap-ubuntu-vps.sh setup-nginx.sh deploy.sh
-sudo ./bootstrap-ubuntu-vps.sh deploy
-sudo DEPLOY_PATH=/home/deploy/apps/cityfarm ./setup-nginx.sh
-```
-
-Script `setup-nginx.sh` sẽ:
-
-- đọc domain từ file `.env`
-- tạo config Nginx cho `app/admin/api`
-- xin cert Let's Encrypt cho cả 3 domain
-- bật HTTPS redirect
-- reload Nginx
+Bạn không cần SSH để cấu hình reverse proxy thủ công cho flow HTTP/HTTPS nếu DNS đã trỏ đúng về VPS.
 
 Map mặc định:
 
@@ -187,16 +189,15 @@ Khi có domain, chuyển sang flow SSL ở trên (Certbot + server_name theo dom
 
 ## 6. Trình tự deploy hoàn chỉnh
 
-1. Trỏ DNS `A record` của `APP_DOMAIN`, `ADMIN_DOMAIN`, `API_DOMAIN` về VPS.
-2. SSH vào VPS, clone repo vào `DEPLOY_PATH` và tạo file `.env` từ `infra/deploy/.env.vps.example`.
+1. Trỏ DNS `A record` của app domain về VPS.
+2. SSH vào VPS, tạo `DEPLOY_PATH` và file `.env` từ `infra/deploy/.env.vps.example`.
 3. Chạy workflow để build image, pull image mới, deploy app và auto-apply Nginx HTTP config.
-4. (Tùy chọn) Khi có domain, SSH vào VPS để chạy setup SSL/cert.
-5. Từ lần sau chỉ cần push `main`, GitHub Actions sẽ tự build và deploy container mới.
+4. Nếu `WEB_NEXT_PUBLIC_APP_URL` là `https://...`, workflow tự xin/gia hạn cert Let's Encrypt.
+5. Từ lần sau chỉ cần push `main`, GitHub Actions sẽ tự build và deploy container mới theo SHA.
 
 ## 7. File tham khảo
 
 - `infra/deploy/.env.vps.example`
 - `infra/deploy/docker-compose.vps.yml`
-- `infra/deploy/deploy.sh`
 - `infra/nginx/cityfarm.http.conf.template`
 - `infra/nginx/cityfarm.https.conf.template`

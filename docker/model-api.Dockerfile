@@ -2,18 +2,13 @@ FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV POETRY_VIRTUALENVS_CREATE=false
-ENV POETRY_NO_INTERACTION=1
-
-RUN pip install --no-cache-dir poetry==2.1.3
-
 WORKDIR /app/apps/model-api
 
-COPY apps/model-api/pyproject.toml apps/model-api/poetry.lock ./
+COPY apps/model-api/requirements.txt ./
 
-RUN poetry lock && poetry install --only main
+RUN pip install --no-cache-dir -r requirements.txt
 
-COPY apps/model-api ./
+COPY apps/model-api/src ./src
 
 EXPOSE 3003
 

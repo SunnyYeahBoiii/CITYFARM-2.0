@@ -35,6 +35,16 @@ def health_check():
     }), 200
 
 
+@app.route("/ready")
+def readiness_check():
+    ready = ai_configured and vertex_configured
+    return jsonify({
+        "ready": ready,
+        "ai_configured": ai_configured,
+        "vertex_configured": vertex_configured
+    }), 200 if ready else 503
+
+
 @app.route("/api/chat", methods=["POST"])
 def chat_with_assistant():
     return _chat_handler(client)

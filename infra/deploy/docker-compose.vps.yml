@@ -1,7 +1,7 @@
 # docker-compose.vps.yml
 services:
   landing:
-    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-landing:latest
+    image: ${LANDING_IMAGE:?LANDING_IMAGE is required}
     restart: unless-stopped
     env_file: ../../.env
     environment:
@@ -10,7 +10,7 @@ services:
     expose:
       - "3004"
     ports:
-      - "127.0.0.1:3004:3004"
+      - "${LANDING_BIND_IP:-127.0.0.1}:3004:3004"
     networks:
       - app-net
     healthcheck:
@@ -21,7 +21,7 @@ services:
       start_period: 30s
 
   web:
-    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-web:latest
+    image: ${WEB_IMAGE:?WEB_IMAGE is required}
     restart: unless-stopped
     env_file: ../../.env
     environment:
@@ -33,20 +33,21 @@ services:
     expose:
       - "3000"
     ports:
-      - "127.0.0.1:3000:3000"
+      - "${WEB_BIND_IP:-127.0.0.1}:3000:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - app-net
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/admin').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 30s
 
   admin:
-    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-admin:latest
+    image: ${ADMIN_IMAGE:?ADMIN_IMAGE is required}
     restart: unless-stopped
     env_file: ../../.env
     environment:
@@ -57,20 +58,21 @@ services:
     expose:
       - "3000"
     ports:
-      - "127.0.0.1:3002:3000"
+      - "${ADMIN_BIND_IP:-127.0.0.1}:3002:3000"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
     networks:
       - app-net
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/admin').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 30s
 
   api:
-    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-api:latest
+    image: ${API_IMAGE:?API_IMAGE is required}
     restart: unless-stopped
     env_file: ../../.env
     environment:
@@ -78,30 +80,34 @@ services:
     expose:
       - "3001"
     ports:
-      - "127.0.0.1:3001:3001"
+      - "${API_BIND_IP:-127.0.0.1}:3001:3001"
     depends_on:
-      - model-api
+      model-api:
+        condition: service_healthy
     networks:
       - app-net
     healthcheck:
-      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/ready').then((res) => process.exit(res.ok ? 0 : 1)).catch(() => process.exit(1))"]
       interval: 10s
       timeout: 5s
       retries: 6
       start_period: 30s
 
   model-api:
-    image: ghcr.io/sunnyyeahboiii/cityfarm-2-0-model-api:latest
+    image: ${MODEL_API_IMAGE:?MODEL_API_IMAGE is required}
     restart: unless-stopped
     env_file: ../../.env
     environment:
       PORT: "3003"
+      GOOGLE_APPLICATION_CREDENTIALS: "${MODEL_API_GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp-service-account.json}"
     expose:
       - "3003"
+    volumes:
+      - ${MODEL_API_GCP_KEY_FILE_ON_VPS:-/etc/cityfarm/model-api/gcp-service-account.json}:${MODEL_API_GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp-service-account.json}:ro
     networks:
       - app-net
     healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3003/')"]
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:3003/ready')"]
       interval: 15s
       timeout: 5s
       retries: 6

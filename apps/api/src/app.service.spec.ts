@@ -1,11 +1,15 @@
 jest.mock('./prisma/prisma.service', () => ({
   PrismaService: class PrismaService {},
 }));
+jest.mock('./ai/tool-executor.service', () => ({
+  ToolExecutorService: class ToolExecutorService {},
+}));
 
 import { AppService } from './app.service';
 
 describe('AppService.analyzeSpace', () => {
   const prisma = {
+    $queryRawUnsafe: jest.fn(),
     plantSpecies: {
       findMany: jest.fn(),
     },
@@ -107,7 +111,7 @@ describe('AppService.analyzeSpace', () => {
           imageUrl: '',
         },
       ],
-      best_location: [100, 200, 900, 800],
+      placement_description: 'Place the plant near the balcony rail.',
     });
     storageService.downloadFile.mockResolvedValue(Buffer.from('plant-image'));
     modelApiService.renderSpaceVisualization.mockResolvedValue({
@@ -126,7 +130,7 @@ describe('AppService.analyzeSpace', () => {
     expect(modelApiService.renderSpaceVisualization).toHaveBeenCalledWith({
       spaceImageBase64: Buffer.from('space-image').toString('base64'),
       plantImageBase64: Buffer.from('plant-image').toString('base64'),
-      bestLocation: [100, 200, 900, 800],
+      placementDescription: 'Place the plant near the balcony rail.',
     });
     expect(result.recommendations).toEqual([
       {
@@ -175,7 +179,7 @@ describe('AppService.analyzeSpace', () => {
           imageUrl: '',
         },
       ],
-      best_location: [100, 200, 900, 800],
+      placement_description: 'Place the plant near the balcony rail.',
     });
 
     const result = await appService.analyzeSpace(file, 'manual catalog');

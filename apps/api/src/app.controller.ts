@@ -6,9 +6,11 @@ import {
   Param,
   Post,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
-import type { Request } from 'express';
+import type { Request, Response } from 'express';
+import { AppReadinessService } from './app-readiness.service';
 import { AppService } from './app.service';
 import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -23,11 +25,23 @@ type ChatBody = {
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(
+    private readonly appService: AppService,
+    private readonly appReadinessService: AppReadinessService,
+  ) {}
 
   @Get()
   getHello(): string {
     return this.appService.getHello();
+  }
+
+  @Get('ready')
+  async getReadiness(@Res({ passthrough: true }) res?: Response) {
+    const readiness = await this.appReadinessService.getReadiness();
+    if (!readiness.ready) {
+      res?.status(503);
+    }
+    return readiness;
   }
 
   // Mở cổng API Chat

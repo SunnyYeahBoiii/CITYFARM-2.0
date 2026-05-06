@@ -6,6 +6,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+concurrency:
+  group: deploy-vps-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   contents: read
   packages: write
@@ -17,7 +21,7 @@ env:
   ADMIN_IMAGE_NAME: cityfarm-2-0-admin
   API_IMAGE_NAME: cityfarm-2-0-api
   MODEL_API_IMAGE_NAME: cityfarm-2-0-model-api
-  DEPLOY_PATH: /root/CITYFARM-2.0
+  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/root/CITYFARM-2.0' }}
 
 jobs:
   quality:
@@ -38,8 +42,20 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      - name: Generate Prisma client
+        run: pnpm --filter api run prisma:generate
+
       - name: Type check
         run: pnpm check-types
+
+      - name: API tests
+        run: pnpm --filter api test
+
+      - name: API build
+        run: pnpm --filter api build
+
+      - name: URL regression check
+        run: pnpm check:url-regressions
 
   build-and-push-web:
     name: Build & push web image
@@ -91,8 +107,11 @@ jobs:
           context: .
           file: docker/web.Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:latest
-          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.WEB_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.WEB_NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_APP_URL=${{ secrets.WEB_NEXT_PUBLIC_APP_URL }}
@@ -129,8 +148,11 @@ jobs:
           context: .
           file: docker/landing.Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.LANDING_IMAGE_NAME }}:latest
-          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.LANDING_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.LANDING_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-and-push-admin:
     name: Build & push admin image
@@ -180,8 +202,11 @@ jobs:
           context: .
           file: docker/admin.Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:latest
-          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.ADMIN_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           build-args: |
             NEXT_PUBLIC_API_URL=${{ secrets.ADMIN_NEXT_PUBLIC_API_URL }}
             NEXT_PUBLIC_WEB_URL=${{ secrets.ADMIN_NEXT_PUBLIC_WEB_URL }}
@@ -217,8 +242,11 @@ jobs:
           context: .
           file: docker/api.Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:latest
-          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.API_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   build-and-push-model-api:
     name: Build & push model-api image
@@ -251,8 +279,11 @@ jobs:
           context: .
           file: docker/model-api.Dockerfile
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:latest
-          no-cache: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:latest
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/${{ env.MODEL_API_IMAGE_NAME }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
   deploy:
     name: Deploy to VPS
@@ -265,21 +296,146 @@ jobs:
       - build-and-push-model-api
 
     steps:
-      - name: Deploy via SSH
+      - name: Checkout deploy files
+        uses: actions/checkout@v4
+
+      - name: Prepare deploy path
         uses: appleboy/ssh-action@v1.0.3
         with:
           host: ${{ secrets.VPS_HOST }}
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
+          script: |
+            set -euo pipefail
+            mkdir -p "${{ env.DEPLOY_PATH }}/infra/deploy" "${{ env.DEPLOY_PATH }}/infra/nginx"
+
+      - name: Upload deploy files
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: "infra/deploy/docker-compose.vps.yml,infra/nginx/cityfarm.http.conf.template,infra/nginx/cityfarm.https.conf.template"
+          target: ${{ env.DEPLOY_PATH }}
+
+      - name: Deploy via SSH
+        uses: appleboy/ssh-action@v1.0.3
+        env:
+          MODEL_API_GCP_PROJECT_ID: ${{ secrets.MODEL_API_GCP_PROJECT_ID }}
+          MODEL_API_GCP_LOCATION: ${{ secrets.MODEL_API_GCP_LOCATION }}
+          MODEL_API_GCP_API_KEY: ${{ secrets.MODEL_API_GCP_API_KEY }}
+          MODEL_API_GCP_KEY_FILE_ON_VPS: ${{ secrets.MODEL_API_GCP_KEY_FILE_ON_VPS || vars.MODEL_API_GCP_KEY_FILE_ON_VPS }}
+          MODEL_API_SECRET_KEY_JSON: ${{ secrets.MODEL_API_SECRET_KEY_JSON }}
+          MODEL_API_SECRET_KEY_JSON_B64: ${{ secrets.MODEL_API_SECRET_KEY_JSON_B64 }}
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          envs: MODEL_API_GCP_PROJECT_ID,MODEL_API_GCP_LOCATION,MODEL_API_GCP_API_KEY,MODEL_API_GCP_KEY_FILE_ON_VPS,MODEL_API_SECRET_KEY_JSON,MODEL_API_SECRET_KEY_JSON_B64
           command_timeout: 30m
           script: |
             set -euo pipefail
-            cd ${{ env.DEPLOY_PATH }}
+            cd "${{ env.DEPLOY_PATH }}"
 
-            if [ ! -f .env ]; then
-              echo "Missing ${PWD}/.env. Copy .env.example and configure production values before deploy."
-              exit 1
+            required_model_api_secrets=(
+              MODEL_API_GCP_PROJECT_ID
+              MODEL_API_GCP_LOCATION
+            )
+            for var in "${required_model_api_secrets[@]}"; do
+              if [ -z "${!var:-}" ]; then
+                echo "Missing required GitHub secret for deploy: $var"
+                exit 1
+              fi
+            done
+
+            touch .env
+
+            upsert_env() {
+              key="$1"
+              value="$2"
+              python3 - "$key" "$value" <<'PY'
+            import pathlib
+            import sys
+
+            key = sys.argv[1]
+            value = sys.argv[2]
+            env_path = pathlib.Path(".env")
+            lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
+            prefix = f"{key}="
+
+            for idx, line in enumerate(lines):
+                if line.startswith(prefix):
+                    lines[idx] = f"{key}={value}"
+                    break
+            else:
+                lines.append(f"{key}={value}")
+
+            env_path.write_text("\n".join(lines).rstrip("\n") + "\n", encoding="utf-8")
+            PY
+            }
+
+            IMAGE_OWNER="$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')"
+            IMAGE_TAG="${{ github.sha }}"
+            LANDING_IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_OWNER}/${{ env.LANDING_IMAGE_NAME }}:${IMAGE_TAG}"
+            WEB_IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_OWNER}/${{ env.WEB_IMAGE_NAME }}:${IMAGE_TAG}"
+            ADMIN_IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_OWNER}/${{ env.ADMIN_IMAGE_NAME }}:${IMAGE_TAG}"
+            API_IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_OWNER}/${{ env.API_IMAGE_NAME }}:${IMAGE_TAG}"
+            MODEL_API_IMAGE_REF="${{ env.REGISTRY }}/${IMAGE_OWNER}/${{ env.MODEL_API_IMAGE_NAME }}:${IMAGE_TAG}"
+
+            upsert_env "LANDING_IMAGE" "$LANDING_IMAGE_REF"
+            upsert_env "WEB_IMAGE" "$WEB_IMAGE_REF"
+            upsert_env "ADMIN_IMAGE" "$ADMIN_IMAGE_REF"
+            upsert_env "API_IMAGE" "$API_IMAGE_REF"
+            upsert_env "MODEL_API_IMAGE" "$MODEL_API_IMAGE_REF"
+
+            MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE="${MODEL_API_GCP_KEY_FILE_ON_VPS:-/etc/cityfarm/model-api/gcp-service-account.json}"
+            MODEL_API_GOOGLE_APPLICATION_CREDENTIALS_VALUE="/run/secrets/gcp-service-account.json"
+            upsert_env "GCP_PROJECT_ID" "$MODEL_API_GCP_PROJECT_ID"
+            upsert_env "GCP_LOCATION" "$MODEL_API_GCP_LOCATION"
+            upsert_env "GCP_API_KEY" "${MODEL_API_GCP_API_KEY:-}"
+            upsert_env "MODEL_API_GCP_KEY_FILE_ON_VPS" "$MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE"
+            upsert_env "MODEL_API_GOOGLE_APPLICATION_CREDENTIALS" "$MODEL_API_GOOGLE_APPLICATION_CREDENTIALS_VALUE"
+
+            install_model_api_key() {
+              if [ -z "${MODEL_API_SECRET_KEY_JSON_B64:-}" ] && [ -z "${MODEL_API_SECRET_KEY_JSON:-}" ]; then
+                return 1
+              fi
+
+              tmp_key_file="$(mktemp)"
+              if [ -n "${MODEL_API_SECRET_KEY_JSON_B64:-}" ]; then
+                printf '%s' "$MODEL_API_SECRET_KEY_JSON_B64" | base64 -d > "$tmp_key_file"
+              else
+                printf '%s' "$MODEL_API_SECRET_KEY_JSON" > "$tmp_key_file"
+              fi
+
+              sudo install -d -m 700 "$(dirname "$MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE")"
+              sudo install -m 600 "$tmp_key_file" "$MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE"
+              rm -f "$tmp_key_file"
+            }
+
+            if ! install_model_api_key; then
+              if ! sudo test -r "$MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE"; then
+                echo "Missing Model API service-account key. Set MODEL_API_SECRET_KEY_JSON_B64, MODEL_API_SECRET_KEY_JSON, or provision $MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE on the VPS."
+                exit 1
+              fi
             fi
+
+            sudo python3 - "$MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE" "$MODEL_API_GCP_PROJECT_ID" <<'PY'
+            import json
+            import pathlib
+            import sys
+
+            path = pathlib.Path(sys.argv[1])
+            expected_project = sys.argv[2]
+            with path.open("r", encoding="utf-8") as f:
+                data = json.load(f)
+
+            if data.get("type") != "service_account":
+                raise SystemExit("Model API key JSON is not a service-account credential")
+
+            if expected_project and data.get("project_id") != expected_project:
+                raise SystemExit("Model API key JSON project_id does not match MODEL_API_GCP_PROJECT_ID")
+            PY
 
             get_env_value() {
               primary="$1"
@@ -292,6 +448,11 @@ jobs:
             }
 
             required_env_pairs=(
+              "LANDING_IMAGE"
+              "WEB_IMAGE"
+              "ADMIN_IMAGE"
+              "API_IMAGE"
+              "MODEL_API_IMAGE"
               "DATABASE_URL"
               "DIRECT_URL"
               "SUPABASE_URL"
@@ -312,7 +473,10 @@ jobs:
               "ADMIN_NEXT_PUBLIC_WEB_URL:NEXT_PUBLIC_WEB_URL"
               "NEST_API_URL"
               "MODEL_API_URL"
-              "GEMINI_API_KEY"
+              "GCP_PROJECT_ID"
+              "GCP_LOCATION"
+              "MODEL_API_GCP_KEY_FILE_ON_VPS"
+              "MODEL_API_GOOGLE_APPLICATION_CREDENTIALS"
             )
             for pair in "${required_env_pairs[@]}"; do
               primary="${pair%%:*}"
@@ -364,10 +528,13 @@ jobs:
             export WEB_NEXT_PUBLIC_APP_URL="$(get_env_value WEB_NEXT_PUBLIC_APP_URL NEXT_PUBLIC_APP_URL)"
             export ADMIN_NEXT_PUBLIC_API_URL="$(get_env_value ADMIN_NEXT_PUBLIC_API_URL NEXT_PUBLIC_API_URL)"
             export ADMIN_NEXT_PUBLIC_WEB_URL="$(get_env_value ADMIN_NEXT_PUBLIC_WEB_URL NEXT_PUBLIC_WEB_URL)"
-
-            git fetch --prune origin main
-            git checkout main
-            git pull --ff-only origin main
+            export LANDING_IMAGE="$(get_env_value LANDING_IMAGE)"
+            export WEB_IMAGE="$(get_env_value WEB_IMAGE)"
+            export ADMIN_IMAGE="$(get_env_value ADMIN_IMAGE)"
+            export API_IMAGE="$(get_env_value API_IMAGE)"
+            export MODEL_API_IMAGE="$(get_env_value MODEL_API_IMAGE)"
+            export MODEL_API_GCP_KEY_FILE_ON_VPS="$(get_env_value MODEL_API_GCP_KEY_FILE_ON_VPS)"
+            export MODEL_API_GOOGLE_APPLICATION_CREDENTIALS="$(get_env_value MODEL_API_GOOGLE_APPLICATION_CREDENTIALS)"
 
             # Ensure Nginx exists and reverse-proxy config is applied on every deploy.
             if ! command -v nginx >/dev/null 2>&1; then
@@ -483,8 +650,15 @@ jobs:
 
             export COMPOSE_PARALLEL_LIMIT=1
             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
-            docker compose -f infra/deploy/docker-compose.vps.yml pull
             docker compose -f infra/deploy/docker-compose.vps.yml config >/dev/null
+            docker compose -f infra/deploy/docker-compose.vps.yml pull
+
+            if docker compose -f infra/deploy/docker-compose.vps.yml run --rm --no-deps api sh -lc 'test -d prisma/migrations && find prisma/migrations -mindepth 1 -maxdepth 1 -type d | grep -q .'; then
+              docker compose -f infra/deploy/docker-compose.vps.yml run --rm --no-deps -e DATABASE_URL="$(get_env_value DIRECT_URL)" api pnpm run prisma:migrate:deploy
+            else
+              echo "No committed Prisma migration directories found in the API image; skipping prisma:migrate:deploy."
+            fi
+
             docker compose -f infra/deploy/docker-compose.vps.yml up -d --remove-orphans
 
             wait_for_http() {
@@ -503,7 +677,8 @@ jobs:
               exit 1
             }
 
-            wait_for_http api http://127.0.0.1:3001/
+            wait_for_http model-api http://127.0.0.1:3003/ready
+            wait_for_http api http://127.0.0.1:3001/ready
             wait_for_http web http://127.0.0.1:3000/
             wait_for_http landing http://127.0.0.1:3004/landing
             wait_for_http admin http://127.0.0.1:3002/admin
