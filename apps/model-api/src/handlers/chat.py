@@ -7,7 +7,7 @@ from utils.http_utils import json_error, parse_json_body
 
 def chat_with_assistant(client):
     if not client:
-        return json_error("Vertex AI client chưa được cấu hình. Kiểm tra lại GCP_PROJECT_ID, GCP_LOCATION và service-account credential.")
+        return json_error("Gemini Client chưa được cấu hình. Kiểm tra lại GCP_PROJECT_ID và thông tin xác thực Google (service account/API key).")
 
     try:
         # Nhận dữ liệu JSON từ NestJS (BFF) truyền sang

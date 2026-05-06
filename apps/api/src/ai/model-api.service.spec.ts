@@ -111,7 +111,33 @@ describe('ModelApiService', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      'http://127.0.0.1:3003/api/analyze-space',
+      'http://model-api:3003/api/analyze-space',
+      expect.any(Object),
+    );
+  });
+
+  it('retries Docker hostname when MODEL_API_URL points to localhost', async () => {
+    process.env = { ...originalEnv, MODEL_API_URL: 'http://127.0.0.1:3003' };
+    modelApiService = new ModelApiService();
+    fetchMock
+      .mockRejectedValueOnce(new TypeError('fetch failed'))
+      .mockResolvedValueOnce(
+        new Response(JSON.stringify({ success: true }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+
+    await modelApiService.getChatAdvice({ message: 'hello' });
+
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      1,
+      'http://127.0.0.1:3003/api/chat',
+      expect.any(Object),
+    );
+    expect(fetchMock).toHaveBeenNthCalledWith(
+      2,
+      'http://model-api:3003/api/chat',
       expect.any(Object),
     );
   });

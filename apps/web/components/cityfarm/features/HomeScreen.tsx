@@ -1,5 +1,10 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import type { HomeData } from "@/lib/home-server";
+import { gardenApi } from "@/lib/api/garden.api";
+import type { GardenPlantSummary, GardenStats } from "@/lib/types/garden";
 import { WeatherWidget } from "./WeatherWidget";
 import {
   BagIcon,
@@ -11,6 +16,124 @@ import {
   SunIcon,
 } from "../shared/icons";
 import { Avatar, CityImage, HealthBadge, cn } from "../shared/ui";
+
+function diffInDays(isoDate: string): number {
+  return Math.floor((Date.now() - new Date(isoDate).getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatTime(isoDate: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(new Date(isoDate));
+}
+
+function formatShortDate(isoDate: string): string {
+  return new Intl.DateTimeFormat("en-GB", {
+    day: "2-digit",
+    month: "short",
+  }).format(new Date(isoDate));
+}
+
+function formatRelativeDay(isoDate: string): string {
+  const target = new Date(isoDate);
+  const startOfToday = new Date();
+  const startOfTarget = new Date(target.getFullYear(), target.getMonth(), target.getDate()).getTime();
+  const startOfCurrent = new Date(
+    startOfToday.getFullYear(),
+    startOfToday.getMonth(),
+    startOfToday.getDate(),
+  ).getTime();
+  const dayDiff = Math.round((startOfTarget - startOfCurrent) / (1000 * 60 * 60 * 24));
+
+  if (dayDiff < 0) return `Overdue · ${formatTime(isoDate)}`;
+  if (dayDiff === 0) return `Today · ${formatTime(isoDate)}`;
+  if (dayDiff === 1) return `Tomorrow · ${formatTime(isoDate)}`;
+  return `${formatShortDate(isoDate)} · ${formatTime(isoDate)}`;
+}
+
+function fallbackPlantImage(category: string): string {
+  const normalized = category.toLowerCase();
+  if (normalized.includes("herb")) return "/cityfarm/img/mint.png";
+  if (normalized.includes("onion") || normalized.includes("allium")) return "/cityfarm/img/onion.png";
+  if (normalized.includes("leaf") || normalized.includes("green") || normalized.includes("lettuce")) {
+    return "/cityfarm/img/lettuce.png";
+  }
+  return "/cityfarm/img/tomato.png";
+}
+
+function mapPlantHealth(status: GardenPlantSummary["healthStatus"]): "healthy" | "warning" | "critical" {
+  if (status === "HEALTHY") return "healthy";
+  if (status === "CRITICAL") return "critical";
+  return "warning";
+}
+
+function buildPlantCards(plants: GardenPlantSummary[]): HomeData["plants"] {
+  return plants
+    .filter((plant) => plant.status === "ACTIVE" || plant.status === "HARVEST_READY")
+    .slice(0, 3)
+    .map((plant) => {
+      const timeline = plant.plantSpecies.careProfile?.growthTimeline;
+      let harvestDays = plant.plantSpecies.harvestDaysMin ?? plant.plantSpecies.harvestDaysMax ?? 60;
+      if (timeline && timeline.length > 0) {
+        const cumulativeDays = timeline.reduce((acc, stage) => acc + (stage.days || 0), 0);
+        harvestDays = Math.max(cumulativeDays, plant.plantSpecies.harvestDaysMin ?? 0);
+      }
+
+      const daysGrowing = Math.max(0, diffInDays(plant.plantedAt));
+      const progress = Math.min(100, Math.round((daysGrowing / harvestDays) * 100));
+      const imageUrl = plant.plantSpecies.products[0]?.coverAsset?.publicUrl ?? fallbackPlantImage(plant.plantSpecies.category);
+      const nextTask = plant.careTasks[0];
+
+      return {
+        id: plant.id,
+        name: plant.nickname || plant.plantSpecies.commonName,
+        subtitle: `Day ${daysGrowing} of ${harvestDays}`,
+        health: mapPlantHealth(plant.healthStatus),
+        imageUrl,
+        progress,
+        taskLabel: nextTask ? nextTask.title : "No tasks scheduled",
+      };
+    });
+}
+
+function buildTaskCards(plants: GardenPlantSummary[]): HomeData["careTasks"] {
+  return plants
+    .flatMap((plant) =>
+      plant.careTasks.map((task) => ({
+        id: task.id,
+        gardenPlantId: plant.id,
+        plantName: plant.nickname || plant.plantSpecies.commonName,
+        action: task.title,
+        timeLabel: formatRelativeDay(task.dueAt),
+        dueAt: new Date(task.dueAt).getTime(),
+        icon: task.taskType === "WATERING" ? "water" : task.taskType === "PEST_CHECK" ? "sun" : "check",
+      })),
+    )
+    .filter((task) => {
+      const now = new Date();
+      const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999).getTime();
+      return task.dueAt <= endOfToday;
+    })
+    .sort((left, right) => left.dueAt - right.dueAt)
+    .slice(0, 3)
+    .map((task) => ({
+      id: task.id,
+      gardenPlantId: task.gardenPlantId,
+      plantName: task.plantName,
+      action: task.action,
+      timeLabel: task.timeLabel,
+      icon: task.icon,
+    }));
+}
+
+function buildStats(stats: GardenStats): HomeData["stats"] {
+  return [
+    { label: "Active Plants", value: `${stats.totalPlants}`, tone: "green" },
+    { label: "Needs Attention", value: `${stats.needsAttention}`, tone: "amber" },
+    { label: "Care Rate", value: `${stats.careRate}%`, tone: "blue" },
+  ];
+}
 
 function getTaskIcon(icon: "water" | "sun" | "check") {
   if (icon === "water") {
@@ -37,7 +160,41 @@ function statToneClass(tone: "green" | "blue" | "amber") {
 }
 
 export function HomeScreen({ data }: { data: HomeData }) {
-  const hasPlants = data.plants.length > 0;
+  const [livePlants, setLivePlants] = useState(data.plants);
+  const [liveCareTasks, setLiveCareTasks] = useState(data.careTasks);
+  const [liveStats, setLiveStats] = useState(data.stats);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchGardenData = async () => {
+      try {
+        const [plants, stats] = await Promise.all([gardenApi.getMyGarden(), gardenApi.getGardenStats()]);
+        if (!isMounted) return;
+        setLivePlants(buildPlantCards(plants));
+        setLiveCareTasks(buildTaskCards(plants));
+        setLiveStats(buildStats(stats));
+      } catch {
+        // Keep server-rendered fallback data when client-side refresh fails.
+      }
+    };
+
+    void fetchGardenData();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const displayData = useMemo(
+    () => ({
+      ...data,
+      plants: livePlants,
+      careTasks: liveCareTasks,
+      stats: liveStats,
+    }),
+    [data, liveCareTasks, livePlants, liveStats],
+  );
+
+  const hasPlants = displayData.plants.length > 0;
   const hasMarketData = data.marketListings.length > 0;
   const hasCommunityPost = Boolean(data.latestPost);
 
@@ -80,18 +237,18 @@ export function HomeScreen({ data }: { data: HomeData }) {
             <div>
               <h3 className="text-[15px] font-extrabold text-(--color-heading)">Today&apos;s Care Tasks</h3>
               <p className="text-xs text-(--color-muted)">
-                {data.careTasks.length > 0
+                {displayData.careTasks.length > 0
                   ? "Sorted from the soonest task in your real garden data."
                   : "No pending task yet. Add a kit and the home feed will start guiding care."}
               </p>
             </div>
             <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">
-              {data.careTasks.length} pending
+              {displayData.careTasks.length} pending
             </span>
           </div>
-          {data.careTasks.length > 0 ? (
+          {displayData.careTasks.length > 0 ? (
             <div className="grid gap-2.5">
-              {data.careTasks.map((task) => (
+              {displayData.careTasks.map((task) => (
                 <Link
                   key={task.id}
                   href={`/garden/${task.gardenPlantId}?tab=Care`}
@@ -145,7 +302,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
 
           {hasPlants ? (
             <div className="grid gap-2.5">
-              {data.plants.map((plant) => (
+              {displayData.plants.map((plant) => (
                 <Link
                   key={plant.id}
                   href={`/garden/${plant.id}`}
@@ -245,7 +402,7 @@ export function HomeScreen({ data }: { data: HomeData }) {
         ) : null}
 
         <section className="mt-4 grid grid-cols-3 gap-2.5">
-          {data.stats.map((stat) => (
+          {displayData.stats.map((stat) => (
             <div
               key={stat.label}
               className={cn(
