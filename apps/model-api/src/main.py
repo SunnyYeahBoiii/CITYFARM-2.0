@@ -27,6 +27,7 @@ register_error_handler(app)
 # ────────────────────────────────────────────────
 
 @app.route("/")
+@app.route("/ready")
 def health_check():
     return jsonify({
         "status": "Model API is running",
