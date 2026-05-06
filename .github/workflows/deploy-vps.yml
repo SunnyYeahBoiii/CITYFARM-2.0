@@ -388,7 +388,7 @@ jobs:
             upsert_env "API_IMAGE" "$API_IMAGE_REF"
             upsert_env "MODEL_API_IMAGE" "$MODEL_API_IMAGE_REF"
 
-            MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE="${MODEL_API_GCP_KEY_FILE_ON_VPS:-/etc/cityfarm/model-api/gcp-service-account.json}"
+            MODEL_API_GCP_KEY_FILE_ON_VPS_VALUE="${MODEL_API_GCP_KEY_FILE_ON_VPS:-/root/CITYFARM-2.0/secret-key.json}"
             MODEL_API_GOOGLE_APPLICATION_CREDENTIALS_VALUE="/run/secrets/gcp-service-account.json"
             upsert_env "GCP_PROJECT_ID" "$MODEL_API_GCP_PROJECT_ID"
             upsert_env "GCP_LOCATION" "$MODEL_API_GCP_LOCATION"

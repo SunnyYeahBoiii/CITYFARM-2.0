@@ -103,7 +103,7 @@ services:
     expose:
       - "3003"
     volumes:
-      - ${MODEL_API_GCP_KEY_FILE_ON_VPS:-/etc/cityfarm/model-api/gcp-service-account.json}:${MODEL_API_GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp-service-account.json}:ro
+      - ${MODEL_API_GCP_KEY_FILE_ON_VPS:-/root/CITYFARM-2.0/secret-key.json}:${MODEL_API_GOOGLE_APPLICATION_CREDENTIALS:-/run/secrets/gcp-service-account.json}:ro
     networks:
       - app-net
     healthcheck:
