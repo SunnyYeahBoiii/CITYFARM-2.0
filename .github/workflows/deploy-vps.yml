@@ -677,7 +677,25 @@ jobs:
               exit 1
             }
 
-            wait_for_http model-api http://127.0.0.1:3003/ready
+            wait_for_container_healthy() {
+              service="$1"
+              for attempt in $(seq 1 60); do
+                container_id="$(docker compose -f infra/deploy/docker-compose.vps.yml ps -q "$service")"
+                if [ -n "$container_id" ]; then
+                  health_status="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "$container_id" 2>/dev/null || true)"
+                  if [ "$health_status" = "healthy" ] || [ "$health_status" = "running" ]; then
+                    echo "Container $service is $health_status"
+                    return 0
+                  fi
+                fi
+                sleep 3
+              done
+              echo "Timed out waiting for container health: $service"
+              docker compose -f infra/deploy/docker-compose.vps.yml logs --tail=100 "$service"
+              exit 1
+            }
+
+            wait_for_container_healthy model-api
             wait_for_http api http://127.0.0.1:3001/ready
             wait_for_http web http://127.0.0.1:3000/
             wait_for_http landing http://127.0.0.1:3004/landing
