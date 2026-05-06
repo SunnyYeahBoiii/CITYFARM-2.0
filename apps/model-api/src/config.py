@@ -42,8 +42,16 @@ gcp_project = os.environ.get("GCP_PROJECT_ID")
 gcp_location = os.environ.get("GCP_LOCATION")
 gcp_key_path = os.environ.get("GCP_KEY_PATH")
 gcp_api_key = os.environ.get("GCP_API_KEY")
+model_api_google_credentials = os.environ.get("MODEL_API_GOOGLE_APPLICATION_CREDENTIALS")
+google_application_credentials = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
 
-if gcp_key_path:
+# Priority:
+# 1) GOOGLE_APPLICATION_CREDENTIALS (already exported by runtime)
+# 2) MODEL_API_GOOGLE_APPLICATION_CREDENTIALS (deploy-specific convenience key)
+# 3) GCP_KEY_PATH (local relative file, backward compatibility)
+if not google_application_credentials and model_api_google_credentials:
+    os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = model_api_google_credentials
+elif not google_application_credentials and gcp_key_path:
     key_abs_path = str(Path(__file__).resolve().parent.parent / gcp_key_path)
     os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = key_abs_path
 
