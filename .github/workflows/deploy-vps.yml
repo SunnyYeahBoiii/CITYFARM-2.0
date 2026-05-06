@@ -21,7 +21,7 @@ env:
   ADMIN_IMAGE_NAME: cityfarm-2-0-admin
   API_IMAGE_NAME: cityfarm-2-0-api
   MODEL_API_IMAGE_NAME: cityfarm-2-0-model-api
-  DEPLOY_PATH: ${{ vars.DEPLOY_PATH || '/root/CITYFARM-2.0' }}
+  DEPLOY_PATH: /root/CITYFARM-2.0
 
 jobs:
   quality:
