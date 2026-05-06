@@ -27,7 +27,6 @@ type RenderSpaceVisualizationPayload = {
 const MODEL_API_TIMEOUT_MS = 120_000;
 const MODEL_API_BODY_PREVIEW_LIMIT = 220;
 const MODEL_API_DOCKER_URL = 'http://model-api:3003';
-const MODEL_API_LOCAL_URL = 'http://localhost:3003';
 
 @Injectable()
 export class ModelApiService {
@@ -38,15 +37,6 @@ export class ModelApiService {
       const normalizedConfiguredUrl = configuredUrl.replace(/\/$/, '');
       const urls = [normalizedConfiguredUrl];
 
-      // If operators accidentally use localhost in containerized env,
-      // keep the internal Docker hostname as a fallback target.
-      if (
-        normalizedConfiguredUrl.includes('127.0.0.1:3003') ||
-        normalizedConfiguredUrl.includes('localhost:3003')
-      ) {
-        urls.push(MODEL_API_DOCKER_URL);
-      }
-
       return [...new Set(urls)];
     }
 
@@ -54,7 +44,7 @@ export class ModelApiService {
       throw new Error('[config] Missing required env: MODEL_API_URL');
     }
 
-    return [MODEL_API_DOCKER_URL, MODEL_API_LOCAL_URL];
+    return [MODEL_API_DOCKER_URL];
   }
 
   async getChatAdvice(payload: Record<string, unknown>, tools?: unknown) {
