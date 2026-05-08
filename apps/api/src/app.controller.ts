@@ -46,7 +46,8 @@ export class AppController {
 
   // Mở cổng API Chat
   // @UseGuards(JwtAuthGuard) // Bắt buộc phải có Token đăng nhập mới được chat
-  @Post('api/chat')
+  // Dual paths: canonical `/api/chat`, and `/chat` when nginx uses `proxy_pass .../api/` (strips prefix).
+  @Post(['api/chat', 'chat'])
   async chatWithAI(@Body() body: ChatBody, @Req() req: Request) {
     const message = typeof body.message === 'string' ? body.message.trim() : '';
     if (!message) {
@@ -78,12 +79,12 @@ export class AppController {
     return response;
   }
 
-  @Get('api/plants/catalog')
+  @Get(['api/plants/catalog', 'plants/catalog'])
   async getPlantCatalog() {
     return this.appService.getPlantCatalog();
   }
 
-  @Get('api/chat/conversation/:plantId')
+  @Get(['api/chat/conversation/:plantId', 'chat/conversation/:plantId'])
   @UseGuards(JwtAuthGuard)
   async getConversation(
     @CurrentUser('id') userId: string,
@@ -92,7 +93,7 @@ export class AppController {
     return this.appService.getConversationHistory(userId, plantId);
   }
 
-  @Get('api/chat/plants/:plantId/context')
+  @Get(['api/chat/plants/:plantId/context', 'chat/plants/:plantId/context'])
   @UseGuards(JwtAuthGuard)
   async getChatContext(
     @CurrentUser('id') userId: string,
@@ -110,7 +111,7 @@ export class AppController {
     return context;
   }
 
-  @Post('api/scan/analyze')
+  @Post(['api/scan/analyze', 'scan/analyze'])
   @UseGuards(JwtAuthGuard) // Bật dòng này lên nếu bạn muốn bắt buộc phải đăng nhập mới được scan
   @UseInterceptors(FileInterceptor('file'))
   async analyzeSpace(
