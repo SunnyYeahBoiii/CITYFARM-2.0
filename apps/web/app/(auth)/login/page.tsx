@@ -6,16 +6,10 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { AuthBrand, AuthDivider, AuthShell } from "@/components/auth/AuthShell";
-import type { AuthSessionActionResult } from "@/context/AuthContext";
 import { getGoogleAuthUrl } from "@/lib/api/config";
+import { resolveLoginDestination } from "@/lib/auth/redirects";
 import { FaEye, FaEyeSlash } from "react-icons/fa6";
 import { FcGoogle } from "react-icons/fc";
-
-function resolveLoginDestination(
-  result: Extract<AuthSessionActionResult, { ok: true }>,
-): string {
-  return result.nextStep === "setup-password" ? "/setup-password" : "/home";
-}
 
 export default function LoginPage() {
   return (
@@ -79,7 +73,7 @@ function LoginPageContent() {
       return;
     }
 
-    router.replace(resolveLoginDestination(authResult));
+    router.replace(resolveLoginDestination(authResult, searchParams.get("returnTo")));
   };
 
   const handleGoogleLogin = () => {
