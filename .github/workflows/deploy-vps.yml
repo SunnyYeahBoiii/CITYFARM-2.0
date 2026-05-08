@@ -631,16 +631,31 @@ jobs:
               fi
               sudo mkdir -p /var/www/certbot
 
-              sudo certbot certonly \
+              cert_files_exist() {
+                sudo test -f "/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem" &&
+                  sudo test -f "/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem"
+              }
+
+              if sudo certbot certonly \
                 --webroot \
                 -w /var/www/certbot \
                 -d "$APP_DOMAIN" \
                 --non-interactive \
                 --agree-tos \
                 --email "$LETSENCRYPT_EMAIL" \
-                --keep-until-expiring
+                --keep-until-expiring; then
+                echo "Certbot completed for domain: $APP_DOMAIN"
+              else
+                certbot_status="$?"
+                if cert_files_exist; then
+                  echo "Certbot failed with status $certbot_status, but existing certificate files are present; continuing deploy."
+                else
+                  echo "Certbot failed with status $certbot_status and no existing certificate files were found for domain: $APP_DOMAIN"
+                  exit "$certbot_status"
+                fi
+              fi
 
-              if [ -f "/etc/letsencrypt/live/${APP_DOMAIN}/fullchain.pem" ] && [ -f "/etc/letsencrypt/live/${APP_DOMAIN}/privkey.pem" ]; then
+              if cert_files_exist; then
                 configure_https_site
               else
                 echo "HTTPS requested but TLS certificate files are missing for domain: $APP_DOMAIN"
