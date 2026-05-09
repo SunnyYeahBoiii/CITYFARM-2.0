@@ -29,20 +29,59 @@ export class AuthService {
     return typeof cookieValue === 'string' ? cookieValue : '';
   }
 
-  async extractUserIdFromCookies(req: Request): Promise<string | null> {
-    const accessToken = this.readCookie(req, 'access_token');
-    const refreshToken = this.readCookie(req, 'refresh_token');
-    const token = accessToken || refreshToken;
-    if (!token) return null;
+  private async verifyTokenSubject(
+    token: string,
+    secretName: 'JWT_ACCESS_SECRET' | 'JWT_REFRESH_SECRET',
+  ): Promise<string | null> {
     try {
-      const secret = accessToken
-        ? this.configService.get('JWT_ACCESS_SECRET')
-        : this.configService.get('JWT_REFRESH_SECRET');
-      const payload = await this.jwtService.verifyAsync(token, { secret });
-      return payload.sub;
+      const payload = await this.jwtService.verifyAsync<{ sub?: unknown }>(
+        token,
+        {
+          secret: this.configService.getOrThrow<string>(secretName),
+        },
+      );
+      return typeof payload.sub === 'string' ? payload.sub : null;
     } catch {
       return null;
     }
+  }
+
+  async extractUserIdFromCookies(req: Request): Promise<string | null> {
+    const accessToken = this.readCookie(req, 'access_token');
+    const refreshToken = this.readCookie(req, 'refresh_token');
+
+    if (accessToken) {
+      const accessSubject = await this.verifyTokenSubject(
+        accessToken,
+        'JWT_ACCESS_SECRET',
+      );
+      if (accessSubject) {
+        return accessSubject;
+      }
+    }
+
+    if (!refreshToken) {
+      return null;
+    }
+
+    const refreshSubject = await this.verifyTokenSubject(
+      refreshToken,
+      'JWT_REFRESH_SECRET',
+    );
+    if (!refreshSubject) {
+      return null;
+    }
+
+    const user = await this.userService.findById(refreshSubject);
+    if (
+      !user ||
+      !user.refreshToken ||
+      !(await bcrypt.compare(refreshToken, user.refreshToken))
+    ) {
+      return null;
+    }
+
+    return user.id;
   }
 
   async register(registerDto: AuthRegisterDto) {

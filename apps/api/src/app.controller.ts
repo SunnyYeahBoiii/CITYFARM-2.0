@@ -16,6 +16,7 @@ import { UseInterceptors, UploadedFile } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtAuthGuard } from './auth/guards/jwt-auth.guard';
 import { CurrentUser } from 'src/common/decorators/current-user.decorator';
+import { AuthService } from './auth/auth.service';
 
 type ChatBody = {
   message?: string;
@@ -28,6 +29,7 @@ export class AppController {
   constructor(
     private readonly appService: AppService,
     private readonly appReadinessService: AppReadinessService,
+    private readonly authService: AuthService,
   ) {}
 
   @Get()
@@ -65,8 +67,12 @@ export class AppController {
       typeof req.headers['x-cityfarm-user-id'] === 'string'
         ? req.headers['x-cityfarm-user-id']
         : null;
+    const cookieUserId = await this.authService.extractUserIdFromCookies(req);
     const chatUserId =
-      guardUserId ?? forwardedUserId ?? `guest:${req.ip || 'unknown'}`;
+      guardUserId ??
+      forwardedUserId ??
+      cookieUserId ??
+      `guest:${req.ip || 'unknown'}`;
 
     const response: unknown = await this.appService.handleChatRequest(
       chatUserId,

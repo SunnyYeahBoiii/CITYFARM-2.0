@@ -4,6 +4,9 @@ jest.mock('./app.service', () => ({
 jest.mock('./app-readiness.service', () => ({
   AppReadinessService: class AppReadinessService {},
 }));
+jest.mock('./auth/auth.service', () => ({
+  AuthService: class AuthService {},
+}));
 jest.mock(
   'src/common/decorators/current-user.decorator',
   () => ({
@@ -16,11 +19,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppController } from './app.controller';
 import { AppReadinessService } from './app-readiness.service';
 import { AppService } from './app.service';
+import { AuthService } from './auth/auth.service';
 
 describe('AppController', () => {
   let appController: AppController;
   const appService = {
     getHello: jest.fn(() => 'Hello World!'),
+    handleChatRequest: jest.fn(),
   };
   const readinessService = {
     getReadiness: jest.fn(() =>
@@ -30,8 +35,19 @@ describe('AppController', () => {
       }),
     ),
   };
+  const authService = {
+    extractUserIdFromCookies: jest.fn(),
+  };
 
   beforeEach(async () => {
+    jest.clearAllMocks();
+    appService.getHello.mockReturnValue('Hello World!');
+    appService.handleChatRequest.mockResolvedValue({
+      success: true,
+      reply: 'ok',
+    });
+    authService.extractUserIdFromCookies.mockResolvedValue(null);
+
     const app: TestingModule = await Test.createTestingModule({
       controllers: [AppController],
       providers: [
@@ -42,6 +58,10 @@ describe('AppController', () => {
         {
           provide: AppReadinessService,
           useValue: readinessService,
+        },
+        {
+          provide: AuthService,
+          useValue: authService,
         },
       ],
     }).compile();
@@ -61,6 +81,49 @@ describe('AppController', () => {
         ready: true,
         checks: { database: true, modelApi: true },
       });
+    });
+  });
+
+  describe('chatWithAI', () => {
+    it('uses the user id from cookies when nginx bypasses the Next proxy', async () => {
+      authService.extractUserIdFromCookies.mockResolvedValue('cookie-user-id');
+
+      await expect(
+        appController.chatWithAI(
+          { message: 'ping', plantId: 'plant-id' },
+          { headers: {}, ip: '127.0.0.1' } as any,
+        ),
+      ).resolves.toEqual({ success: true, reply: 'ok' });
+
+      expect(appService.handleChatRequest).toHaveBeenCalledWith(
+        'cookie-user-id',
+        {
+          message: 'ping',
+          plantId: 'plant-id',
+          context: undefined,
+        },
+      );
+    });
+
+    it('keeps the forwarded Next proxy user id ahead of cookie fallback', async () => {
+      authService.extractUserIdFromCookies.mockResolvedValue('cookie-user-id');
+
+      await appController.chatWithAI(
+        { message: 'ping' },
+        {
+          headers: { 'x-cityfarm-user-id': 'forwarded-user-id' },
+          ip: '127.0.0.1',
+        } as any,
+      );
+
+      expect(appService.handleChatRequest).toHaveBeenCalledWith(
+        'forwarded-user-id',
+        {
+          message: 'ping',
+          plantId: undefined,
+          context: undefined,
+        },
+      );
     });
   });
 });
