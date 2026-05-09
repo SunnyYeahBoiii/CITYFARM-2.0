@@ -18,10 +18,15 @@ describe('AppService.analyzeSpace', () => {
   const modelApiService = {
     analyzeSpaceLayout: jest.fn(),
     renderSpaceVisualization: jest.fn(),
+    getChatAdvice: jest.fn(),
   };
 
   const storageService = {
     downloadFile: jest.fn(),
+  };
+
+  const toolExecutorService = {
+    execute: jest.fn(),
   };
 
   const file = {
@@ -36,6 +41,7 @@ describe('AppService.analyzeSpace', () => {
       prisma as never,
       modelApiService as never,
       storageService as never,
+      toolExecutorService as never,
     );
   });
 
@@ -191,5 +197,99 @@ describe('AppService.analyzeSpace', () => {
     expect(storageService.downloadFile).not.toHaveBeenCalled();
     expect(modelApiService.renderSpaceVisualization).not.toHaveBeenCalled();
     expect(result.visualizedImage).toBe('');
+  });
+
+  it('deduplicates repeated journal upload tool calls before execution', async () => {
+    const plantId = 'plant-1';
+    const userId = 'user-1';
+    const duplicateArguments = {
+      plantId,
+      taskType: 'WATERING',
+      title: 'Water basil',
+      dueAt: '2026-05-09T02:00:00.000Z',
+      notes: 'Water after journal upload',
+    };
+
+    prisma.gardenPlant = {
+      findUnique: jest.fn().mockResolvedValue({
+        id: plantId,
+        nickname: 'Balcony Basil',
+        status: 'ACTIVE',
+        healthStatus: 'WARNING',
+        growthStage: 'SEEDLING',
+        plantedAt: new Date('2026-05-01T00:00:00.000Z'),
+        zoneName: 'Balcony',
+        notes: null,
+        user: {
+          profile: {
+            displayName: 'Sunny',
+            bio: null,
+            district: 'District 1',
+            city: 'Ho Chi Minh City',
+          },
+        },
+        plantSpecies: {
+          commonName: 'Basil',
+          scientificName: 'Ocimum basilicum',
+          difficulty: 'EASY',
+          lightRequirement: 'FULL_SUN',
+          careProfile: {
+            sunlightSummary: 'Bright light',
+            wateringSummary: 'Keep moist',
+            commonPests: 'Aphids',
+          },
+        },
+        careTasks: [],
+        journalEntries: [],
+      }),
+    };
+    prisma.careTask = {
+      findMany: jest.fn().mockResolvedValue([]),
+    };
+
+    modelApiService.getChatAdvice.mockResolvedValue({
+      tool_calls: [
+        {
+          id: 'call-1',
+          name: 'create_care_task',
+          arguments: duplicateArguments,
+        },
+        {
+          id: 'call-2',
+          name: 'create_care_task',
+          arguments: { ...duplicateArguments },
+        },
+      ],
+    });
+    toolExecutorService.execute.mockResolvedValue({
+      toolCallId: 'call-1',
+      success: true,
+    });
+
+    await appService.processJournalUploadToolCalling(
+      userId,
+      plantId,
+      {
+        note: 'Leaves look dry',
+        healthStatus: 'WARNING',
+        issueSummary: 'Dry leaves',
+        recommendationSummary: 'Water soon',
+        imageAssetId: 'asset-1',
+      },
+      { imageAssetId: 'asset-1' },
+    );
+
+    expect(toolExecutorService.execute).toHaveBeenCalledTimes(1);
+    expect(toolExecutorService.execute).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: 'call-1',
+        name: 'create_care_task',
+        arguments: expect.objectContaining({
+          ...duplicateArguments,
+          journalImageAssetId: 'asset-1',
+        }),
+      }),
+      userId,
+    );
   });
 });

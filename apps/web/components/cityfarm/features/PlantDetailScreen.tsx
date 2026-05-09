@@ -2,14 +2,18 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { gardenApi } from "@/lib/api/garden.api";
 import { uploadAsset } from "@/lib/api/assets.api";
 import { ImageCaptureActions } from "@/components/cityfarm/shared/ImageCaptureActions";
+import {
+  getDisplayJournalEntries,
+  type DisplayJournalEntry,
+} from "@/lib/cityfarm/journal";
 import type {
   CareTaskItem,
   GardenPlantDetail,
-  JournalEntryItem,
+  JournalTaskHistoryEvent,
   PlantHealthStatus,
 } from "@/lib/types/garden";
 import type { PlantHealth } from "@/lib/cityfarm/types";
@@ -67,6 +71,22 @@ function toPlantHealth(status: PlantHealthStatus | null | undefined): PlantHealt
   }
 }
 
+function getTaskHistoryActionLabel(action: JournalTaskHistoryEvent["action"]) {
+  switch (action) {
+    case "CREATED":
+      return "Created";
+    case "UPDATED":
+      return "Updated";
+    case "DELETED":
+      return "Deleted";
+    default:
+      return action;
+  }
+}
+
+function getTaskHistoryTitle(event: JournalTaskHistoryEvent) {
+  return event.title || event.taskType || "Care task";
+}
 
 function CareTaskRow({
   task,
@@ -155,7 +175,7 @@ function JournalEntryRow({
   plantId,
   onDeleted,
 }: {
-  entry: JournalEntryItem;
+  entry: DisplayJournalEntry;
   plantId: string;
   onDeleted: () => void;
 }) {
@@ -224,6 +244,27 @@ function JournalEntryRow({
               {entry.recommendationSummary || entry.note || "Planting day! Soil looks good."}
             </div>
           </div>
+          {entry.taskHistory.length > 0 && (
+            <>
+              <div className={styles.journalDivider} />
+              <div className="flex flex-col gap-2">
+                <span className={styles.journalLabel}>Task updates</span>
+                <div className="grid gap-2">
+                  {entry.taskHistory.map((event, index) => (
+                    <div
+                      key={`${event.action}-${event.taskId}-${event.timestamp ?? index}`}
+                      className="rounded-xl bg-[#f6f8f4] px-3 py-2 text-sm leading-relaxed text-[#24301c]"
+                    >
+                      <span className="font-extrabold text-[#567a3d]">
+                        {getTaskHistoryActionLabel(event.action)}
+                      </span>{" "}
+                      {getTaskHistoryTitle(event)}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
@@ -328,6 +369,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
   const [showHarvestModal, setShowHarvestModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoError, setPhotoError] = useState<string | null>(null);
+  const isProcessingPhotoRef = useRef(false);
 
   const fetchDetail = useCallback(async () => {
     try {
@@ -346,6 +388,11 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
   }, [fetchDetail]);
 
   const handleAddPhoto = async (file: File) => {
+    if (isProcessingPhotoRef.current) {
+      return;
+    }
+
+    isProcessingPhotoRef.current = true;
     setIsProcessingPhoto(true);
     setPhotoError(null);
     try {
@@ -356,6 +403,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
     } catch (error) {
       setPhotoError(getErrorMessage(error, "Failed to process photo analysis."));
     } finally {
+      isProcessingPhotoRef.current = false;
       setIsProcessingPhoto(false);
     }
   };
@@ -396,6 +444,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
   const needsAttention = pendingTasks.filter(t => isDueOrOverdue(t.dueAt));
   const upcomingTasks = pendingTasks.filter(t => !isDueOrOverdue(t.dueAt));
   const doneTasks = plant.careTasks.filter((t) => t.status === "COMPLETED" || t.status === "SKIPPED");
+  const displayJournalEntries = getDisplayJournalEntries(plant.journalEntries);
 
   return (
     <div className={styles.detailScreen}>
@@ -564,7 +613,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
         {/* ── Journal ── */}
         {activeTab === "Journal" && (
           <div className={styles.photoFeed}>
-            {plant.journalEntries.length === 0 && (
+            {displayJournalEntries.length === 0 && (
               <div className={styles.mutedCard}>
                 <div className={styles.sectionTitle}>No journal entries</div>
                 <div className={styles.sectionSubtitle}>
@@ -573,7 +622,7 @@ export function PlantDetailScreen({ plantId }: { plantId: string }) {
               </div>
             )}
 
-            {plant.journalEntries.map((entry) => (
+            {displayJournalEntries.map((entry) => (
               <JournalEntryRow
                 key={entry.id}
                 entry={entry}

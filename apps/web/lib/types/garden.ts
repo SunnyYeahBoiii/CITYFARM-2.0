@@ -30,10 +30,25 @@ export interface JournalEntryItem {
   leafColorNote: string | null;
   issueSummary: string | null;
   recommendationSummary: string | null;
+  aiAnalysis?: {
+    taskHistory?: JournalTaskHistoryEvent[];
+    [key: string]: unknown;
+  } | null;
   imageAsset: {
     id: string;
     publicUrl: string;
   } | null;
+}
+
+export interface JournalTaskHistoryEvent {
+  action: 'CREATED' | 'UPDATED' | 'DELETED';
+  taskId: string;
+  title?: string;
+  taskType?: string;
+  changes?: Record<string, unknown>;
+  imageAssetId?: string;
+  source?: string;
+  timestamp?: string;
 }
 
 export interface GardenStats {

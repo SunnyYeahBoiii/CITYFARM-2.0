@@ -4,6 +4,7 @@ import { ModelApiService } from './ai/model-api.service';
 import { SupabaseStorageService } from './assets/supabase-storage.service';
 import { ToolExecutorService } from './ai/tool-executor.service';
 import { TOOL_DEFINITIONS, ToolCall } from './ai/tool-definitions';
+import { deduplicateJournalUploadToolCalls } from './ai/journal-tool-call-dedupe';
 
 type WebDemoContext = {
   name: string;
@@ -717,9 +718,11 @@ Trả về tool_calls JSON khi cần gọi tool.`;
     );
 
     const rawToolCalls = this.getParsedToolCalls(aiResponse);
-    const relevantToolCalls = rawToolCalls.filter((tc) =>
-      ['create_care_task', 'update_care_task', 'delete_care_task'].includes(
-        tc.name,
+    const relevantToolCalls = deduplicateJournalUploadToolCalls(
+      rawToolCalls.filter((tc) =>
+        ['create_care_task', 'update_care_task', 'delete_care_task'].includes(
+          tc.name,
+        ),
       ),
     );
 
